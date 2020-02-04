@@ -30,49 +30,14 @@
 *
 *****************************************************************************/
 
-#ifndef EPTLIB_VERSION_H_
-#define EPTLIB_VERSION_H_
+#include "eptlib/version.h"
 
-#include <string>
+using namespace eptlib;
 
-namespace eptlib {
+constexpr char project::name[];
 
-struct project {
-    static constexpr char name[] = "@PROJECT_NAME@";
-    static constexpr int major = @PROJECT_VERSION_MAJOR@;
-    static constexpr int minor = @PROJECT_VERSION_MINOR@;
-    static constexpr int patch = @PROJECT_VERSION_PATCH@;
+constexpr char compiler::name[];
+constexpr char compiler::version[];
 
-    inline static std::string str() {
-        return std::string(name)+" "+std::to_string(major)+"."+std::to_string(minor)+"."+std::to_string(minor);
-    }
-};
-
-struct compiler {
-    static constexpr char name[] = "@CMAKE_CXX_COMPILER_ID@";
-    static constexpr char version[] = "@CMAKE_CXX_COMPILER_VERSION@";
-    static constexpr int target = 8*@CMAKE_SIZEOF_VOID_P@;
-
-    inline static std::string str() {
-        std::string target_name;
-        if (target==32) {
-            target_name = "Intel";
-        } else if (target==64) {
-            target_name = "AMD64";
-        }
-        return std::string(name)+" "+std::string(version)+" "+std::to_string(target)+" bit ("+target_name+")";
-    }
-};
-
-struct build {
-    static constexpr char type[] = "@CMAKE_BUILD_TYPE@";
-    static constexpr char time[] = "@BUILD_TIME@";
-
-    inline static std::string str() {
-        return std::string(type)+", "+std::string(time);
-    }
-};
-
-}  // eptlib
-
-#endif  // EPTLIB_VERSION_H_
+constexpr char build::type[];
+constexpr char build::time[];

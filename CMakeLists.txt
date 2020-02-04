@@ -67,7 +67,8 @@ set(EPTLIB_SRC
     src/ept_helmholtz.cc
     src/ept_interface.cc
     src/finite_difference.cc
-    src/shape.cc)
+    src/shape.cc
+    src/version.cc)
 
 add_library(EPTlib SHARED ${EPTLIB_SRC})
 

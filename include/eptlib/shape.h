@@ -129,7 +129,6 @@ class Shape : public boost::addable<Shape>, boost::subtractable<Shape>,
          * 
          * @return a reference to the idx-th element in the grid.
          */
-        template <>
         boost::dynamic_bitset<>::reference operator[](const int &idx);
         /**
          * Get a copy of the ii-th element in the grid.
@@ -149,7 +148,6 @@ class Shape : public boost::addable<Shape>, boost::subtractable<Shape>,
          * 
          * @return a copy to the idx-th element in the grid.
          */
-        template <>
         bool operator[](const int &idx) const;
 
         /**
@@ -280,22 +278,12 @@ operator[](const T &ii) {
     int idx = MultiIdxToIdx(ii,nn_);
     return shape_[idx];
 }
-template <>
-boost::dynamic_bitset<>::reference Shape::
-operator[](const int &idx) {
-    return shape_[idx];
-}
 // Shape operator[] const overload
 template <typename T>
 bool Shape::
 operator[](const T &ii) const {
     assert(ii.size()==n_dim_);
     int idx = MultiIdxToIdx(ii,nn_);
-    return shape_[idx];
-}
-template<>
-bool Shape::
-operator[](const int &idx) const {
     return shape_[idx];
 }
 

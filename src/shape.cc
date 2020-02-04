@@ -67,6 +67,14 @@ IsSymmetric() const {
 }
 
 // Shape operator overload
+boost::dynamic_bitset<>::reference Shape::
+operator[](const int &idx) {
+    return shape_[idx];
+}
+bool Shape::
+operator[](const int &idx) const {
+    return shape_[idx];
+}
 Shape& Shape::
 operator+=(const Shape &rhs) {
     // check shape dimensions
