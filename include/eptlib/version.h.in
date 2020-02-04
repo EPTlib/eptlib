@@ -1,0 +1,78 @@
+/*****************************************************************************
+*
+*     Program: EPTlib
+*     Author: Alessandro Arduino <a.arduino@inrim.it>
+*
+*  MIT License
+*
+*  Copyright (c) 2020  Alessandro Arduino
+*  Istituto Nazionale di Ricerca Metrologica (INRiM)
+*  Strada delle cacce 91, 10135 Torino
+*  ITALY
+*
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the "Software"), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*
+*  The above copyright notice and this permission notice shall be included in all
+*  copies or substantial portions of the Software.
+*
+*  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+*  SOFTWARE.
+*
+*****************************************************************************/
+
+#ifndef EPTLIB_VERSION_H_
+#define EPTLIB_VERSION_H_
+
+#include <string>
+
+namespace eptlib {
+
+struct project {
+    static constexpr char name[] = "@PROJECT_NAME@";
+    static constexpr int major = @PROJECT_VERSION_MAJOR@;
+    static constexpr int minor = @PROJECT_VERSION_MINOR@;
+    static constexpr int patch = @PROJECT_VERSION_PATCH@;
+
+    static std::string str() {
+        return std::string(name)+" "+std::to_string(major)+"."+std::to_string(minor)+"."+std::to_string(minor);
+    }
+};
+
+struct compiler {
+    static constexpr char name[] = "@CMAKE_CXX_COMPILER_ID@";
+    static constexpr char version[] = "@CMAKE_CXX_COMPILER_VERSION@";
+    static constexpr int target = 8*@CMAKE_SIZEOF_VOID_P@;
+
+    static std::string str() {
+        std::string target_name;
+        if (target==32) {
+            target_name = "Intel";
+        } else if (target==64) {
+            target_name = "AMD64";
+        }
+        return std::string(name)+" "+std::string(version)+" "+std::to_string(target)+" bit ("+target_name+")";
+    }
+};
+
+struct build {
+    static constexpr char type[] = "@CMAKE_BUILD_TYPE@";
+    static constexpr char time[] = "@BUILD_TIME@";
+
+    static std::string str() {
+        return std::string(type)+", "+std::string(time);
+    }
+};
+
+}  // eptlib
+
+#endif  // EPTLIB_VERSION_H_

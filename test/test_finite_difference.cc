@@ -1,0 +1,165 @@
+/*****************************************************************************
+*
+*     Program: EPTlib
+*     Author: Alessandro Arduino <a.arduino@inrim.it>
+*
+*  MIT License
+*
+*  Copyright (c) 2020  Alessandro Arduino
+*  Istituto Nazionale di Ricerca Metrologica (INRiM)
+*  Strada delle cacce 91, 10135 Torino
+*  ITALY
+*
+*  Permission is hereby granted, free of charge, to any person obtaining a copy
+*  of this software and associated documentation files (the "Software"), to deal
+*  in the Software without restriction, including without limitation the rights
+*  to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+*  copies of the Software, and to permit persons to whom the Software is
+*  furnished to do so, subject to the following conditions:
+*
+*  The above copyright notice and this permission notice shall be included in all
+*  copies or substantial portions of the Software.
+*
+*  THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+*  IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+*  FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+*  AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+*  LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+*  OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
+*  SOFTWARE.
+*
+*****************************************************************************/
+
+#include "gtest/gtest.h"
+
+#include "eptlib/finite_difference.h"
+
+#include <algorithm>
+#include <array>
+#include <functional>
+#include <numeric>
+#include <typeinfo>
+#include <vector>
+
+using namespace eptlib;
+
+TEST(FiniteDifferenceGTest,FDLaplacianKernel) {
+    constexpr int n_dim = 3;
+    const std::array<int,n_dim> nn = {7,5,3};
+    const std::array<real_t,n_dim> dd = {1.0,2.0,3.0};
+    std::array<int,n_dim> ii;
+    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    //
+    std::array<int,n_dim> rr = {1,1,1};
+    Shape cross = shapes::Cross(rr);
+    ASSERT_TRUE(cross.IsSymmetric());
+    FDLaplacianKernel fd_lapl(cross);
+    //
+    std::vector<real_t> c_field(n_vox);
+    std::vector<real_t> l_field(n_vox);
+    std::vector<real_t> q_field(n_vox);
+    for (int idx = 0; idx<n_vox; ++idx) {
+        IdxToMultiIdx(ii,idx,nn);
+        c_field[idx] = 1.0;
+        l_field[idx] = std::accumulate(ii.begin(),ii.end(),0.0);
+        q_field[idx] = 0.0;
+        for (int d = 0; d<n_dim; ++d) {
+            q_field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
+        }
+    }
+    //
+    std::vector<real_t> c_lapl(n_vox);
+    std::vector<real_t> l_lapl(n_vox);
+    std::vector<real_t> q_lapl(n_vox);
+    fd_lapl.ApplyFilter(c_lapl.data(),c_field.data(),nn,dd);
+    fd_lapl.ApplyFilter(l_lapl.data(),l_field.data(),nn,dd);
+    fd_lapl.ApplyFilter(q_lapl.data(),q_field.data(),nn,dd);
+    //
+    for (int idx = 0; idx<n_vox; ++idx) {
+        ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
+        ASSERT_NEAR(l_lapl[idx],0.0,1e-13);
+        IdxToMultiIdx(ii,idx,nn);
+        bool kernel_in_domain = true;
+        for (int d = 0; d<n_dim; ++d) {
+            if (ii[d]==0 || ii[d]==nn[d]-1) {
+                kernel_in_domain = false;
+                break;
+            }
+        }
+        if (kernel_in_domain) {
+            ASSERT_NEAR(q_lapl[idx],2.0*n_dim,1e-12);
+        } else {
+            ASSERT_NEAR(q_lapl[idx],0.0,1e-12);
+        }
+    }
+}
+
+TEST(FiniteDifferenceGTest,AsymmetricFDLaplacianKernel) {
+    constexpr int n_dim = 3;
+    const std::array<int,n_dim> nn = {7,5,3};
+    const std::array<real_t,n_dim> dd = {1.0,2.0,3.0};
+    std::array<int,n_dim> ii;
+    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    //
+    std::array<int,n_dim> cuboid_nn = {4,2,2};
+    Shape cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid.Pad(0,1,0);
+    cuboid.Pad(1,1,0);
+    cuboid.Pad(2,1,0);
+    Shape cross = cuboid;
+    cuboid_nn = {1,3,1};
+    cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid.Pad(0,2,2);
+    cuboid.Pad(2,1,1);
+    cross += cuboid;
+    cuboid_nn = {1,1,3};
+    cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid.Pad(0,2,2);
+    cuboid.Pad(1,1,1);
+    cross += cuboid;
+    ASSERT_FALSE(cross.IsSymmetric());
+    FDLaplacianKernel fd_lapl(cross);
+    //
+    std::vector<real_t> c_field(n_vox);
+    std::vector<real_t> l_field(n_vox);
+    std::vector<real_t> q_field(n_vox);
+    for (int idx = 0; idx<n_vox; ++idx) {
+        IdxToMultiIdx(ii,idx,nn);
+        c_field[idx] = 1.0;
+        l_field[idx] = std::accumulate(ii.begin(),ii.end(),0.0);
+        q_field[idx] = 0.0;
+        for (int d = 0; d<n_dim; ++d) {
+            q_field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
+        }
+    }
+    //
+    std::vector<real_t> c_lapl(n_vox);
+    std::vector<real_t> l_lapl(n_vox);
+    std::vector<real_t> q_lapl(n_vox);
+    fd_lapl.ApplyFilter(c_lapl.data(),c_field.data(),nn,dd);
+    fd_lapl.ApplyFilter(l_lapl.data(),l_field.data(),nn,dd);
+    fd_lapl.ApplyFilter(q_lapl.data(),q_field.data(),nn,dd);
+    //
+    for (int idx = 0; idx<n_vox; ++idx) {
+        ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
+        ASSERT_NEAR(l_lapl[idx],0.0,1e-13);
+        IdxToMultiIdx(ii,idx,nn);
+        bool kernel_in_domain = true;
+        if (ii[0]==nn[0]-2) {
+            kernel_in_domain = false;
+        }
+        if (kernel_in_domain) {
+            for (int d = 0; d<n_dim; ++d) {
+                if (ii[d]==0 || ii[d]==nn[d]-1) {
+                    kernel_in_domain = false;
+                    break;
+                }
+            }
+        }
+        if (kernel_in_domain) {
+            ASSERT_NEAR(q_lapl[idx],2.0*n_dim,1e-12);
+        } else {
+            ASSERT_NEAR(q_lapl[idx],0.0,1e-12);
+        }
+    }
+}
