@@ -32,6 +32,8 @@
 
 #include "eptlib/finite_difference.h"
 
+#include <Eigen/Dense>
+
 using namespace eptlib;
 
 // FDLaplacianKernel constructor

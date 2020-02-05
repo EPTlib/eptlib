@@ -35,8 +35,6 @@
 
 #include <cassert>
 
-#include <Eigen/Dense>
-
 #include "eptlib/config.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"

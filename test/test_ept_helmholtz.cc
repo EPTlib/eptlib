@@ -34,6 +34,8 @@
 
 #include "eptlib/ept_helmholtz.h"
 
+#include <complex>
+
 #include "eptlib/util.h"
 
 using namespace eptlib;
