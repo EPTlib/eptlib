@@ -95,7 +95,7 @@ add_executable(EPTlib_HELM src/exec/ept_helmholtz_main.cc)
 
 target_include_directories(EPTlib_HELM
     PRIVATE
-        tinytoml/include)
+        extern/tinytoml/include)
 
 target_link_libraries(EPTlib_HELM PRIVATE EPTlib)
 
