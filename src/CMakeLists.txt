@@ -30,47 +30,24 @@
 #
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.8)
+set(EPTLIB_SRC
+    ept_helmholtz.cc
+    ept_interface.cc
+    finite_difference.cc
+    shape.cc
+    version.cc)
 
-project(EPTlib VERSION 1.0.0 LANGUAGES CXX)
+add_library(EPTlib SHARED ${EPTLIB_SRC})
 
-# Disallow in-source build
-if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
-    message(FATAL_ERROR
-        "FATAL: Out-of-source build required. Create a separate directory for build files.")
-endif()
+target_include_directories(EPTlib
+    PUBLIC
+        ${Boost_INCLUDE_DIRS}
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
+        $<INSTALL_INTERFACE:include>
+    PRIVATE
+        ${PROJECT_SOURCE_DIR}/src)
 
-# Set some CMAKE_ variables
-set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
-set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
-set(CMAKE_WINDOWS_EXPORT_ALL_SYMBOLS ON)
+target_link_libraries(EPTlib PRIVATE Eigen3::Eigen)
 
-# Configure files
-string(TIMESTAMP BUILD_TIME "%Y-%m-%dT%H:%M:%SZ" UTC)
-configure_file(${PROJECT_SOURCE_DIR}/include/eptlib/version.h.in
-    ${PROJECT_BINARY_DIR}/include/eptlib/version.h
-    @ONLY)
-
-# Find packages
-find_package(Boost REQUIRED)
-find_package(Eigen3 REQUIRED)
-
-# Enable testing with GoogleTest
-include(GoogleTest)
-find_package(GTest)
-enable_testing()
-
-# Set the library
-add_subdirectory(src)
-
-# Set the Helmholtz-based EPT executable
-add_subdirectory(app)
-
-# Test everything
-if(GTest_FOUND)
-    add_subdirectory(test)
-endif()
-
-# ----- Packaging -----
-
+target_compile_features(EPTlib PUBLIC cxx_std_11)
