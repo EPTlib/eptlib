@@ -147,7 +147,7 @@ int main(int argc, char **argv) {
             cout<<n<<", ";
         }
         cout<<"]\n";
-        n_vox = std::accumulate(mesh_size.begin(),mesh_size.end(),1.0,std::multiplies<int>());
+        n_vox = std::accumulate(mesh_size.begin(),mesh_size.end(),1,std::multiplies<int>());
         cout<<"  number of voxels: "<<n_vox<<"\n";
         cout<<"  mesh step: ";
         toml_get_array_of<real_t>(config_v,"mesh.step",mesh_step);

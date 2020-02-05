@@ -41,7 +41,6 @@ add_library(EPTlib SHARED ${EPTLIB_SRC})
 
 target_include_directories(EPTlib
     PUBLIC
-        ${Boost_INCLUDE_DIRS}
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
         $<INSTALL_INTERFACE:include>

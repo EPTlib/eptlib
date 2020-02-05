@@ -54,6 +54,7 @@ configure_file(${PROJECT_SOURCE_DIR}/include/eptlib/version.h.in
 
 # Find packages
 find_package(Boost REQUIRED)
+include_directories("${Boost_INCLUDE_DIRS}")
 find_package(Eigen3 REQUIRED)
 
 # Enable testing with GoogleTest
@@ -64,7 +65,7 @@ enable_testing()
 # Set the library
 add_subdirectory(src)
 
-# Set the Helmholtz-based EPT executable
+# Set the applications
 add_subdirectory(app)
 
 # Test everything
@@ -72,5 +73,67 @@ if(GTest_FOUND)
     add_subdirectory(test)
 endif()
 
+# ----- Installing -----
+
+install(TARGETS EPTlib
+    EXPORT EPTlibTargets
+    LIBRARY DESTINATION lib
+    ARCHIVE DESTINATION lib
+    RUNTIME DESTINATION bin
+    INCLUDES DESTINATION include)
+
+install(EXPORT EPTlibTargets
+    FILE EPTlibTargets.cmake
+    NAMESPACE EPTlib::
+    DESTINATION lib/cmake/eptlib)
+
+install(DIRECTORY
+        ${PROJECT_BINARY_DIR}/include/
+        ${PROJECT_SOURCE_DIR}/include/
+    DESTINATION
+        include
+    PATTERN "*.in" EXCLUDE)
+
+include(CMakePackageConfigHelpers)
+write_basic_package_version_file(
+    EPTlibConfigVersion.cmake
+    VERSION ${PROJECT_VERSION}
+    COMPATIBILITY AnyNewerVersion)
+
+configure_file(cmake/EPTlibConfig.cmake.in EPTlibConfig.cmake @ONLY)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/EPTlibConfig.cmake"
+        "${CMAKE_CURRENT_BINARY_DIR}/EPTlibConfigVersion.cmake"
+    DESTINATION lib/cmake/eptlib)
+
+install(TARGETS EPTlib_HELM
+    RUNTIME DESTINATION bin)
+
 # ----- Packaging -----
 
+set(CPACK_PACKAGE_NAME "EPTlib")
+set(CPACK_PACKAGE_CONTACT "Alessandro Arduino <a.arduino@inrim.it>")
+set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "An open source, extensible collection of EPT methods. Visit https://eptlib.github.io for more details.")
+set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
+set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
+set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
+set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README.md")
+
+if(WIN32)
+    set(CPACK_GENERATOR "WIX")
+    set(CPACK_WIX_UPGRADE_GUID "02ED789A-5006-44F2-AB33-C07C00DBEF6B")
+    configure_file(${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_BINARY_DIR}/LICENSE.txt COPYONLY)
+    set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_BINARY_DIR}/LICENSE.txt")
+endif()
+
+set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
+set(CPACK_SOURCE_IGNORE_FILES
+    /.git
+    /.vscode
+    /.vs
+    /.out
+    /.build
+    /.install
+)
+
+include(CPack)

@@ -1,0 +1,6 @@
+include(CMakeFindDependencyMacro)
+
+find_dependency(Boost REQUIRED)
+include_directories("${Boost_INCLUDE_DIRS}")
+
+include("${CMAKE_CURRENT_LIST_DIR}/EPTlibTargets.cmake")
