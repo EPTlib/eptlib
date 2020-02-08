@@ -12,6 +12,42 @@ General information
 This project is under the MIT License.
 See [LICENSE](LICENSE) in the root directory of this package for the full text.
 
+Building from source
+====================
+
+The following libraries needs to be downloaded and installed before _EPTlib_ compilation:
+- [Boost C++](https://www.boost.org/)
+- [Eigen 3](http://eigen.tuxfamily.org/)
+
+Optionally, [Google Test](https://github.com/google/googletest) is required for testing the library.
+
+Linux users
+-----------
+
+Download the package and move in its root directory
+
+```sh
+git clone https://github.com/EPTlib/eptlib eptlib
+cd eptlib
+```
+
+Configure, compile and install the package
+
+```sh
+mkdir build
+cd build
+cmake ..
+make
+sudo make install
+sudo ldconfig
+```
+
+Before installing, you can test the compiled library
+
+```sh
+ctest
+```
+
 Credits
 =======
 
