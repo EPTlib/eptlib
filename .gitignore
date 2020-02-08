@@ -1,6 +1,6 @@
 .vscode
 .vs
 
-.build*
-.install*
-.out*
+*build*
+*install*
+*out*

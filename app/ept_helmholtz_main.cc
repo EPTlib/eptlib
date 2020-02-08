@@ -41,7 +41,12 @@
 #include "eptlib/ept_helmholtz.h"
 #include "eptlib/version.h"
 
+#include "ept_helmholtz_main.h"
+
 using namespace std;
+using namespace eptlib_helm;
+
+constexpr char software::name[];
 
 template <typename T, typename U>
 void toml_get_array_of(const toml::Value &v, const string &key, U &vec);
@@ -62,7 +67,7 @@ int main(int argc, char **argv) {
 
     // check if enough input are provided
     if (argc<2) {
-        cout<<"Usage: ept_helmholtz <configuration file>"<<std::endl;
+        cout<<"Usage: "<<software::str()<<" <configuration file>"<<std::endl;
         return 1;
     }
 

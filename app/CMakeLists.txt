@@ -30,11 +30,20 @@
 #
 #=============================================================================
 
-add_executable(EPTlib_HELM
+# EPT-Helmholtz
+
+set(EPT_HELMHOLTZ_NAME "EPTlib_HELM")
+
+add_executable(${EPT_HELMHOLTZ_NAME}
     ept_helmholtz_main.cc)
 
-target_include_directories(EPTlib_HELM
+configure_file(${PROJECT_SOURCE_DIR}/app/ept_helmholtz_main.h.in
+    ${PROJECT_BINARY_DIR}/app/ept_helmholtz_main.h
+    @ONLY)
+
+target_include_directories(${EPT_HELMHOLTZ_NAME}
     PRIVATE
+        ${PROJECT_BINARY_DIR}/app
         ${PROJECT_SOURCE_DIR}/extern/tinytoml/include)
 
-target_link_libraries(EPTlib_HELM PRIVATE EPTlib)
+target_link_libraries(${EPT_HELMHOLTZ_NAME} PRIVATE EPTlib)
