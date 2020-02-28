@@ -48,6 +48,14 @@ Before installing, you can test the compiled library
 ctest
 ```
 
+Acknowledgement
+===============
+
+This package has been developed in the framework of the 18HLT05 QUIERO Project. This project has received funding from the EMPIR Programme, co-financed by the Participating States and from the European Union's Horizon 2020 Research and Innovation Programme.
+
+[![](img/logo-empir-euramet.png)](https://www.euramet.org/research-innovation/research-empir/)
+[![](img/logo-quiero.png)](https://quiero-project.eu)
+
 Credits
 =======
 
