@@ -36,6 +36,18 @@
 
 using namespace eptlib;
 
+// EPTInterface constructor
+EPTInterface::
+EPTInterface(const double freq, const std::array<int,NDIM> &nn,
+    const std::array<double,NDIM> &dd, const int tx_ch, const int rx_ch) :
+    omega_(2.0*PI*freq), tx_ch_(tx_ch), rx_ch_(rx_ch), nn_(nn), dd_(dd), 
+    n_vox_(std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>())),
+    tx_sens_(tx_ch,nullptr), trx_phase_(tx_ch*rx_ch,nullptr),
+    thereis_tx_sens_(tx_ch,false), thereis_trx_phase_(tx_ch*rx_ch,false),
+    sigma_(0), epsr_(0), thereis_sigma_(false), thereis_epsr_(false) {
+    return;
+}
+
 // EPTInterface destructor
 EPTInterface::
 ~EPTInterface() {
@@ -44,7 +56,7 @@ EPTInterface::
 
 // EPTInterface setters
 EPTlibError_t EPTInterface::
-SetTxSensitivity(const real_t *tx_sens, const int j) {
+SetTxSensitivity(const double *tx_sens, const int j) {
     if (j<0 || j>=tx_ch_) {
         return EPTlibError::OutOfRange;
     }
@@ -53,7 +65,7 @@ SetTxSensitivity(const real_t *tx_sens, const int j) {
     return EPTlibError::Success;
 }
 EPTlibError_t EPTInterface::
-SetTRxPhase(const real_t *trx_phase, const int j, const int k) {
+SetTRxPhase(const double *trx_phase, const int j, const int k) {
     if (j<0 || j>=tx_ch_ || k<0 || k>=rx_ch_) {
         return EPTlibError::OutOfRange;
     }
@@ -64,18 +76,18 @@ SetTRxPhase(const real_t *trx_phase, const int j, const int k) {
 
 // EPTInterface getters
 EPTlibError_t EPTInterface::
-GetElectricConductivity(real_t *sigma) {
+GetElectricConductivity(double *sigma) {
     if (!thereis_sigma_) {
         return EPTlibError::MissingData;
     }
-    std::memcpy(sigma,sigma_.data(),n_vox_*sizeof(real_t));
+    std::memcpy(sigma,sigma_.data(),n_vox_*sizeof(double));
     return EPTlibError::Success;    
 }
 EPTlibError_t EPTInterface::
-GetRelativePermittivity(real_t *epsr) {
+GetRelativePermittivity(double *epsr) {
     if (!thereis_epsr_) {
         return EPTlibError::MissingData;
     }
-    std::memcpy(epsr,epsr_.data(),n_vox_*sizeof(real_t));
+    std::memcpy(epsr,epsr_.data(),n_vox_*sizeof(double));
     return EPTlibError::Success;
 }

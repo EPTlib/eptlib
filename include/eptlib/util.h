@@ -33,6 +33,15 @@
 #ifndef EPTLIB_UTIL_H_
 #define EPTLIB_UTIL_H_
 
+#include <string>
+
+/**
+ * @deprecated
+ */
+using real_t = double;
+
+/// Number of spatial dimensions.
+constexpr int NDIM = 3;
 /// Pi.
 constexpr double PI = 3.14159265358979323846;
 /// Speed of light [m/s].
@@ -75,6 +84,8 @@ const std::string ToString(const EPTlibError_t error);
  * 
  * Arguments `ii' and `nn' must have the methods `begin', `end', `size' and
  * `operator[]' (any sequence containers from STL works fine).
+ * 
+ * @deprecated
  */
 template <typename T, typename U>
 int MultiIdxToIdx(const T &ii, const U &nn);
@@ -89,6 +100,8 @@ int MultiIdxToIdx(const T &ii, const U &nn);
  * 
  * Arguments `ii' and `nn' must have the methods `begin', `end', `size' and
  * `operator[]' (any sequence containers from STL works fine).
+ * 
+ * @decrecated
  */
 template <typename T, typename U>
 void IdxToMultiIdx(T &ii, int idx, const U &nn);

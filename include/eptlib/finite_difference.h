@@ -33,9 +33,9 @@
 #ifndef EPTLIB_FINITE_DIFFERENCES_H_
 #define EPTLIB_FINITE_DIFFERENCES_H_
 
-#include <cassert>
+#include <array>
+#include <vector>
 
-#include "eptlib/config.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
@@ -59,90 +59,25 @@ class FDLaplacianKernel {
          * Apply the FD Laplacian filter to an input field.
          * 
          * @tparam NumType numeric typename.
-         * @tparam T,U iterator typenames.
          * 
          * @param[out] dst pointer to the output destination.
          * @param[in] src pointer to the input source.
-         * @param[in] u_nn number of voxels in each direction of the field.
-         * @param[in] u_dd size of voxels in each direction.
+         * @param[in] nn number of voxels in each direction.
+         * @param[in] dd size of voxels in each direction.
          * 
          * @return a Success or Unknown error.
          */
-        template <typename NumType, typename T, typename U>
-        EPTlibError_t ApplyFilter(NumType *dst, const NumType *src, const T &u_nn, const U &u_dd);
+        template <typename NumType>
+        EPTlibError_t ApplyFilter(NumType *dst, const NumType *src,
+            const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
     private:
-        /// Number of spatial dimensions.
-        int n_dim_;
-        /// Total number of voxels.
-        int n_vox_;
-        /// Number of voxels in each direction.
-        std::vector<int> nn_;
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;
+        /// Total number of voxels.
+        int m_vox_;
         /// Kernel for Laplacian approximation.
-        std::vector<std::vector<real_t>> kernel_;
+        std::array<std::vector<real_t>,NDIM> kernel_;
 };
-
-// ---------------------------------------------------------------------------
-// -------------------------  Implementation detail  -------------------------
-// ---------------------------------------------------------------------------
-
-template <typename NumType, typename T, typename U>
-EPTlibError_t FDLaplacianKernel::
-ApplyFilter(NumType *dst, const NumType *src, const T &u_nn, const U &u_dd) {
-    // check input coherence
-    assert(u_nn.size()==n_dim_);
-    // variables declaration
-    const int u_n_vox = std::accumulate(u_nn.begin(),u_nn.end(),1,std::multiplies<int>());
-    std::vector<int> ii(n_dim_);
-    std::vector<int> ii_l(n_dim_);
-    std::vector<int> ii_g(n_dim_);
-    std::vector<NumType> field_crop(n_vox_);
-    bool kernel_in_domain;
-    // loop over field voxels
-    for (int idx = 0; idx<u_n_vox; ++idx) {
-        IdxToMultiIdx(ii,idx,u_nn);
-        kernel_in_domain = true;
-        // inner loop over kernel voxels
-        for (int idx_k = 0; idx_k<n_vox_; ++idx_k) {
-            if (shape_[idx_k]) {
-                // check if the element fall within the field domain
-                IdxToMultiIdx(ii_l,idx_k,nn_);
-                for (int d = 0; d<n_dim_; ++d) {
-                    ii_l[d] -= nn_[d]/2;
-                    ii_g[d] = ii[d]+ii_l[d];
-                    if (ii_g[d]<0 || ii_g[d]>=u_nn[d]) {
-                        // outside field domain
-                        kernel_in_domain = false;
-                        break;
-                    }
-                }
-                if (kernel_in_domain) {
-                    // set the `field_crop' to the field value
-                    int idx_g = MultiIdxToIdx(ii_g,u_nn);
-                    field_crop[idx_k] = src[idx_g];
-                } else {
-                    // outside field domain
-                    break;
-                }
-            } else {
-                // set to zero the `field_crop'
-                field_crop[idx_k] = 0.0;
-            }
-        }
-        // set to zero the `dst'
-        dst[idx] = 0.0;
-        // if the previous loop ended with `kernel_in_domain==true'...
-        if (kernel_in_domain) {
-            // ...then apply the filter
-            for (int d = 0; d<n_dim_; ++d) {
-                dst[idx] += std::inner_product(kernel_[d].begin(),kernel_[d].end(),field_crop.begin(),
-                    static_cast<NumType>(0.0))/u_dd[d]/u_dd[d];
-            }
-        }
-    }
-    return EPTlibError::Success;
-}
 
 }  // namespace eptlib
 

@@ -30,13 +30,20 @@
 *
 *****************************************************************************/
 
+#include <complex>
+#include <vector>
+
 #include "eptlib/ept_helmholtz.h"
 
-#include <algorithm>
-#include <complex>
-#include <iostream>
-
 using namespace eptlib;
+
+// EPTHelmholtz constructor
+EPTHelmholtz::
+EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
+    const std::array<double,NDIM> &dd, const Shape &shape) :
+    EPTInterface(freq,nn,dd), fd_lapl_(shape) {
+    return;
+}
 
 // EPTHelmholtz destructor.
 EPTHelmholtz::
@@ -57,40 +64,31 @@ Run() {
     }
     if (thereis_tx_sens_.all() && thereis_trx_phase_.all()) {
         // complete Helmholtz-based EPT
-        std::vector<std::complex<real_t> > tx_sens_c(n_vox_);
-        std::vector<std::complex<real_t> > epsc(n_vox_);
+        std::vector<std::complex<double> > tx_sens_c(n_vox_);
+        std::vector<std::complex<double> > epsc(n_vox_);
         for (int idx = 0; idx<n_vox_; ++idx) {
-            tx_sens_c[idx] = tx_sens_[0][idx]*std::exp(std::complex<real_t>(0.0,0.5*trx_phase_[0][idx]));
+            tx_sens_c[idx] = tx_sens_[0][idx]*std::exp(std::complex<double>(0.0,0.5*trx_phase_[0][idx]));
         }
         fd_lapl_.ApplyFilter(epsc.data(),tx_sens_c.data(),nn_,dd_);
-        std::transform(epsc.begin(),epsc.end(),tx_sens_c.begin(),epsc.begin(),
-            [this](const std::complex<real_t> &a, const std::complex<real_t> &b) -> std::complex<real_t> {
-                return -a/omega_/omega_/MU0/b;
-            });
-        std::transform(epsc.begin(),epsc.end(),epsr_.begin(),
-            [](const std::complex<real_t> &a) -> real_t {
-                return std::real(a)/EPS0;
-            });
-        std::transform(epsc.begin(),epsc.end(),sigma_.begin(),
-            [this](const std::complex<real_t> &a) -> real_t {
-                return -std::imag(a)*omega_;
-            });
+        for (int idx = 0; idx<n_vox_; ++idx) {
+            epsc[idx] /= -MU0*omega_*omega_*tx_sens_c[idx];
+            epsr_[idx] = std::real(epsc[idx])/EPS0;
+            sigma_[idx] = -std::imag(epsc[idx])*omega_;
+        }
 
     } else if (thereis_tx_sens_.all()) {
         // magnitude-based approximation
         fd_lapl_.ApplyFilter(epsr_.data(),tx_sens_[0],nn_,dd_);
-        std::transform(epsr_.begin(),epsr_.end(),tx_sens_[0],epsr_.begin(),
-            [this](const real_t &a, const real_t &b) -> real_t {
-                return -a/EPS0/MU0/omega_/omega_/b;
-            });
+        for (int idx = 0; idx<n_vox_; ++idx) {
+            epsr_[idx] /= -EPS0*MU0*omega_*omega_*tx_sens_[0][idx];
+        }
 
     } else if (thereis_trx_phase_.all()) {
         // phase-based approximation
         fd_lapl_.ApplyFilter(sigma_.data(),trx_phase_[0],nn_,dd_);
-        std::transform(sigma_.begin(),sigma_.end(),sigma_.begin(),
-            [this](const real_t &a) -> real_t {
-                return a/2.0/omega_/MU0;
-            });
+        for (int idx = 0; idx<n_vox_; ++idx) {
+            sigma_[idx] /= 2.0*MU0*omega_;
+        }
 
     } else {
         // not enough input data provided

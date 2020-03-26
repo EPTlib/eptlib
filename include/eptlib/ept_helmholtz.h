@@ -35,7 +35,8 @@
 
 #include "eptlib/ept_interface.h"
 
-#include "eptlib/config.h"
+#include <array>
+
 #include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
@@ -50,8 +51,6 @@ class EPTHelmholtz : public EPTInterface {
         /**
          * Constructor.
          * 
-         * @tparam T,U iterator typenames.
-         * 
          * @param freq operative frequency of the MRI scanner.
          * @param nn number of voxels in each direction.
          * @param dd voxel sizes in each direction.
@@ -59,8 +58,8 @@ class EPTHelmholtz : public EPTInterface {
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
-        template <typename T, typename U>
-        EPTHelmholtz(const real_t freq, const T &nn, const U &dd, const Shape &shape);
+        EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
+            const std::array<double,NDIM> &dd, const Shape &shape);
         /**
          * Virtual destructor.
          */
@@ -80,18 +79,6 @@ class EPTHelmholtz : public EPTInterface {
         /// Filter for the Laplacian computation.
         FDLaplacianKernel fd_lapl_;
 };
-
-// ---------------------------------------------------------------------------
-// -------------------------  Implementation detail  -------------------------
-// ---------------------------------------------------------------------------
-
-// EPTHelmholtz constructor
-template <typename T, typename U>
-EPTHelmholtz::
-EPTHelmholtz(const real_t freq, const T &nn, const U &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd), fd_lapl_(shape) {
-    return;
-}
 
 }  // namespace eptlib
 
