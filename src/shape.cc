@@ -204,7 +204,9 @@ Shrink(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r) {
 
 
 // Collection of shapes
-namespace eptlib::shapes {
+namespace eptlib {
+
+namespace shapes {
 
     // Cuboid
     Shape Cuboid(const std::array<int,NDIM> &nn) {
@@ -270,3 +272,5 @@ namespace eptlib::shapes {
     }
 
 }  // shapes
+
+}  // eptlib
