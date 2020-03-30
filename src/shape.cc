@@ -32,6 +32,8 @@
 
 #include "eptlib/shape.h"
 
+#include <iostream>
+
 #include <utility>
 
 using namespace eptlib;
@@ -61,6 +63,10 @@ GetShape() const {
 int Shape::
 GetVolume() const {
     return static_cast<int>(shape_.count());
+}
+int Shape::
+GetBoxVolume() const {
+    return n_vox_;
 }
 bool Shape::
 IsSymmetric() const {
@@ -119,12 +125,15 @@ bool Shape::
 CheckSymmetry() {
     std::array<int,NDIM> ii;
     std::array<int,NDIM> jj;
-    for (ii[2] = 0; ii[2]<nn_[2]/2; ++ii[2]) {
-        for (ii[1] = 0; ii[1]<nn_[1]/2; ++ii[1]) {
-            for (ii[0] = 0; ii[0]<nn_[0]/2; ++ii[0]) {
-                for (int d = 0; d<NDIM; ++d) {
+    std::array<int,NDIM> mm;
+    for (int d = 0; d<NDIM; ++d) {
+        std::copy(nn_.begin(),nn_.end(),mm.begin());
+        mm[d] = mm[d]/2;
+        for (ii[2] = 0; ii[2]<mm[2]; ++ii[2]) {
+            for (ii[1] = 0; ii[1]<mm[1]; ++ii[1]) {
+                for (ii[0] = 0; ii[0]<mm[0]; ++ii[0]) {
                     std::copy(ii.begin(),ii.end(),jj.begin());
-                    jj[d] = nn_[d]-ii[d];
+                    jj[d] = nn_[d]-1-ii[d];
                     if ((*this)[ii]!=(*this)[jj]) {
                         is_symmetric_ = false;
                         return is_symmetric_;
@@ -195,7 +204,7 @@ Shrink(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r) {
 
 
 // Collection of shapes
-namespace shapes {
+namespace eptlib::shapes {
 
     // Cuboid
     Shape Cuboid(const std::array<int,NDIM> &nn) {
@@ -221,7 +230,7 @@ namespace shapes {
                 for (xx[0] = -rr[0]; xx[0]<=rr[0]; ++xx[0]) {
                     double rho = 0.0;
                     for (int d = 0; d<NDIM; ++d) {
-                        rho += xx[d]*xx[d]/rr[d]/rr[d];
+                        rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
                     }
                     if (rho<=1.0) {
                         ellipsoid.GetShape().set(idx);

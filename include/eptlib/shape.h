@@ -82,6 +82,12 @@ class Shape : public boost::addable<Shape>, boost::subtractable<Shape>,
          */
         int GetVolume() const;
         /**
+         * Get the number of voxels inside the bounding box.
+         * 
+         * @return the number of voxels inside the bounding box.
+         */
+        int GetBoxVolume() const;
+        /**
          * Get if the shape has mirror symmetries.
          * 
          * @return if the shape has mirror symmetries.
