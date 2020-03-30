@@ -83,17 +83,17 @@ int main(int argc, char **argv) {
     // declare the input variables
     string title;
     string description;
-    std::vector<int> mesh_size(0);
+    std::array<int,3> mesh_size;
     int n_vox;
-    std::vector<real_t> mesh_step(0);
+    std::array<double,3> mesh_step;
     int n_dim;
-    real_t freq;
+    double freq;
     int n_tx_ch;
     int n_rx_ch;
     string tx_sens_fname_wc;
     string trx_phase_fname_wc;
-    std::vector<std::vector<real_t> > tx_sens(0);
-    std::vector<std::vector<real_t> > trx_phase(0);
+    std::vector<std::vector<double> > tx_sens(0);
+    std::vector<std::vector<double> > trx_phase(0);
     string sigma_fname;
     string epsr_fname;
 
@@ -155,9 +155,9 @@ int main(int argc, char **argv) {
         n_vox = std::accumulate(mesh_size.begin(),mesh_size.end(),1,std::multiplies<int>());
         cout<<"  number of voxels: "<<n_vox<<"\n";
         cout<<"  mesh step: ";
-        toml_get_array_of<real_t>(config_v,"mesh.step",mesh_step);
+        toml_get_array_of<double>(config_v,"mesh.step",mesh_step);
         cout<<"[ ";
-        for (real_t d : mesh_step) {
+        for (double d : mesh_step) {
             cout<<d<<", ";
         }
         cout<<"]\n";
@@ -167,7 +167,7 @@ int main(int argc, char **argv) {
         }
         cout<<"  number of dimensions: "<<n_dim<<"\n";
         // ...input
-        freq = config_v.get<real_t>("input.frequency");
+        freq = config_v.get<double>("input.frequency");
         cout<<"\n  frequency: "<<freq<<"\n";
         n_tx_ch = config_v.get<int>("input.tx-channels");
         cout<<"  number of Tx channels: "<<n_tx_ch<<"\n";
@@ -181,8 +181,8 @@ int main(int argc, char **argv) {
             replace(tx_sens_fname.begin(),tx_sens_fname.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
             ifstream ifile(tx_sens_fname,ios::binary);
             if (ifile.is_open()) {
-                std::vector<real_t> tmp(n_vox);
-                ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(real_t));
+                std::vector<double> tmp(n_vox);
+                ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
                 ifile.close();
                 tx_sens.push_back(tmp);
             } else {
@@ -203,8 +203,8 @@ int main(int argc, char **argv) {
                 replace(trx_phase_fname.begin(),trx_phase_fname.end(),chwc_rx,to_string(id_rx*chwc_step+chwc_start_from).c_str()[0]);
                 ifstream ifile(trx_phase_fname,ios::binary);
                 if (ifile.is_open()) {
-                    std::vector<real_t> tmp(n_vox);
-                    ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(real_t));
+                    std::vector<double> tmp(n_vox);
+                    ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
                     ifile.close();
                     trx_phase.push_back(tmp);
                 } else {
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
     }
 
     // load the files and perform the EPT
-    std::vector<int> rr(n_dim,1);
+    std::array<int,3> rr = {1,1,1};
     eptlib::Shape kernel_shape = eptlib::shapes::Cross(rr);
     eptlib::EPTHelmholtz ept_helm(freq, mesh_size, mesh_step, kernel_shape);
     for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
@@ -244,14 +244,14 @@ int main(int argc, char **argv) {
     cout<<"done!\n"<<endl;
 
     // write the result
-    std::vector<real_t> sigma(n_vox);
-    std::vector<real_t> epsr(n_vox);
+    std::vector<double> sigma(n_vox);
+    std::vector<double> epsr(n_vox);
     ept_helm.GetElectricConductivity(sigma.data());
     ept_helm.GetRelativePermittivity(epsr.data());
     {
         ofstream ofile(sigma_fname,ios::binary);
         if (ofile.is_open()) {
-            ofile.write(reinterpret_cast<char*>(sigma.data()), n_vox*sizeof(real_t));
+            ofile.write(reinterpret_cast<char*>(sigma.data()), n_vox*sizeof(double));
             ofile.close();
         } else {
             cout<<"ERROR: impossible write file '"<<sigma_fname<<"'"<<endl;
@@ -261,7 +261,7 @@ int main(int argc, char **argv) {
     {
         ofstream ofile(epsr_fname,ios::binary);
         if (ofile.is_open()) {
-            ofile.write(reinterpret_cast<char*>(epsr.data()), n_vox*sizeof(real_t));
+            ofile.write(reinterpret_cast<char*>(epsr.data()), n_vox*sizeof(double));
             ofile.close();
         } else {
             cout<<"ERROR: impossible write file '"<<epsr_fname<<"'"<<endl;
@@ -275,12 +275,8 @@ int main(int argc, char **argv) {
 template <typename T, typename U>
 void toml_get_array_of(const toml::Value &v, const string &key, U &vec) {
     const toml::Array &a = v.get<toml::Array>(key);
-    for (const auto& x : a) {
-        if (x.is<T>()) {
-            vec.push_back(x.as<T>());
-        } else {
-            throw runtime_error("type error: expected an array of "+std::string(typeid(T).name()));
-        }
+    for (int d = 0; d<3; ++d) {
+        vec[d] = a[d].as<T>();
     }
     return;
 };
