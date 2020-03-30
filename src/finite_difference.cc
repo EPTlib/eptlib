@@ -32,6 +32,8 @@
 
 #include "eptlib/finite_difference.h"
 
+#include <complex>
+
 #include <Eigen/Dense>
 
 using namespace eptlib;
@@ -39,59 +41,61 @@ using namespace eptlib;
 // FDLaplacianKernel constructor
 FDLaplacianKernel::
 FDLaplacianKernel(const Shape &shape) :
-    n_dim_(shape.GetNDim()), n_vox_(shape.GetSize()), shape_(shape) {
+    shape_(shape),
+    m_vox_(std::accumulate(shape.GetSize().begin(),shape.GetSize().end(),1,std::multiplies<int>())) {
+    std::array<int,NDIM> mm = shape_.GetSize();
     // check to have odd shape size
-    assert(shape_.GetSize()%2);
-    // copy the content of nn and dd
-    nn_.resize(n_dim_);
-    for (int d = 0; d<n_dim_; ++d) {
-        nn_[d] = shape_.GetSize(d);
-    }
+    assert(m_vox_%2);
     // get the central voxel address
-    int idx0 = shape_.GetSize()/2;
-    std::vector<int> ii0(n_dim_);
-    IdxToMultiIdx(ii0,idx0,nn_);
+    int idx0 = m_vox_/2;
+    std::array<int,NDIM> ii0;
+    for (int d = 0; d<NDIM; ++d) {
+        ii0[d] = mm[d]/2;
+    }
     // initialise the design matrix
     int n_row = shape_.GetVolume();
-    int n_col = 1 + n_dim_;
+    int n_col = 1 + NDIM;
     if (!shape_.IsSymmetric()) {
-        n_col += (n_dim_*(n_dim_+1))/2;
+        n_col += (NDIM*(NDIM+1))/2;
     }
-    Eigen::Matrix<real_t,Eigen::Dynamic,Eigen::Dynamic> F(n_row,n_col);
+    Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> F(n_row,n_col);
     // fill the design matrix
-    std::vector<int> ii(n_dim_);
-    std::vector<real_t> di(n_dim_);
+    std::array<int,NDIM> ii;
+    std::array<double,NDIM> di;
     int r = 0;
-    for (int idx = 0; idx<n_vox_; ++idx) {
-        if (shape_[idx]) {
-            IdxToMultiIdx(ii,idx,nn_);
-            std::transform(ii.begin(),ii.end(),ii0.begin(),di.begin(),
-                [](const int &a,const int &b)->real_t{return static_cast<real_t>(a-b);});
-            F(r,0) = 1.0;
-            for (int d = 0; d<n_dim_; ++d) {
-                F(r,1+d) = di[d]*di[d];
-            }
-            if (!shape_.IsSymmetric()) {
-                int c = 0;
-                for (int d = 0; d<n_dim_; ++d) {
-                    F(r,1+n_dim_+d) = di[d];
-                    for (int d2 = d+1; d2<n_dim_; ++d2) {
-                        F(r,1+2*n_dim_+c) = di[d]*di[d2];
-                        ++c;
+    for (ii[2] = 0; ii[2]<mm[2]; ++ii[2]) {
+        for (ii[1] = 0; ii[1]<mm[1]; ++ii[1]) {
+            for (ii[0] = 0; ii[0]<mm[0]; ++ii[0]) {
+                if (shape_[ii]) {
+                    for (int d = 0; d<NDIM; ++d) {
+                        di[d] = ii[d]-ii0[d];
                     }
+                    F(r,0) = 1.0;
+                    for (int d = 0; d<NDIM; ++d) {
+                        F(r,1+d) = di[d]*di[d];
+                    }
+                    if (!shape_.IsSymmetric()) {
+                        int c = 0;
+                        for (int d = 0; d<NDIM; ++d) {
+                            F(r,1+NDIM+d) = di[d];
+                            for (int d2 = d+1; d2<NDIM; ++d2) {
+                                F(r,1+2*NDIM+c) = di[d]*di[d2];
+                                ++c;
+                            }
+                        }
+                    }
+                    ++r;
                 }
             }
-            ++r;
         }
     }
     // solve the normal equations
-    Eigen::Matrix<real_t,Eigen::Dynamic,Eigen::Dynamic> A = (F.transpose()*F).inverse()*F.transpose();
+    Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> A = (F.transpose()*F).inverse()*F.transpose();
     // Compute the kernel
-    kernel_.resize(n_dim_);
-    for (int d = 0; d<n_dim_; ++d) {
-        kernel_[d].resize(n_vox_);
+    for (int d = 0; d<NDIM; ++d) {
+        kernel_[d].resize(m_vox_);
         r = 0;
-        for (int idx = 0; idx<n_vox_; ++idx) {
+        for (int idx = 0; idx<m_vox_; ++idx) {
             if (shape_[idx]) {
                 kernel_[d][idx] = 2.0*A(1+d,r);
                 ++r;
@@ -100,3 +104,50 @@ FDLaplacianKernel(const Shape &shape) :
     }
     return;
 }
+
+// FDLaplacianKernel apply
+template <typename NumType>
+EPTlibError_t FDLaplacianKernel::
+ApplyFilter(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
+    const std::array<double,NDIM> &dd) {
+    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    std::array<int,NDIM> ii;
+    std::array<int,NDIM> rr;
+    for (int d = 0; d<NDIM; ++d) {
+        rr[d] = shape_.GetSize()[d]/2;
+    }
+    // loop over field voxels
+    for (ii[2] = rr[2]; ii[2]<nn[2]-rr[2]; ++ii[2]) {
+        for (ii[1] = rr[1]; ii[1]<nn[1]-rr[1]; ++ii[1]) {
+            for (ii[0] = rr[0]; ii[0]<nn[0]-rr[0]; ++ii[0]) {
+                std::array<int,NDIM> ii_l;
+                std::vector<NumType> field_crop(m_vox_,0.0);
+                // inner loop over kernel voxels
+                int idx_l = 0;
+                for (ii_l[2] = -rr[2]; ii_l[2]<=rr[2]; ++ii_l[2]) {
+                    for (ii_l[1] = -rr[1]; ii_l[1]<=rr[1]; ++ii_l[1]) {
+                        for (ii_l[0] = -rr[0]; ii_l[0]<=rr[0]; ++ii_l[0]) {
+                            if (shape_[idx_l]) {
+                                // set the field_crop to the field value
+                                int idx_g = ii[0]+ii_l[0] + nn[0]*(ii[1]+ii_l[1] + nn[1]*(ii[2]+ii_l[2]));
+                                field_crop[idx_l] = src[idx_g];
+                            }
+                            ++idx_l;
+                        }
+                    }
+                }
+                // compute the laplacian
+                int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
+                dst[idx] = 0.0;
+                for (int d = 0; d<NDIM; ++d) {
+                    dst[idx] += std::inner_product(kernel_[d].begin(),kernel_[d].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d]/dd[d];
+                }
+            }
+        }
+    }
+    return EPTlibError::Success;
+}
+
+// FDLaplacianKernel specialisations
+template EPTlibError_t FDLaplacianKernel::ApplyFilter<double>(double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+template EPTlibError_t FDLaplacianKernel::ApplyFilter<std::complex<double>>(std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);

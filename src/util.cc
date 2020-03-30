@@ -30,10 +30,4 @@
 *
 *****************************************************************************/
 
-#ifndef EPTLIB_CONFIG_H_
-#define EPTLIB_CONFIG_H_
-
-/// Typename for real numbers (simplifies the switch from double to float).
-using real_t = double;
-
-#endif  // EPTLIB_CONFIG_H_
+#include "eptlib/util.h"

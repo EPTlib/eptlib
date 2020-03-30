@@ -32,22 +32,25 @@
 
 #include "eptlib/shape.h"
 
+#include <iostream>
+
 #include <utility>
 
 using namespace eptlib;
 
+// Shape constructor
+Shape::
+Shape(const std::array<int,NDIM> &nn) :
+    nn_(nn),
+    n_vox_(std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>())),
+    shape_(n_vox_,false), is_symmetric_(false) {
+    return;
+}
+
 // Shape getters
-int Shape::
-GetNDim() const {
-    return n_dim_;
-}
-int Shape::
-GetSize(const int d) const {
-    return nn_[d];
-}
-int Shape::
+const std::array<int,NDIM>& Shape::
 GetSize() const {
-    return n_vox_;
+    return nn_;
 }
 boost::dynamic_bitset<>& Shape::
 GetShape() {
@@ -61,30 +64,40 @@ int Shape::
 GetVolume() const {
     return static_cast<int>(shape_.count());
 }
+int Shape::
+GetBoxVolume() const {
+    return n_vox_;
+}
 bool Shape::
 IsSymmetric() const {
     return is_symmetric_;
 }
 
-// Shape operator overload
+// Shape operator[] overload
+boost::dynamic_bitset<>::reference Shape::
+operator[](const std::array<int,NDIM> &ii) {
+    int idx = ii[0] + nn_[0]*(ii[1] + nn_[1]*ii[2]);
+    return shape_[idx];
+}
 boost::dynamic_bitset<>::reference Shape::
 operator[](const int &idx) {
+    return shape_[idx];
+}
+// Shape operator[] const overload
+bool Shape::
+operator[](const std::array<int,NDIM> &ii) const {
+    int idx = ii[0] + nn_[0]*(ii[1] + nn_[1]*ii[2]);
     return shape_[idx];
 }
 bool Shape::
 operator[](const int &idx) const {
     return shape_[idx];
 }
+
+// Shape operator+,-,& overload
 Shape& Shape::
 operator+=(const Shape &rhs) {
-    // check shape dimensions
-    assert(n_dim_==rhs.n_dim_);
-    for (int d = 0; d<n_dim_; ++d) {
-        assert(nn_[d]==rhs.nn_[d]);
-    }
-    // unite
     shape_ |= rhs.shape_;
-    // check for symmetry
     if (!(is_symmetric_&&rhs.is_symmetric_)) {
         CheckSymmetry();
     }
@@ -92,14 +105,7 @@ operator+=(const Shape &rhs) {
 }
 Shape& Shape::
 operator-=(const Shape &rhs) {
-    // check shape dimensions
-    assert(n_dim_==rhs.n_dim_);
-    for (int d = 0; d<n_dim_; ++d) {
-        assert(nn_[d]==rhs.nn_[d]);
-    }
-    // subtract
     shape_ -= rhs.shape_;
-    // check for symmetry
     if (!(is_symmetric_&&rhs.is_symmetric_)) {
         CheckSymmetry();
     }
@@ -107,14 +113,7 @@ operator-=(const Shape &rhs) {
 }
 Shape& Shape::
 operator&=(const Shape &rhs) {
-    // check shape dimensions
-    assert(n_dim_==rhs.n_dim_);
-    for (int d = 0; d<n_dim_; ++d) {
-        assert(nn_[d]==rhs.nn_[d]);
-    }
-    // subtract
     shape_ &= rhs.shape_;
-    // check for symmetry
     if (!(is_symmetric_&&rhs.is_symmetric_)) {
         CheckSymmetry();
     }
@@ -124,55 +123,46 @@ operator&=(const Shape &rhs) {
 // Shape check symmetry
 bool Shape::
 CheckSymmetry() {
-    int step = 1;
-    std::vector<int> ii0(n_dim_);
-    for (int d = 0; d<n_dim_; ++d) {
-        // initialise line length and half-length
-        int l = nn_[d];
-        int m = l/2;
-        for (int i0 = 0; i0<n_vox_; ++i0) {
-            // check if i0 starts a line parallel to d
-            IdxToMultiIdx(ii0,i0,nn_);
-            if (ii0[d]==0) {
-                // check the mirror symmetry
-                for (int i = 0; i<m; ++i) {
-                    if (shape_[i0+i*step]!=shape_[i0+(l-1-i)*step]) {
+    std::array<int,NDIM> ii;
+    std::array<int,NDIM> jj;
+    std::array<int,NDIM> mm;
+    for (int d = 0; d<NDIM; ++d) {
+        std::copy(nn_.begin(),nn_.end(),mm.begin());
+        mm[d] = mm[d]/2;
+        for (ii[2] = 0; ii[2]<mm[2]; ++ii[2]) {
+            for (ii[1] = 0; ii[1]<mm[1]; ++ii[1]) {
+                for (ii[0] = 0; ii[0]<mm[0]; ++ii[0]) {
+                    std::copy(ii.begin(),ii.end(),jj.begin());
+                    jj[d] = nn_[d]-1-ii[d];
+                    if ((*this)[ii]!=(*this)[jj]) {
                         is_symmetric_ = false;
                         return is_symmetric_;
                     }
                 }
             }
         }
-        // update the step length
-        step *= nn_[d];
     }
-    // all tests are passed
     is_symmetric_ = true;
     return is_symmetric_;
 }
 
 // Shape padding
 void Shape::
-Pad(const int d, const int l, const int r) {
-    std::vector<int> ii0(n_dim_);
-    int n = nn_[d];
+Pad(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r) {
     // initialise the new shape
-    std::vector<int> xnn(n_dim_);
-    std::copy(nn_.begin(),nn_.end(),xnn.begin());
-    xnn[d] += l+r;
+    std::array<int,NDIM> xnn;
+    for (int d = 0; d<NDIM; ++d) {
+        xnn[d] = nn_[d]+l[d]+r[d];
+    }
     int xn_vox = std::accumulate(xnn.begin(),xnn.end(),1,std::multiplies<int>());
     boost::dynamic_bitset<> xshape(xn_vox,false);
-    // compute the step lengths
-    int step = std::accumulate(nn_.begin(),std::next(nn_.begin(),d),1,std::multiplies<int>());
-    int xstep = std::accumulate(xnn.begin(),std::next(xnn.begin(),d),1,std::multiplies<int>());
-    for (int i0 = 0; i0<n_vox_; ++i0) {
-        // check if i0 starts a line parallel to d
-        IdxToMultiIdx(ii0,i0,nn_);
-        if (ii0[d]==0) {
-            int xi0 = MultiIdxToIdx(ii0,xnn);
-            // copy the original line in the padded shape
-            for (int i = 0; i<n; ++i) {
-                xshape[xi0+(l+i)*xstep] = shape_[i0+i*step];
+    // fill the new shape
+    for (int i2 = 0; i2<nn_[2]; ++i2) {
+        for (int i1 = 0; i1<nn_[1]; ++i1) {
+            for (int i0 = 0; i0<nn_[0]; ++i0) {
+                int idx = i0 + nn_[0]*(i1 + nn_[1]*i2);
+                int xidx = i0+l[0] + xnn[0]*(i1+l[1] + xnn[1]*(i2+l[2]));
+                xshape[xidx] = shape_[idx];
             }
         }
     }
@@ -186,26 +176,21 @@ Pad(const int d, const int l, const int r) {
 
 // Shape shrinking
 void Shape::
-Shrink(const int d, const int l, const int r) {
-    std::vector<int> xii0(n_dim_);
+Shrink(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r) {
     // initialise the new shape
-    std::vector<int> xnn(n_dim_);
-    std::copy(nn_.begin(),nn_.end(),xnn.begin());
-    xnn[d] -= l+r;
+    std::array<int,NDIM> xnn;
+    for (int d = 0; d<NDIM; ++d) {
+        xnn[d] = nn_[d]-l[d]-r[d];
+    }
     int xn_vox = std::accumulate(xnn.begin(),xnn.end(),1,std::multiplies<int>());
     boost::dynamic_bitset<> xshape(xn_vox,false);
-    // compute the step lengths
-    int n = xnn[d];
-    int step = std::accumulate(nn_.begin(),std::next(nn_.begin(),d),1,std::multiplies<int>());
-    int xstep = std::accumulate(xnn.begin(),std::next(xnn.begin(),d),1,std::multiplies<int>());
-    for (int xi0 = 0; xi0<xn_vox; ++xi0) {
-        // check if i0 starts a line parallel to d
-        IdxToMultiIdx(xii0,xi0,xnn);
-        if (xii0[d]==0) {
-            int i0 = MultiIdxToIdx(xii0,nn_);
-            // copy the original line in the shrinked shape
-            for (int i = 0; i<n; ++i) {
-                xshape[xi0+i*xstep] = shape_[i0+(l+i)*step];
+    // fill the new shape
+    for (int xi2 = 0; xi2<xnn[2]; ++xi2) {
+        for (int xi1 = 0; xi1<xnn[1]; ++xi1) {
+            for (int xi0 = 0; xi0<xnn[0]; ++xi0) {
+                int idx = xi0+l[0] + nn_[0]*(xi1+l[1] + nn_[1]*(xi2+l[2]));
+                int xidx = xi0 + xnn[0]*(xi1 + xnn[1]*xi2);
+                xshape[xidx] = shape_[idx];
             }
         }
     }
@@ -216,3 +201,72 @@ Shrink(const int d, const int l, const int r) {
     CheckSymmetry();
     return;
 }
+
+
+// Collection of shapes
+namespace eptlib::shapes {
+
+    // Cuboid
+    Shape Cuboid(const std::array<int,NDIM> &nn) {
+        Shape cuboid(nn);
+        cuboid.GetShape().set();
+        cuboid.CheckSymmetry();
+        return cuboid;
+    }
+
+    // Ellipsoid
+    Shape Ellipsoid(const std::array<int,NDIM> &rr) {
+        // compute the dimension of the fitting grid
+        std::array<int,NDIM> nn;
+        for (int d = 0; d<NDIM; ++d) {
+            nn[d] = 2*rr[d]+1;
+        }
+        // create the ellipsoid
+        Shape ellipsoid(nn);
+        std::array<int,NDIM> xx;
+        int idx = 0;
+        for (xx[2] = -rr[2]; xx[2]<=rr[2]; ++xx[2]) {
+            for (xx[1] = -rr[1]; xx[1]<=rr[1]; ++xx[1]) {
+                for (xx[0] = -rr[0]; xx[0]<=rr[0]; ++xx[0]) {
+                    double rho = 0.0;
+                    for (int d = 0; d<NDIM; ++d) {
+                        rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
+                    }
+                    if (rho<=1.0) {
+                        ellipsoid.GetShape().set(idx);
+                    }
+                    ++idx;
+                }
+            }
+        }
+        ellipsoid.CheckSymmetry();
+        return ellipsoid;
+    }
+
+    // Cross
+    Shape Cross(const std::array<int,NDIM> &rr) {
+        // compute the dimension of the fitting grid
+        std::array<int,NDIM> nn;
+        for (int d = 0; d<NDIM; ++d) {
+            nn[d] = 2*rr[d]+1;
+        }
+        int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+        int idx0 = n_vox/2;
+        // create the cross
+        Shape cross(nn);
+        for (int d = 0; d<NDIM; ++d) {
+            int step = 1;
+            for (int d2 = 0; d2<d; ++d2) {
+                step *= nn[d2];
+            }
+            int idx = idx0-step*rr[d];
+            for (int i = 0; i<nn[d]; ++i) {
+                cross.GetShape().set(idx);
+                idx += step;
+            }
+        }
+        cross.CheckSymmetry();
+        return cross;
+    }
+
+}  // shapes

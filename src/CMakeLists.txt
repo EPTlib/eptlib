@@ -35,6 +35,7 @@ set(EPTLIB_SRC
     ept_interface.cc
     finite_difference.cc
     shape.cc
+    util.cc
     version.cc)
 
 add_library(EPTlib SHARED ${EPTLIB_SRC})
