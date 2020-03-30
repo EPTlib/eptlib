@@ -250,6 +250,8 @@ namespace eptlib::shapes {
         for (int d = 0; d<NDIM; ++d) {
             nn[d] = 2*rr[d]+1;
         }
+        int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+        int idx0 = n_vox/2;
         // create the cross
         Shape cross(nn);
         for (int d = 0; d<NDIM; ++d) {
@@ -257,7 +259,7 @@ namespace eptlib::shapes {
             for (int d2 = 0; d2<d; ++d2) {
                 step *= nn[d2];
             }
-            int idx = step*rr[d];
+            int idx = idx0-step*rr[d];
             for (int i = 0; i<nn[d]; ++i) {
                 cross.GetShape().set(idx);
                 idx += step;

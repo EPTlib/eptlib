@@ -84,8 +84,8 @@ FDLaplacianKernel(const Shape &shape) :
                             }
                         }
                     }
+                    ++r;
                 }
-                ++r;
             }
         }
     }
@@ -132,6 +132,7 @@ ApplyFilter(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
                                 int idx_g = ii[0]+ii_l[0] + nn[0]*(ii[1]+ii_l[1] + nn[1]*(ii[2]+ii_l[2]));
                                 field_crop[idx_l] = src[idx_g];
                             }
+                            ++idx_l;
                         }
                     }
                 }
