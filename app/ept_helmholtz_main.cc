@@ -243,6 +243,18 @@ int main(int argc, char **argv) {
     ept_helm.Run();
     cout<<"done!\n"<<endl;
 
+    // apply post-processing filter
+    cout<<"Post-processing..."<<flush;
+    rr = {2,2,2};
+    kernel_shape = eptlib::shapes::Ellipsoid(rr);
+    ept_helm.SetPostPro(kernel_shape);
+    EPTlibError_t eptlib_error = ept_helm.ApplyPostPro();
+    if (eptlib_error==EPTlibError::Success) {
+        cout<<"done!\n"<<endl;
+    } else {
+        cout<<"unknown filter\n"<<endl;
+    }
+
     // write the result
     std::vector<double> sigma(n_vox);
     std::vector<double> epsr(n_vox);

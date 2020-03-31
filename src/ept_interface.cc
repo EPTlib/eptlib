@@ -44,7 +44,8 @@ EPTInterface(const double freq, const std::array<int,NDIM> &nn,
     n_vox_(std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>())),
     tx_sens_(tx_ch,nullptr), trx_phase_(tx_ch*rx_ch,nullptr),
     thereis_tx_sens_(tx_ch,false), thereis_trx_phase_(tx_ch*rx_ch,false),
-    sigma_(0), epsr_(0), thereis_sigma_(false), thereis_epsr_(false) {
+    sigma_(0), epsr_(0), thereis_sigma_(false), thereis_epsr_(false),
+    postpro_(nullptr), thereis_postpro_(false) {
     return;
 }
 
@@ -89,5 +90,41 @@ GetRelativePermittivity(double *epsr) {
         return EPTlibError::MissingData;
     }
     std::memcpy(epsr,epsr_.data(),n_vox_*sizeof(double));
+    return EPTlibError::Success;
+}
+
+// EPTInterface post-processing
+EPTlibError_t EPTInterface::
+SetPostPro(const Shape &shape) {
+    if (thereis_postpro_) {
+        delete postpro_;
+    }
+    postpro_ = new MedianFilter(shape);
+    thereis_postpro_ = true;
+    return EPTlibError::Success;
+}
+EPTlibError_t EPTInterface::
+UnsetPostPro() {
+    if (thereis_postpro_) {
+        delete postpro_;
+        postpro_ = nullptr;
+    }
+    thereis_postpro_ = false;
+    return EPTlibError::Success;
+}
+EPTlibError_t EPTInterface::
+ApplyPostPro() {
+    if (!thereis_postpro_ || !(thereis_sigma_ || thereis_epsr_)) {
+        return EPTlibError::MissingData;
+    }
+    std::vector<double> tmp(n_vox_);
+    if (thereis_sigma_) {
+        postpro_->ApplyFilter(tmp.data(),sigma_.data(),nn_);
+        std::memcpy(sigma_.data(),tmp.data(),n_vox_*sizeof(double));
+    }
+    if (thereis_epsr_) {
+        postpro_->ApplyFilter(tmp.data(),epsr_.data(),nn_);
+        std::memcpy(epsr_.data(),tmp.data(),n_vox_*sizeof(double));
+    }
     return EPTlibError::Success;
 }

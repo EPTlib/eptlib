@@ -38,6 +38,8 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+#include "eptlib/median_filter.h"
+#include "eptlib/shape.h"
 #include "eptlib/util.h"
 
 /// Namespace containing all symbols from the EPTlib library.
@@ -108,6 +110,27 @@ class EPTInterface {
          * @return a Success or MissingData error.
          */
         EPTlibError_t GetRelativePermittivity(double *epsr);
+        /**
+         * Set a post-processing median filter.
+         * 
+         * @param shape the shape of the mask over which apply the filter.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t SetPostPro(const Shape &shape);
+        /**
+         * Unset the post-processing filter.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t UnsetPostPro();
+        /**
+         * Apply the post-processing median filter to the output electric
+         * conductivity and/or relative permittivity.
+         * 
+         * @return a Success or MissingData error.
+         */
+        EPTlibError_t ApplyPostPro();
     protected:
         /// Operative harmonic frequency of the MRI scanner.
         double omega_;
@@ -137,6 +160,10 @@ class EPTInterface {
         bool thereis_sigma_;
         /// Relative permittivity data flag.
         bool thereis_epsr_;
+        /// Pointer to a post-processing median filter.
+        MedianFilter *postpro_;
+        /// Post-processing filter flag.
+        bool thereis_postpro_;
 };
 
 }  // namespace eptlib
