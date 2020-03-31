@@ -46,7 +46,8 @@ MedianFilter(const Shape &shape) :
 
 // MedianFilter apply
 EPTlibError_t MedianFilter::
-ApplyFilter(double *dst, const double *src, const std::array<int,NDIM> &nn) {
+ApplyFilter(double *dst, const double *src, const std::array<int,NDIM> &nn,
+    const double *img) {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;
@@ -63,6 +64,9 @@ ApplyFilter(double *dst, const double *src, const std::array<int,NDIM> &nn) {
             for (ii[0] = rr[0]; ii[0]<nn[0]-rr[0]; ++ii[0]) {
                 std::array<int,NDIM> ii_l;
                 std::vector<double> field_crop(m_vol_);
+                int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
+                double img0 = img ? img[idx] : 0.0;
+                double tol = 0.1*img0;
                 // inner loop over kernel voxels
                 int idx_l = 0;
                 int idx_s = 0;
@@ -70,7 +74,7 @@ ApplyFilter(double *dst, const double *src, const std::array<int,NDIM> &nn) {
                 for (ii_l[2] = -rr[2]; ii_l[2]<=rr[2]; ++ii_l[2]) {
                     for (ii_l[1] = -rr[1]; ii_l[1]<=rr[1]; ++ii_l[1]) {
                         for (ii_l[0] = -rr[0]; ii_l[0]<=rr[0]; ++ii_l[0]) {
-                            if (shape_[idx_l]) {
+                            if (shape_[idx_l] && (!img || (img && abs(img[idx_g]-img0)<tol))) {
                                 // set the field_crop to the field value
                                 field_crop[idx_s] = src[idx_g];
                                 ++idx_s;
@@ -83,10 +87,11 @@ ApplyFilter(double *dst, const double *src, const std::array<int,NDIM> &nn) {
                     idx_g += inc[2];
                 }
                 // compute the median
-                int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
-                double* tmp = field_crop.data();
-                std::nth_element(tmp,tmp+m_vol_/2,tmp+m_vol_);
-                dst[idx] = tmp[m_vol_/2];
+                double *ptr_begin = field_crop.data();
+                double *ptr_end = ptr_begin+idx_s;
+                double *ptr_middle = ptr_begin + (ptr_end-ptr_begin)/2;
+                std::nth_element(ptr_begin,ptr_middle,ptr_end);
+                dst[idx] = *ptr_middle;
             }
         }
     }

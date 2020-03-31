@@ -94,6 +94,9 @@ int main(int argc, char **argv) {
     string trx_phase_fname_wc;
     std::vector<std::vector<double> > tx_sens(0);
     std::vector<std::vector<double> > trx_phase(0);
+    string reference_img_str;
+    std::vector<double> reference_img;
+    double *img;
     string sigma_fname;
     string epsr_fname;
 
@@ -216,6 +219,28 @@ int main(int argc, char **argv) {
             }
         }
         cout<<"]\n";
+        {
+            const toml::Value* config_x;
+            config_x = config_v.find("input.reference-img");
+            if (config_x && config_x->is<string>()) {
+                reference_img_str = config_x->as<string>().c_str();
+                cout<<"  Reference image: '"<<reference_img_str<<"'\n";
+                ifstream ifile(reference_img_str,ios::binary);
+                if (ifile.is_open()) {
+                    reference_img.resize(n_vox);
+                    ifile.read(reinterpret_cast<char*>(reference_img.data()),n_vox*sizeof(double));
+                    ifile.close();
+                    img = reference_img.data();
+                } else {
+                    cout<<"\n"
+                        <<"ERROR: impossible read file '"<<reference_img_str<<"'"<<endl;
+                    return 2;
+                }
+            } else {
+                reference_img_str = "";
+                img = nullptr;
+            }
+        }
         // ...output
         sigma_fname = config_v.get<string>("output.electric-conductivity");
         cout<<"\n  Output electric conductivity: '"<<sigma_fname<<"'\n";
@@ -248,7 +273,7 @@ int main(int argc, char **argv) {
     rr = {2,2,2};
     kernel_shape = eptlib::shapes::Ellipsoid(rr);
     ept_helm.SetPostPro(kernel_shape);
-    EPTlibError_t eptlib_error = ept_helm.ApplyPostPro();
+    EPTlibError_t eptlib_error = ept_helm.ApplyPostPro(img);
     if (eptlib_error==EPTlibError::Success) {
         cout<<"done!\n"<<endl;
     } else {

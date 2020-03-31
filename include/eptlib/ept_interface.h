@@ -128,9 +128,12 @@ class EPTInterface {
          * Apply the post-processing median filter to the output electric
          * conductivity and/or relative permittivity.
          * 
+         * @param img pointer to the reference image. If it is not
+         *     nullptr, then it is used as a reference.
+         * 
          * @return a Success or MissingData error.
          */
-        EPTlibError_t ApplyPostPro();
+        EPTlibError_t ApplyPostPro(const double *img = nullptr);
     protected:
         /// Operative harmonic frequency of the MRI scanner.
         double omega_;

@@ -58,11 +58,13 @@ class MedianFilter {
          * @param[out] dst pointer to the output destination.
          * @param[in] src pointer to the input source.
          * @param[in] nn number of voxels in each direction.
+         * @param[in] img pointer to the reference image. If it is not
+         *     nullptr, then it is used as a reference.
          * 
          * @return a Success or Unknown error.
          */
         EPTlibError_t ApplyFilter(double *dst, const double *src,
-            const std::array<int,NDIM> &nn);
+            const std::array<int,NDIM> &nn, const double *img = nullptr);
     private:
         /// Shape of the kernel for median filter application.
         Shape shape_;

@@ -11,6 +11,7 @@ description = "A complete example with input for EPT methods"
     rx-channels = 1
     tx-sensitivity = 'tx_sens>.raw'
     trx-phase = 'trx_phase><.raw'
+    reference-img = 'reference.raw'
 
     [input.wildcard]
         # the following are the default settings

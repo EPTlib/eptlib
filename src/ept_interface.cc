@@ -113,17 +113,17 @@ UnsetPostPro() {
     return EPTlibError::Success;
 }
 EPTlibError_t EPTInterface::
-ApplyPostPro() {
+ApplyPostPro(const double *img) {
     if (!thereis_postpro_ || !(thereis_sigma_ || thereis_epsr_)) {
         return EPTlibError::MissingData;
     }
     std::vector<double> tmp(n_vox_);
     if (thereis_sigma_) {
-        postpro_->ApplyFilter(tmp.data(),sigma_.data(),nn_);
+        postpro_->ApplyFilter(tmp.data(),sigma_.data(),nn_,img);
         std::memcpy(sigma_.data(),tmp.data(),n_vox_*sizeof(double));
     }
     if (thereis_epsr_) {
-        postpro_->ApplyFilter(tmp.data(),epsr_.data(),nn_);
+        postpro_->ApplyFilter(tmp.data(),epsr_.data(),nn_,img);
         std::memcpy(epsr_.data(),tmp.data(),n_vox_*sizeof(double));
     }
     return EPTlibError::Success;
