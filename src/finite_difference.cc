@@ -108,14 +108,18 @@ FDLaplacianKernel(const Shape &shape) :
 // FDLaplacianKernel apply
 template <typename NumType>
 EPTlibError_t FDLaplacianKernel::
-ApplyFilter(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
+ComputeLaplacian(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd) {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;
+    std::array<int,NDIM> inc;
     for (int d = 0; d<NDIM; ++d) {
         rr[d] = shape_.GetSize()[d]/2;
     }
+    inc[0] = 1;
+    inc[1] = nn[0]-shape_.GetSize()[0];
+    inc[2] = nn[0]*(nn[1]-shape_.GetSize()[1]);
     // loop over field voxels
     for (ii[2] = rr[2]; ii[2]<nn[2]-rr[2]; ++ii[2]) {
         for (ii[1] = rr[1]; ii[1]<nn[1]-rr[1]; ++ii[1]) {
@@ -124,17 +128,20 @@ ApplyFilter(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
                 std::vector<NumType> field_crop(m_vox_,0.0);
                 // inner loop over kernel voxels
                 int idx_l = 0;
+                int idx_g = ii[0]-rr[0] + nn[0]*(ii[1]-rr[1] + nn[1]*(ii[2]-rr[2]));
                 for (ii_l[2] = -rr[2]; ii_l[2]<=rr[2]; ++ii_l[2]) {
                     for (ii_l[1] = -rr[1]; ii_l[1]<=rr[1]; ++ii_l[1]) {
                         for (ii_l[0] = -rr[0]; ii_l[0]<=rr[0]; ++ii_l[0]) {
                             if (shape_[idx_l]) {
                                 // set the field_crop to the field value
-                                int idx_g = ii[0]+ii_l[0] + nn[0]*(ii[1]+ii_l[1] + nn[1]*(ii[2]+ii_l[2]));
                                 field_crop[idx_l] = src[idx_g];
                             }
                             ++idx_l;
+                            idx_g += inc[0];
                         }
+                        idx_g += inc[1];
                     }
+                    idx_g += inc[2];
                 }
                 // compute the laplacian
                 int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
@@ -149,5 +156,5 @@ ApplyFilter(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
 }
 
 // FDLaplacianKernel specialisations
-template EPTlibError_t FDLaplacianKernel::ApplyFilter<double>(double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
-template EPTlibError_t FDLaplacianKernel::ApplyFilter<std::complex<double>>(std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+template EPTlibError_t FDLaplacianKernel::ComputeLaplacian<double>(double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+template EPTlibError_t FDLaplacianKernel::ComputeLaplacian<std::complex<double>>(std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);

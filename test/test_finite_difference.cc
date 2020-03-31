@@ -70,9 +70,9 @@ TEST(FiniteDifferenceGTest,FDLaplacianKernel) {
     std::vector<double> c_lapl(n_vox);
     std::vector<double> l_lapl(n_vox);
     std::vector<double> q_lapl(n_vox);
-    fd_lapl.ApplyFilter(c_lapl.data(),c_field.data(),nn,dd);
-    fd_lapl.ApplyFilter(l_lapl.data(),l_field.data(),nn,dd);
-    fd_lapl.ApplyFilter(q_lapl.data(),q_field.data(),nn,dd);
+    fd_lapl.ComputeLaplacian(c_lapl.data(),c_field.data(),nn,dd);
+    fd_lapl.ComputeLaplacian(l_lapl.data(),l_field.data(),nn,dd);
+    fd_lapl.ComputeLaplacian(q_lapl.data(),q_field.data(),nn,dd);
     //
     for (int idx = 0; idx<n_vox; ++idx) {
         ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
@@ -137,9 +137,9 @@ TEST(FiniteDifferenceGTest,AsymmetricFDLaplacianKernel) {
     std::vector<double> c_lapl(n_vox);
     std::vector<double> l_lapl(n_vox);
     std::vector<double> q_lapl(n_vox);
-    fd_lapl.ApplyFilter(c_lapl.data(),c_field.data(),nn,dd);
-    fd_lapl.ApplyFilter(l_lapl.data(),l_field.data(),nn,dd);
-    fd_lapl.ApplyFilter(q_lapl.data(),q_field.data(),nn,dd);
+    fd_lapl.ComputeLaplacian(c_lapl.data(),c_field.data(),nn,dd);
+    fd_lapl.ComputeLaplacian(l_lapl.data(),l_field.data(),nn,dd);
+    fd_lapl.ComputeLaplacian(q_lapl.data(),q_field.data(),nn,dd);
     //
     for (int idx = 0; idx<n_vox; ++idx) {
         ASSERT_NEAR(c_lapl[idx],0.0,1e-14);

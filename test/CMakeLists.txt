@@ -35,6 +35,7 @@ set(EPTlib_TEST_SRC
     test_ept_helmholtz.cc
     test_ept_interface.cc
     test_finite_difference.cc
+    test_median_filter.cc
     test_shape.cc)
 
 add_executable(EPTlib_test ${EPTlib_TEST_SRC})

@@ -30,10 +30,9 @@
 *
 *****************************************************************************/
 
-#ifndef EPTLIB_FINITE_DIFFERENCES_H_
-#define EPTLIB_FINITE_DIFFERENCES_H_
+#ifndef EPTLIB_MEDIAN_FILTER_H_
+#define EPTLIB_MEDIAN_FILTER_H_
 
-#include <array>
 #include <vector>
 
 #include "eptlib/shape.h"
@@ -42,43 +41,35 @@
 namespace eptlib {
 
 /**
- * Class for the application of finite differences in computing the Laplacian.
- * 
- * It implements the Savitzky-Golay filter.
+ * Class for the application of median filters.
  */
-class FDLaplacianKernel {
+class MedianFilter {
     public:
         /**
          * Constructor.
          * 
-         * @param shape mask over which apply the finite difference scheme.
+         * @param shape mask over which apply the median filter.
          */
-        FDLaplacianKernel(const Shape &shape);
+        MedianFilter(const Shape &shape);
 
         /**
-         * Apply the FD Laplacian filter to an input field.
-         * 
-         * @tparam NumType numeric typename.
+         * Apply the median filter to an input field.
          * 
          * @param[out] dst pointer to the output destination.
          * @param[in] src pointer to the input source.
          * @param[in] nn number of voxels in each direction.
-         * @param[in] dd size of voxels in each direction.
          * 
          * @return a Success or Unknown error.
          */
-        template <typename NumType>
-        EPTlibError_t ComputeLaplacian(NumType *dst, const NumType *src,
-            const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+        EPTlibError_t ApplyFilter(double *dst, const double *src,
+            const std::array<int,NDIM> &nn);
     private:
-        /// Shape of the kernel for Laplacian approximation.
+        /// Shape of the kernel for median filter application.
         Shape shape_;
-        /// Total number of voxels.
-        int m_vox_;
-        /// Kernel for Laplacian approximation.
-        std::array<std::vector<real_t>,NDIM> kernel_;
+        /// Number of voxels in the shape.
+        int m_vol_;
 };
 
 }  // namespace eptlib
 
-#endif  // EPTLIB_FINITE_DIFFERENCES_H_
+#endif  // EPTLIB_MEDIAN_FILTER_H_

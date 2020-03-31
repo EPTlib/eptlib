@@ -78,6 +78,13 @@ class EPTHelmholtz : public EPTInterface {
     protected:
         /// Filter for the Laplacian computation.
         FDLaplacianKernel fd_lapl_;
+    private:
+        /// Perform the complete Helmholtz-based EPT.
+        void CompleteEPTHelm();
+        /// Perform the phase approximated Helmholtz-based EPT.
+        void PhaseEPTHelm();
+        /// Perform the magnitude approximated Helmholtz-based EPT.
+        void MagnitudeEPTHelm();
 };
 
 }  // namespace eptlib
