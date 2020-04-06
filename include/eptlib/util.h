@@ -33,6 +33,8 @@
 #ifndef EPTLIB_UTIL_H_
 #define EPTLIB_UTIL_H_
 
+#include <functional>
+#include <numeric>
 #include <string>
 
 /**
@@ -71,6 +73,35 @@ typedef enum EPTlibError {
  * @return the human-readable description of the input EPTlibError symbol.
  */
 const std::string ToString(const EPTlibError_t error);
+
+/**
+ * Compute the sum of all the elements in a container.
+ * 
+ * @tparam T container typename.
+ * 
+ * @param v container of elements.
+ * 
+ * @return the sum of all the elements in `v'.
+ */
+template <typename T>
+inline typename T::value_type Sum(const T &v) {
+    using type = typename T::value_type;
+    return std::accumulate(v.begin(),v.end(),static_cast<type>(0),std::plus<type>());
+}
+/**
+ * Compute the products of all the elements in a container.
+ * 
+ * @tparam T container typename.
+ * 
+ * @param v container of elements.
+ * 
+ * @return the products of all the elements in `v'.
+ */
+template <typename T>
+inline typename T::value_type Prod(const T &v) {
+    using type = typename T::value_type;
+    return std::accumulate(v.begin(),v.end(),static_cast<type>(1),std::multiplies<type>());
+}
 
 /**
  * Translates from multi-index to index assuming the first index the fastest.

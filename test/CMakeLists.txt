@@ -35,6 +35,7 @@ set(EPTlib_TEST_SRC
     test_ept_helmholtz.cc
     test_ept_interface.cc
     test_finite_difference.cc
+    test_io_hdf5.cc
     test_median_filter.cc
     test_shape.cc)
 
@@ -44,3 +45,6 @@ target_link_libraries(EPTlib_test PRIVATE GTest::GTest GTest::Main EPTlib)
 
 gtest_add_tests(TARGET EPTlib_test
     WORKING_DIRECTORY "${CMAKE_RUNTIME_OUTPUT_DIRECTORY}")
+
+file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/input
+    DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY})

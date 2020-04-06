@@ -34,6 +34,7 @@ set(EPTLIB_SRC
     ept_helmholtz.cc
     ept_interface.cc
     finite_difference.cc
+    io_hdf5.cc
     median_filter.cc
     shape.cc
     util.cc
@@ -50,5 +51,6 @@ target_include_directories(EPTlib
         ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(EPTlib PRIVATE Eigen3::Eigen)
+target_link_libraries(EPTlib PUBLIC hdf5 hdf5_cpp)
 
 target_compile_features(EPTlib PUBLIC cxx_std_11)

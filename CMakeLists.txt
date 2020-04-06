@@ -30,9 +30,9 @@
 #
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.8)
+cmake_minimum_required(VERSION 3.12)
 
-project(EPTlib VERSION 1.0.0 LANGUAGES CXX)
+project(EPTlib VERSION 1.0.0 LANGUAGES C CXX)
 
 # Disallow in-source build
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
@@ -41,6 +41,7 @@ if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
 endif()
 
 # Set some CMAKE_ variables
+set(CMAKE_MODULE_PATH ${CMAKE_MODULE_PATH} ${PROJECT_SOURCE_DIR}/cmake)
 set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/lib)
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${PROJECT_BINARY_DIR}/bin)
@@ -53,13 +54,20 @@ configure_file(${PROJECT_SOURCE_DIR}/include/eptlib/version.h.in
     @ONLY)
 
 # Find packages
-find_package(Boost REQUIRED)
+include(VerboseFindPackage)
+# hdf5
+set(HDF5_USE_STATIC_LIBRARIES ON)
+VerboseFindPackage(HDF5 COMPONENTS C CXX REQUIRED)
+include_directories("${HDF5_INCLUDE_DIRS}")
+# boost
+VerboseFindPackage(Boost REQUIRED)
 include_directories("${Boost_INCLUDE_DIRS}")
-find_package(Eigen3 REQUIRED)
+# eigen3
+VerboseFindPackage(Eigen3 REQUIRED)
 
 # Enable testing with GoogleTest
 include(GoogleTest)
-find_package(GTest)
+VerboseFindPackage(GTest)
 enable_testing()
 
 # Set the library
