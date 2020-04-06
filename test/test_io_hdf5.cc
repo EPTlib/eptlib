@@ -43,7 +43,7 @@ TEST(IOhdf5GTest,ReadDataset) {
     std::array<int,NDIM> nn;
     std::vector<double> data;
 
-    std::string fname = "input/test_input.h5";
+    std::string fname = "test/input/test_input.h5";
     IOh5 ifile(fname, Mode::In);
 
     std::string url = "/test/input/";
@@ -67,7 +67,7 @@ TEST(IOhdf5GTest,WriteDataset) {
     std::vector<double> data_expected(Prod(nn_expected));
     std::iota(data_expected.begin(),data_expected.end(),0.0);
 
-    std::string fname = "input/test_output.h5";
+    std::string fname = "test/input/test_output.h5";
     IOh5 ofile(fname, Mode::Out);
 
     std::string url = "/test/input/";
