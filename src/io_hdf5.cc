@@ -125,6 +125,7 @@ namespace {
 IOh5::
 IOh5(const std::string &fname, const Mode_t mode) :
     fname_(fname), mode_(mode) {
+    H5::Exception::dontPrint();
     switch (mode_) {
         case Mode::In:
             file_ = H5::H5File(fname_, H5F_ACC_RDONLY);
@@ -133,7 +134,11 @@ IOh5(const std::string &fname, const Mode_t mode) :
             file_ = H5::H5File(fname_, H5F_ACC_TRUNC);
             break;
         case Mode::Append:
-            file_ = H5::H5File(fname_, H5F_ACC_RDWR);
+            try {
+                file_ = H5::H5File(fname_, H5F_ACC_RDWR);
+            } catch (const H5::FileIException &e) {
+                file_ = H5::H5File(fname_, H5F_ACC_TRUNC);
+            }
             break;
     }
     return;
@@ -149,6 +154,7 @@ IOh5::
 template <typename T>
 State_t IOh5::
 ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) {
+    H5::Exception::dontPrint();
     try {
         // locate the dataset
         H5::DataSet dset = file_.openDataSet(URI(url,urn));
@@ -159,9 +165,6 @@ ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &u
         std::reverse_copy(dims.begin(),dims.end(),nn.begin());
         data.resize(Prod(nn));
         dset.read(data.data(),::HDF5Types<T>::Type());
-        // close the dataset
-        dspace.close();
-        dset.close();
     } catch (const H5::FileIException& e) {
         return State::HDF5FileException;
     } catch (const H5::DataSetIException& e) {
@@ -178,6 +181,7 @@ ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &u
 template <typename T>
 State_t IOh5::
 WriteDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) {
+    H5::Exception::dontPrint();
     try {
         // open or create the group
         H5::Group group;
@@ -194,10 +198,6 @@ WriteDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &
         H5::DataSet dset = group.createDataSet(urn,dtype,dspace);
         // write the data in the dataset
         dset.write(data.data(),dtype);
-        // close everything
-        dset.close();
-        dspace.close();
-        group.close();
     } catch (const H5::FileIException& e) {
         return State::HDF5FileException;
     } catch (const H5::GroupIException& e) {

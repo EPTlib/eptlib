@@ -34,8 +34,6 @@
 #define EPT_HELMHOLTZ_MAIN_H_
 
 #include <string>
-
-namespace eptlib_helm {
     
 struct software {
     static constexpr char name[] = "@EPT_HELMHOLTZ_NAME@";
@@ -44,7 +42,5 @@ struct software {
         return std::string(name);
     }
 };
-
-}  // eptlib_helm
 
 #endif  // EPT_HELMHOLTZ_MAIN_H_
