@@ -18,6 +18,7 @@ Building from source
 The following libraries needs to be downloaded and installed before _EPTlib_ compilation:
 - [Boost C++](https://www.boost.org/)
 - [Eigen 3](http://eigen.tuxfamily.org/)
+- [HDF5](https://www.hdfgroup.org/solutions/hdf5/)
 
 Optionally, [Google Test](https://github.com/google/googletest) is required for testing the library.
 
