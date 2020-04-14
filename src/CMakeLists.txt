@@ -51,6 +51,10 @@ target_include_directories(EPTlib
         ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(EPTlib PRIVATE Eigen3::Eigen)
-target_link_libraries(EPTlib PUBLIC hdf5 hdf5_cpp)
+if(${CMAKE_TOOLCHAIN_FILE} MATCHES "vcpkg")
+    target_link_libraries(EPTlib PUBLIC ${HDF5_LIBRARIES})
+else()
+    target_link_libraries(EPTlib PUBLIC hdf5 hdf5_cpp)
+endif()
 
 target_compile_features(EPTlib PUBLIC cxx_std_11)

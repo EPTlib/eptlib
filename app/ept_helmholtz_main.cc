@@ -98,7 +98,9 @@ int main(int argc, char **argv) {
     string tx_sens_address_wc;
     string trx_phase_address_wc;
     vector<vector<double> > tx_sens(0);
+    bool thereis_tx_sens = false;
     vector<vector<double> > trx_phase(0);
+    bool thereis_trx_phase = false;
     string ref_img_address;
     std::vector<double> ref_img;
     string sigma_address;
@@ -167,81 +169,95 @@ int main(int argc, char **argv) {
         cout<<"  number of Tx channels: "<<n_tx_ch<<"\n";
         n_rx_ch = config_v.get<int>("input.rx-channels");
         cout<<"  number of Rx channels: "<<n_rx_ch<<"\n";
-        tx_sens_address_wc = config_v.get<string>("input.tx-sensitivity");
-        cout<<"  Tx sensitivity wildcard: '"<<tx_sens_address_wc<<"'\n";
-        cout<<"    exp'd: [";
-        for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-            string tx_sens_address(tx_sens_address_wc);
-            replace(tx_sens_address.begin(),tx_sens_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
-            size_t snip = tx_sens_address.find_last_of(".");
-            if (tx_sens_address.substr(snip) == ".raw") {
-                ifstream ifile(tx_sens_address,ios::binary);
-                if (ifile.is_open()) {
-                    vector<double> tmp(n_vox);
-                    ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
-                    ifile.close();
-                    tx_sens.push_back(tmp);
-                } else {
-                    cout<<"\n"
-                        <<"ERROR: impossible read file '"<<tx_sens_address<<"'"<<endl;
-                    return 2;
-                }
-            } else {
-                string tx_sens_fname, tx_sens_url, tx_sens_urn;
-                GetH5Address(tx_sens_address, tx_sens_fname, tx_sens_url, tx_sens_urn);
-                io::IOh5 tx_sens_file(tx_sens_fname, io::Mode::In);
-                vector<double> tmp(n_vox);
-                io::State_t io_state = tx_sens_file.ReadDataset(tmp,nn, tx_sens_url,tx_sens_urn);
-                if (io_state!=io::State::Success) {
-                    cout<<"\n"
-                        <<"ERROR: impossible read file '"<<tx_sens_address<<"'\n"
-                        <<"       "<<ToString(io_state)<<endl;
-                    return 2;
-                }
-                tx_sens.push_back(tmp);
-            }
-            cout<<"'"<<tx_sens_address<<"', ";
-        }
-        cout<<"]\n";
-        trx_phase_address_wc = config_v.get<string>("input.trx-phase");
-        cout<<"  TRx phase wildcard: '"<<trx_phase_address_wc<<"'\n";
-        cout<<"    exp'd: [ ";
-        for (int id_rx = 0; id_rx<n_rx_ch; ++id_rx) {
-            for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-                string trx_phase_address(trx_phase_address_wc);
-                replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
-                replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_rx,to_string(id_rx*chwc_step+chwc_start_from).c_str()[0]);
-                size_t snip = trx_phase_address.find_last_of(".");
-                if (trx_phase_address.substr(snip) == ".raw") {
-                    ifstream ifile(trx_phase_address,ios::binary);
-                    if (ifile.is_open()) {
-                        std::vector<double> tmp(n_vox);
-                        ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
-                        ifile.close();
-                        trx_phase.push_back(tmp);
+        {
+            const toml::Value* config_x;
+            config_x = config_v.find("input.tx-sensitivity");
+            if (config_x && config_x->is<string>()) {
+                tx_sens_address_wc = config_x->as<string>();
+                thereis_tx_sens = true;
+                cout<<"  Tx sensitivity wildcard: '"<<tx_sens_address_wc<<"'\n";
+                cout<<"    exp'd: [";
+                for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
+                    string tx_sens_address(tx_sens_address_wc);
+                    replace(tx_sens_address.begin(),tx_sens_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
+                    size_t snip = tx_sens_address.find_last_of(".");
+                    if (tx_sens_address.substr(snip) == ".raw") {
+                        ifstream ifile(tx_sens_address,ios::binary);
+                        if (ifile.is_open()) {
+                            vector<double> tmp(n_vox);
+                            ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
+                            ifile.close();
+                            tx_sens.push_back(tmp);
+                        } else {
+                            cout<<"\n"
+                                <<"ERROR: impossible read file '"<<tx_sens_address<<"'"<<endl;
+                            return 2;
+                        }
                     } else {
-                        cout<<"\n"
-                            <<"ERROR: impossible read file '"<<trx_phase_address<<"'"<<endl;
-                        return 2;
+                        string tx_sens_fname, tx_sens_url, tx_sens_urn;
+                        GetH5Address(tx_sens_address, tx_sens_fname, tx_sens_url, tx_sens_urn);
+                        io::IOh5 tx_sens_file(tx_sens_fname, io::Mode::In);
+                        vector<double> tmp(n_vox);
+                        io::State_t io_state = tx_sens_file.ReadDataset(tmp,nn, tx_sens_url,tx_sens_urn);
+                        if (io_state!=io::State::Success) {
+                            cout<<"\n"
+                                <<"ERROR: impossible read file '"<<tx_sens_address<<"'\n"
+                                <<"       "<<ToString(io_state)<<endl;
+                            return 2;
+                        }
+                        tx_sens.push_back(tmp);
                     }
-                } else {
-                    string trx_phase_fname, trx_phase_url, trx_phase_urn;
-                    GetH5Address(trx_phase_address, trx_phase_fname, trx_phase_url, trx_phase_urn);
-                    io::IOh5 trx_phase_file(trx_phase_fname, io::Mode::In);
-                    vector<double> tmp(n_vox);
-                    io::State_t io_state = trx_phase_file.ReadDataset(tmp,nn, trx_phase_url,trx_phase_urn);
-                    if (io_state!=io::State::Success) {
-                        cout<<"\n"
-                            <<"ERROR: impossible read file '"<<trx_phase_address<<"'\n"
-                            <<"       "<<ToString(io_state)<<endl;
-                        return 2;
-                    }
-                    trx_phase.push_back(tmp);
+                    cout<<"'"<<tx_sens_address<<"', ";
                 }
-                cout<<"'"<<trx_phase_address<<"', ";
+                cout<<"]\n";
             }
         }
-        cout<<"]\n";
+        {
+            const toml::Value* config_x;
+            config_x = config_v.find("input.trx-phase");
+            if (config_x && config_x->is<string>()) {
+                trx_phase_address_wc = config_x->as<string>();
+                thereis_trx_phase = true;
+                cout<<"  TRx phase wildcard: '"<<trx_phase_address_wc<<"'\n";
+                cout<<"    exp'd: [ ";
+                for (int id_rx = 0; id_rx<n_rx_ch; ++id_rx) {
+                    for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
+                        string trx_phase_address(trx_phase_address_wc);
+                        replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
+                        replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_rx,to_string(id_rx*chwc_step+chwc_start_from).c_str()[0]);
+                        size_t snip = trx_phase_address.find_last_of(".");
+                        if (trx_phase_address.substr(snip) == ".raw") {
+                            ifstream ifile(trx_phase_address,ios::binary);
+                            if (ifile.is_open()) {
+                                std::vector<double> tmp(n_vox);
+                                ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
+                                ifile.close();
+                                trx_phase.push_back(tmp);
+                            } else {
+                                cout<<"\n"
+                                    <<"ERROR: impossible read file '"<<trx_phase_address<<"'"<<endl;
+                                return 2;
+                            }
+                        } else {
+                            string trx_phase_fname, trx_phase_url, trx_phase_urn;
+                            GetH5Address(trx_phase_address, trx_phase_fname, trx_phase_url, trx_phase_urn);
+                            io::IOh5 trx_phase_file(trx_phase_fname, io::Mode::In);
+                            vector<double> tmp(n_vox);
+                            io::State_t io_state = trx_phase_file.ReadDataset(tmp,nn, trx_phase_url,trx_phase_urn);
+                            if (io_state!=io::State::Success) {
+                                cout<<"\n"
+                                    <<"ERROR: impossible read file '"<<trx_phase_address<<"'\n"
+                                    <<"       "<<ToString(io_state)<<endl;
+                                return 2;
+                            }
+                            trx_phase.push_back(tmp);
+                        }
+                        cout<<"'"<<trx_phase_address<<"', ";
+                    }
+                }
+                cout<<"]\n";
+            }
+        }
         {
             const toml::Value* config_x;
             config_x = config_v.find("input.reference-img");
@@ -292,12 +308,16 @@ int main(int argc, char **argv) {
     std::array<int,NDIM> rr = {1,1,1};
     eptlib::Shape kernel_shape = eptlib::shapes::Cross(rr);
     eptlib::EPTHelmholtz ept_helm(freq, nn, dd, kernel_shape);
-    for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-        ept_helm.SetTxSensitivity(tx_sens[id_tx].data());
-    }
-    for (int id_rx = 0; id_rx<n_rx_ch; ++id_rx) {
+    if (thereis_tx_sens) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-            ept_helm.SetTRxPhase(trx_phase[id_tx+n_tx_ch*id_rx].data());
+            ept_helm.SetTxSensitivity(tx_sens[id_tx].data(), id_tx);
+        }
+    }
+    if (thereis_trx_phase) {
+        for (int id_rx = 0; id_rx<n_rx_ch; ++id_rx) {
+            for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
+                ept_helm.SetTRxPhase(trx_phase[id_tx+n_tx_ch*id_rx].data(), id_tx,id_rx);
+            }
         }
     }
     cout<<"\nRun Helmholtz-based EPT..."<<flush;
