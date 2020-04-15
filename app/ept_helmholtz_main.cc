@@ -338,10 +338,12 @@ int main(int argc, char **argv) {
 
     // write the result
     std::vector<double> sigma(n_vox);
+    bool thereis_sigma;
     std::vector<double> epsr(n_vox);
-    ept_helm.GetElectricConductivity(sigma.data());
-    ept_helm.GetRelativePermittivity(epsr.data());
-    {
+    bool thereis_epsr;
+    thereis_sigma = ept_helm.GetElectricConductivity(sigma.data())==EPTlibError::Success;
+    thereis_epsr = ept_helm.GetRelativePermittivity(epsr.data())==EPTlibError::Success;
+    if (thereis_sigma) {
         size_t snip = sigma_address.find_last_of(".");
         if (sigma_address.substr(snip) == ".raw") {
             ofstream ofile(sigma_address,ios::binary);
@@ -364,7 +366,7 @@ int main(int argc, char **argv) {
             }
         }
     }
-    {
+    if (thereis_epsr) {
         size_t snip = epsr_address.find_last_of(".");
         if (epsr_address.substr(snip) == ".raw") {
             ofstream ofile(epsr_address,ios::binary);
