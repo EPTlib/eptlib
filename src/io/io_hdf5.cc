@@ -30,7 +30,9 @@
 *
 *****************************************************************************/
 
-#include "eptlib/io_hdf5.h"
+#include "eptlib/io/io_hdf5.h"
+
+#include <algorithm>
 
 using namespace eptlib;
 using namespace eptlib::io;
@@ -148,6 +150,7 @@ IOh5(const std::string &fname, const Mode_t mode) :
 IOh5::
 ~IOh5() {
     file_.close();
+    return;
 }
 
 // IOh5 read dataset

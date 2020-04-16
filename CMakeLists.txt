@@ -101,6 +101,11 @@ install(DIRECTORY
     DESTINATION
         include
     PATTERN "*.in" EXCLUDE)
+    
+install(DIRECTORY
+        ${PROJECT_SOURCE_DIR}/extern/
+    DESTINATION
+        extern)
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(

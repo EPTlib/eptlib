@@ -1,0 +1,7 @@
+string = "string"
+integer = 5
+floating = 0.5
+array = [0,1,2]
+
+[group]
+    var = "var in group"

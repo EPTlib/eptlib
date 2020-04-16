@@ -34,19 +34,23 @@ set(EPTLIB_SRC
     ept_helmholtz.cc
     ept_interface.cc
     finite_difference.cc
-    io_hdf5.cc
     median_filter.cc
     shape.cc
     util.cc
-    version.cc)
+    version.cc
+    io/io_hdf5.cc
+    io/io_toml.cc
+    io/io_util.cc)
 
 add_library(EPTlib SHARED ${EPTLIB_SRC})
 
 target_include_directories(EPTlib
     PUBLIC
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/include>
+        $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern/tinytoml/include>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
         $<INSTALL_INTERFACE:include>
+        $<INSTALL_INTERFACE:extern/tinytoml/include>
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src)
 

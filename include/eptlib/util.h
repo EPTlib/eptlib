@@ -63,6 +63,8 @@ typedef enum EPTlibError {
   MissingData,
   /// Out of range error.
   OutOfRange,
+  /// Wrong data format error.
+  WrongDataFormat,
   /// Unknown error.
   Unknown,
 } EPTlibError_t;
@@ -73,6 +75,13 @@ typedef enum EPTlibError {
  * @return the human-readable description of the input EPTlibError symbol.
  */
 const std::string ToString(const EPTlibError_t error);
+
+/**
+ * Return the license boilerplate as a string.
+ * 
+ * @return the license boilerplate.
+ */
+const std::string LicenseBoilerplate();
 
 /**
  * Compute the sum of all the elements in a container.
@@ -150,10 +159,28 @@ inline const std::string ToString(const EPTlibError_t error) {
             return "Missing data";
         case EPTlibError::OutOfRange:
             return "Out of range";
+        case EPTlibError::WrongDataFormat:
+            return "Wrong data format";
         case EPTlibError::Unknown:
             return "Unknown error";
     }
     return "";
+}
+
+// Return the license boilerplate as a string.
+inline const std::string LicenseBoilerplate() {
+    const std::string boilerplate = "MIT License\n"
+        "Copyright (c) 2020  Alessandro Arduino\n"
+        "Istituto Nazionale di Ricerca Metrologica (INRiM)\n"
+        "\n"
+        "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+        "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+        "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+        "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+        "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+        "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+        "SOFTWARE.\n";
+    return boilerplate;
 }
 
 // Multi-index to index

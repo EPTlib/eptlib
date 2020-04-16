@@ -32,56 +32,34 @@
 
 #include "gtest/gtest.h"
 
-#include "eptlib/io/io_hdf5.h"
+#include "eptlib/io/io_toml.h"
 
 #include "eptlib/util.h"
 
 using namespace eptlib;
 using namespace eptlib::io;
 
-TEST(IOhdf5GTest,ReadDataset) {
-    std::array<int,NDIM> nn;
-    std::vector<double> data;
+TEST(IOtomlGTest,ReadFile) {
+    std::string string;
+    int integer;
+    double floating;
+    std::array<int,NDIM> array;
+    std::string var;
 
-    std::string fname = "test/input/test_input.h5";
-    IOh5 ifile(fname, Mode::In);
+    std::string fname = "test/input/test_input.toml";
+    IOtoml ifile(fname, Mode::In);
 
-    std::string url = "/test/input/";
-    std::string urn = "data";
-    ifile.ReadDataset(data,nn, url,urn);
+    ifile.GetValue<std::string>(string, "string");
+    ifile.GetValue<int>(integer,"integer");
+    ifile.GetValue<double>(floating,"floating");
+    ifile.GetArrayOf<int>(array,"array");
+    ifile.GetValue<std::string>(var,"group.var");
 
-    std::array<int,NDIM> nn_expected{20,10,30};
-    std::vector<double> data_expected(Prod(nn_expected));
-    std::iota(data_expected.begin(),data_expected.end(),0.0);
-    
+    ASSERT_STREQ(string.c_str(),"string");
+    ASSERT_EQ(integer,5);
+    ASSERT_DOUBLE_EQ(floating,0.5);
     for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(nn[d],nn_expected[d]);
+        ASSERT_EQ(array[d],d);
     }
-    for (int idx = 0; idx<Prod(nn); ++idx) {
-        ASSERT_DOUBLE_EQ(data[idx],data_expected[idx]);
-    }
-}
-
-TEST(IOhdf5GTest,WriteDataset) {
-    std::array<int,NDIM> nn_expected{20,10,30};
-    std::vector<double> data_expected(Prod(nn_expected));
-    std::iota(data_expected.begin(),data_expected.end(),0.0);
-
-    std::string fname = "test/input/test_output.h5";
-    IOh5 ofile(fname, Mode::Out);
-
-    std::string url = "/test/input/";
-    std::string urn = "data";
-    ofile.WriteDataset(data_expected,nn_expected, url,urn);
-
-    std::array<int,NDIM> nn;
-    std::vector<double> data;
-
-    ofile.ReadDataset(data,nn, url,urn);
-    for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(nn[d],nn_expected[d]);
-    }
-    for (int idx = 0; idx<Prod(nn); ++idx) {
-        ASSERT_DOUBLE_EQ(data[idx],data_expected[idx]);
-    }
+    ASSERT_STREQ(var.c_str(),"var in group");
 }

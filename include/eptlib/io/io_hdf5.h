@@ -35,51 +35,15 @@
 
 #include <H5Cpp.h>
 
-#include <algorithm>
 #include <array>
 #include <vector>
 #include <string>
 
-#include "util.h"
+#include "eptlib/io/io_util.h"
 
 namespace eptlib {
 
 namespace io {
-
-    /**
-     * File opening modes.
-     */
-    typedef enum Mode {
-        /// Open the file in read-only mode.
-        In = 0,
-        /// Create a new file or overwrite an existing file.
-        Out,
-        /// Create a new file or append to an existing file.
-        Append,
-    } Mode_t;
-
-    /**
-     * IO states.
-     */
-    typedef enum State {
-        /// Success.
-        Success = 0,
-        /// HDF5 file error.
-        HDF5FileException,
-        /// HDF5 dataset error.
-        HDF5DatasetException,
-        /// HDF5 dataspace error.
-        HDF5DataspaceException,
-        /// HDF5 datatype error.
-        HDF5DatatypeException,
-    } State_t;
-    /**
-     * Translates in a human-readable string the input IO state.
-     * 
-     * @param state is a State symbol.
-     * @return the human-readable description of the IO state.
-     */
-    const std::string ToString(const State_t state);
     
     /**
      * Class for interacting with .h5 files.
@@ -133,27 +97,6 @@ namespace io {
             /// HDF5 file.
             H5::H5File file_;
     };
-
-    // ---------------------------------------------------------------------------
-    // -------------------------  Implementation detail  -------------------------
-    // ---------------------------------------------------------------------------
-
-    // Translates in a human-readable string the input IO state
-    inline const std::string ToString(const State_t state) {
-        switch (state) {
-            case State::Success:
-                return "Success";
-            case State::HDF5FileException:
-                return "IO Error: HDF5, file exception";
-            case State::HDF5DatasetException:
-                return "IO Error: HDF5, dataset exception";
-            case State::HDF5DataspaceException:
-                return "IO Error: HDF5, dataspace exception";
-            case State::HDF5DatatypeException:
-                return "IO Error: HDF5, datatype exception";
-        }
-        return "";
-    }
 
 }  // io
 
