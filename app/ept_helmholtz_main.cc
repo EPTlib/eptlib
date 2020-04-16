@@ -50,7 +50,10 @@ using namespace eptlib;
 
 constexpr char software::name[];
 
-void GetH5Address(const string &address, string &fname, string &url, string &urn);
+template <typename T>
+EPTlibError_t ReadData(std::vector<T> &dst, const std::string &address);
+template <typename T>
+EPTlibError_t WriteData(const std::vector<T> &src, const std::array<int,NDIM> &nn, const std::string &address);
 
 int main(int argc, char **argv) {
     // starting boilerplate
@@ -149,34 +152,12 @@ int main(int argc, char **argv) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
             string tx_sens_address(tx_sens_address_wc);
             replace(tx_sens_address.begin(),tx_sens_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
-            std::string fname;
-            std::string uri;
-            eptlib::io::GetAddress(tx_sens_address,fname,uri);
-            size_t snip = fname.find_last_of(".");
-            if (fname.substr(snip)==".raw") {
-                ifstream ifile(fname,ios::binary);
-                if (ifile.is_open()) {
-                    vector<double> tmp(n_vox);
-                    ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
-                    ifile.close();
-                    tx_sens.push_back(tmp);
-                } else {
-                    cout<<"\n"
-                        <<"ERROR: impossible read file '"<<tx_sens_address<<"'"<<endl;
-                    return 2;
-                }
-            } else {
-                io::IOh5 tx_sens_file(fname, io::Mode::In);
-                vector<double> tmp(n_vox);
-                io::State_t io_state = tx_sens_file.ReadDataset(tmp,nn, "/",uri);
-                if (io_state!=io::State::Success) {
-                    cout<<"\n"
-                        <<"ERROR: impossible read file '"<<tx_sens_address<<"'\n"
-                        <<"       "<<ToString(io_state)<<endl;
-                    return 2;
-                }
-                tx_sens.push_back(tmp);
+            std::vector<double> tmp(n_vox);
+            if (ReadData<double>(tmp, tx_sens_address)) {
+                cout<<"Fatal ERROR: impossible read file '"<<tx_sens_address<<"'\n";
+                return 2;
             }
+            tx_sens.push_back(tmp);
             cout<<"'"<<tx_sens_address<<"', ";
         }
         cout<<"]\n";
@@ -190,34 +171,12 @@ int main(int argc, char **argv) {
                 string trx_phase_address(trx_phase_address_wc);
                 replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
                 replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_rx,to_string(id_rx*chwc_step+chwc_start_from).c_str()[0]);
-                string fname;
-                string uri;
-                io::GetAddress(trx_phase_address, fname,uri);
-                size_t snip = fname.find_last_of(".");
-                if (fname.substr(snip)==".raw") {
-                    ifstream ifile(fname,ios::binary);
-                    if (ifile.is_open()) {
-                        std::vector<double> tmp(n_vox);
-                        ifile.read(reinterpret_cast<char*>(tmp.data()),n_vox*sizeof(double));
-                        ifile.close();
-                        trx_phase.push_back(tmp);
-                    } else {
-                        cout<<"\n"
-                            <<"ERROR: impossible read file '"<<trx_phase_address<<"'"<<endl;
-                        return 2;
-                    }
-                } else {
-                    io::IOh5 trx_phase_file(fname, io::Mode::In);
-                    vector<double> tmp(n_vox);
-                    io::State_t io_state = trx_phase_file.ReadDataset(tmp,nn, "/",uri);
-                    if (io_state!=io::State::Success) {
-                        cout<<"\n"
-                            <<"ERROR: impossible read file '"<<trx_phase_address<<"'\n"
-                            <<"       "<<ToString(io_state)<<endl;
-                        return 2;
-                    }
-                    trx_phase.push_back(tmp);
+                std::vector<double> tmp(n_vox);
+                if (ReadData<double>(tmp, trx_phase_address)) {
+                    cout<<"Fatal ERROR: impossible read file '"<<trx_phase_address<<"'\n";
+                    return 2;
                 }
+                trx_phase.push_back(tmp);
                 cout<<"'"<<trx_phase_address<<"', ";
             }
         }
@@ -225,32 +184,12 @@ int main(int argc, char **argv) {
     }
     thereis_ref_img = !io_toml.GetValue<string>(ref_img_address, "input.reference-img");
     if (thereis_ref_img) {
-        string fname;
-        string uri;
         ref_img.resize(n_vox);
-        io::GetAddress(ref_img_address, fname,uri);
-        size_t snip = fname.find_last_of(".");
-        if (fname.substr(snip)==".raw") {
-            ifstream ifile(fname,ios::binary);
-            if (ifile.is_open()) {
-                ifile.read(reinterpret_cast<char*>(ref_img.data()),n_vox*sizeof(double));
-                ifile.close();
-            } else {
-                cout<<"\n"
-                    <<"ERROR: impossible read file '"<<ref_img_address<<"'"<<endl;
-                return 2;
-            }
-        } else {
-            io::IOh5 ref_img_file(fname, io::Mode::In);
-            io::State_t io_state = ref_img_file.ReadDataset(ref_img,nn, "/",uri);
-            if (io_state!=io::State::Success) {
-                    cout<<"\n"
-                        <<"ERROR: impossible read file '"<<ref_img_address<<"'\n"
-                        <<"       "<<ToString(io_state)<<endl;
-                    return 2;
-                }
-            }
-            cout<<"  Reference image: '"<<ref_img_address<<"'\n";
+        if (ReadData<double>(ref_img, ref_img_address)) {
+            cout<<"Fatal ERROR: impossible read file '"<<ref_img_address<<"'\n";
+            return 2;
+        }
+        cout<<"  Reference image: '"<<ref_img_address<<"'\n";
     }
     // ...output
     thereis_sigma = !io_toml.GetValue<string>(sigma_address, "output.electric-conductivity"); 
@@ -305,53 +244,66 @@ int main(int argc, char **argv) {
     thereis_sigma = thereis_sigma&!ept_helm.GetElectricConductivity(sigma.data());
     thereis_epsr = thereis_epsr&!ept_helm.GetRelativePermittivity(epsr.data());
     if (thereis_sigma) {
-        string fname;
-        string uri;
-        io::GetAddress(sigma_address, fname,uri);
-        size_t snip = fname.find_last_of(".");
-        if (fname.substr(snip)==".raw") {
-            ofstream ofile(fname,ios::binary);
-            if (ofile.is_open()) {
-                ofile.write(reinterpret_cast<char*>(sigma.data()), n_vox*sizeof(double));
-                ofile.close();
-            } else {
-                cout<<"ERROR: impossible write file '"<<fname<<"'"<<endl;
-                return 2;
-            }
-        } else {
-            io::IOh5 sigma_file(fname, io::Mode::Append);
-            io::State_t io_state = sigma_file.WriteDataset(sigma,nn, "/",uri);
-            if (io_state!=io::State::Success) {
-                cout<<"ERROR: impossible write file '"<<sigma_address<<"'\n"
-                    <<"       "<<ToString(io_state)<<endl;
-                return 2;
-            }
+        error = WriteData(sigma, nn, sigma_address);
+        if (!error) {
+            cout<<"Fatal ERROR: impossible write file '"<<sigma_address<<"'"<<endl;
+            return 2;
         }
     }
     if (thereis_epsr) {
-        string fname;
-        string uri;
-        io::GetAddress(epsr_address, fname,uri);
-        size_t snip = fname.find_last_of(".");
-        if (fname.substr(snip)==".raw") {
-            ofstream ofile(fname,ios::binary);
-            if (ofile.is_open()) {
-                ofile.write(reinterpret_cast<char*>(epsr.data()), n_vox*sizeof(double));
-                ofile.close();
-            } else {
-                cout<<"ERROR: impossible write file '"<<fname<<"'"<<endl;
-                return 2;
-            }
-        } else {
-            io::IOh5 epsr_file(fname, io::Mode::Append);
-            io::State_t io_state = epsr_file.WriteDataset(epsr,nn, "/",uri);
-            if (io_state!=io::State::Success) {
-                cout<<"ERROR: impossible write file '"<<epsr_address<<"'\n"
-                    <<"       "<<ToString(io_state)<<endl;
-                return 2;
-            }
+        error = WriteData(epsr, nn, epsr_address);
+        if (!error) {
+            cout<<"Fatal ERROR: impossible write file '"<<epsr_address<<"'"<<endl;
+            return 2;
         }
     }
-
     return 0;
+}
+
+template <typename T>
+EPTlibError_t ReadData(std::vector<T> &dst, const std::string &address) {
+    std::array<int,NDIM> nn;
+    std::string fname;
+    std::string uri;
+    io::GetAddress(address, fname,uri);
+    size_t snip = fname.find_last_of(".");
+    if (fname.substr(snip)==".raw") {
+        std::ifstream ifile(fname,ios::binary);
+        if (ifile.is_open()) {
+            ifile.read(reinterpret_cast<char*>(dst.data()),dst.size()*sizeof(T));
+            ifile.close();
+        } else {
+            return EPTlibError::MissingData;
+        }
+    } else {
+        io::IOh5 ifile(fname, io::Mode::In);
+        io::State_t io_state = ifile.ReadDataset(dst,nn, "/",uri);
+        if (io_state!=io::State::Success) {
+            return EPTlibError::MissingData;
+        }
+    }
+    return EPTlibError::Success;
+}
+template <typename T>
+EPTlibError_t WriteData(const std::vector<T> &src, const std::array<int,NDIM> &nn, const std::string &address) {
+    std::string fname;
+    std::string uri;
+    io::GetAddress(address, fname,uri);
+    size_t snip = fname.find_last_of(".");
+    if (fname.substr(snip)==".raw") {
+        std::ofstream ofile(fname,ios::binary);
+        if (ofile.is_open()) {
+            ofile.write(reinterpret_cast<const char*>(src.data()), src.size()*sizeof(T));
+            ofile.close();
+        } else {
+            return EPTlibError::Unknown;
+        }
+    } else {
+        io::IOh5 ofile(fname, io::Mode::Append);
+        io::State_t io_state = ofile.WriteDataset(src,nn, "/",uri);
+        if (io_state!=io::State::Success) {
+            return EPTlibError::Unknown;
+        }
+    }
+    return EPTlibError::Success;
 }

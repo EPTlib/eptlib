@@ -88,7 +88,7 @@ namespace io {
              * @return the IO state.
              */
             template <typename T>
-            State_t WriteDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
+            State_t WriteDataset(const std::vector<T> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
         private:
             /// Address of the file to open.
             std::string fname_;

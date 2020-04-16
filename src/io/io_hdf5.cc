@@ -183,7 +183,7 @@ ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &u
 // IOh5 write dataset
 template <typename T>
 State_t IOh5::
-WriteDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) {
+WriteDataset(const std::vector<T> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const {
     H5::Exception::dontPrint();
     try {
         // open or create the group
@@ -223,8 +223,8 @@ template State_t IOh5::ReadDataset<double>(std::vector<double> &data, std::array
 template State_t IOh5::ReadDataset<int>(std::vector<int> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
 template State_t IOh5::ReadDataset<long>(std::vector<long> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
 // WriteDataset
-template State_t IOh5::WriteDataset<size_t>(std::vector<size_t> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::WriteDataset<float>(std::vector<float> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::WriteDataset<double>(std::vector<double> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::WriteDataset<int>(std::vector<int> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::WriteDataset<long>(std::vector<long> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
+template State_t IOh5::WriteDataset<size_t>(const std::vector<size_t> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<float>(const std::vector<float> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<double>(const std::vector<double> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<int>(const std::vector<int> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<long>(const std::vector<long> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
