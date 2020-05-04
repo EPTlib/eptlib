@@ -105,7 +105,7 @@ install(DIRECTORY
 install(DIRECTORY
         ${PROJECT_SOURCE_DIR}/extern/
     DESTINATION
-        extern)
+        share/eptlib/extern)
 
 include(CMakePackageConfigHelpers)
 write_basic_package_version_file(

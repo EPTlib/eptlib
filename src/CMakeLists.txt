@@ -50,7 +50,7 @@ target_include_directories(EPTlib
         $<BUILD_INTERFACE:${PROJECT_SOURCE_DIR}/extern/tinytoml/include>
         $<BUILD_INTERFACE:${PROJECT_BINARY_DIR}/include>
         $<INSTALL_INTERFACE:include>
-        $<INSTALL_INTERFACE:extern/tinytoml/include>
+        $<INSTALL_INTERFACE:share/eptlib/extern/tinytoml/include>
     PRIVATE
         ${PROJECT_SOURCE_DIR}/src)
 

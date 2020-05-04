@@ -1,5 +1,8 @@
 include(CMakeFindDependencyMacro)
 
+find_dependency(HDF5 COMPONENTS C CXX REQUIRED)
+include_directories("${HDF5_INCLUDE_DIRS}")
+
 find_dependency(Boost REQUIRED)
 include_directories("${Boost_INCLUDE_DIRS}")
 
