@@ -42,18 +42,18 @@
 namespace eptlib {
 
 /**
- * Class for the application of finite differences in computing the Laplacian.
+ * Class for the application of finite differences.
  * 
  * It implements the Savitzky-Golay filter.
  */
-class FDLaplacianKernel {
+class FDSavitzkyGolayFilter {
     public:
         /**
          * Constructor.
          * 
          * @param shape mask over which apply the finite difference scheme.
          */
-        FDLaplacianKernel(const Shape &shape);
+        FDSavitzkyGolayFilter(const Shape &shape);
 
         /**
          * Apply the FD Laplacian filter to an input field.
@@ -70,13 +70,31 @@ class FDLaplacianKernel {
         template <typename NumType>
         EPTlibError_t ComputeLaplacian(NumType *dst, const NumType *src,
             const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+        /**
+         * Apply the FD gradient filter to an input field.
+         * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param[in] d direction along with compute the derivative.
+         * @param[out] dst pointer to the output destination.
+         * @param[in] src pointer to the input source.
+         * @param[in] nn number of voxels in each direction.
+         * @param[in] dd size of voxels in each direction.
+         * 
+         * @return a Success or Unknown error.
+         */
+        template <typename NumType>
+        EPTlibError_t ComputeGradient(const int d, NumType *dst, const NumType *src,
+            const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
     private:
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;
         /// Total number of voxels.
         int m_vox_;
         /// Kernel for Laplacian approximation.
-        std::array<std::vector<real_t>,NDIM> kernel_;
+        std::array<std::vector<real_t>,NDIM> lapl_kernel_;
+        /// Kernel for gradient approximation.
+        std::array<std::vector<real_t>,NDIM> grad_kernel_;
 };
 
 }  // namespace eptlib

@@ -77,7 +77,7 @@ class EPTHelmholtz : public EPTInterface {
         virtual EPTlibError_t Run() override;
     protected:
         /// Filter for the Laplacian computation.
-        FDLaplacianKernel fd_lapl_;
+        FDSavitzkyGolayFilter fd_lapl_;
     private:
         /// Perform the complete Helmholtz-based EPT.
         void CompleteEPTHelm();

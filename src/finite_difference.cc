@@ -33,16 +33,19 @@
 #include "eptlib/finite_difference.h"
 
 #include <complex>
+#include <iostream>
 
+#include <Eigen/Core>
 #include <Eigen/Dense>
 
 using namespace eptlib;
 
-// FDLaplacianKernel constructor
-FDLaplacianKernel::
-FDLaplacianKernel(const Shape &shape) :
+// FDSavitzkyGolayFilter constructor
+FDSavitzkyGolayFilter::
+FDSavitzkyGolayFilter(const Shape &shape) :
     shape_(shape),
     m_vox_(std::accumulate(shape.GetSize().begin(),shape.GetSize().end(),1,std::multiplies<int>())) {
+    double toll = 1e-10;
     std::array<int,NDIM> mm = shape_.GetSize();
     // check to have odd shape size
     assert(m_vox_%2);
@@ -54,11 +57,10 @@ FDLaplacianKernel(const Shape &shape) :
     }
     // initialise the design matrix
     int n_row = shape_.GetVolume();
-    int n_col = 1 + NDIM;
-    if (!shape_.IsSymmetric()) {
-        n_col += (NDIM*(NDIM+1))/2;
-    }
-    Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> F(n_row,n_col);
+    int n_col2 = 1 + NDIM;
+    int n_col1 = (NDIM*(NDIM+1))/2;
+    Eigen::MatrixXd F2(n_row,n_col2);
+    Eigen::MatrixXd F1(n_row,n_col1);
     // fill the design matrix
     std::array<int,NDIM> ii;
     std::array<double,NDIM> di;
@@ -70,18 +72,18 @@ FDLaplacianKernel(const Shape &shape) :
                     for (int d = 0; d<NDIM; ++d) {
                         di[d] = ii[d]-ii0[d];
                     }
-                    F(r,0) = 1.0;
+                    // design matrix for even quantities
+                    F2(r,0) = 1.0;
                     for (int d = 0; d<NDIM; ++d) {
-                        F(r,1+d) = di[d]*di[d];
+                        F2(r,1+d) = di[d]*di[d];
                     }
-                    if (!shape_.IsSymmetric()) {
-                        int c = 0;
-                        for (int d = 0; d<NDIM; ++d) {
-                            F(r,1+NDIM+d) = di[d];
-                            for (int d2 = d+1; d2<NDIM; ++d2) {
-                                F(r,1+2*NDIM+c) = di[d]*di[d2];
-                                ++c;
-                            }
+                    // design matrix for odd quantities
+                    int c = 0;
+                    for (int d = 0; d<NDIM; ++d) {
+                        F1(r,d) = di[d];
+                        for (int d2 = d+1; d2<NDIM; ++d2) {
+                            F1(r,NDIM+c) = di[d]*di[d2];
+                            ++c;
                         }
                     }
                     ++r;
@@ -89,15 +91,61 @@ FDLaplacianKernel(const Shape &shape) :
             }
         }
     }
-    // solve the normal equations
-    Eigen::Matrix<double,Eigen::Dynamic,Eigen::Dynamic> A = (F.transpose()*F).inverse()*F.transpose();
-    // Compute the kernel
+    // check that all lines are filled
+    Eigen::VectorXd v = F2.cwiseAbs().colwise().sum();
+    double ref = v.maxCoeff();
     for (int d = 0; d<NDIM; ++d) {
-        kernel_[d].resize(m_vox_);
+        if (v[d]<toll*ref) {
+            throw std::runtime_error("Impossible to set-up the Savitzky-Golay filter with the provided shape: no points along direction "+std::to_string(d)+".");
+        }
+    }
+    v = F1.cwiseAbs().colwise().sum();
+    ref = v.maxCoeff();
+    for (int d = 0; d<NDIM; ++d) {
+        if (v[d]<toll*ref) {
+            throw std::runtime_error("Impossible to set-up the Savitzky-Golay filter with the provided shape: no points along direction "+std::to_string(d)+".");
+        }
+    }
+    for (int c = NDIM; c<n_col1; ++c) {
+        if (v[c]<toll*ref) {
+            --n_col1;
+            F1.col(c).swap(F1.col(n_col1));
+            --c;
+        }
+    }
+    F1.conservativeResize(Eigen::NoChange, n_col1);
+    // solve the normal equations
+    Eigen::MatrixXd A;
+    if (shape_.IsSymmetric()) {
+        A = (F2.transpose()*F2).inverse()*F2.transpose();
+    } else {
+        Eigen::MatrixXd F(n_row,n_col2+n_col1);
+        F << F2,F1;
+        A = (F.transpose()*F).inverse()*F.transpose();
+    }
+    // Compute the kernel for the laplacian
+    for (int d = 0; d<NDIM; ++d) {
+        lapl_kernel_[d].resize(m_vox_,0.0);
         r = 0;
         for (int idx = 0; idx<m_vox_; ++idx) {
             if (shape_[idx]) {
-                kernel_[d][idx] = 2.0*A(1+d,r);
+                lapl_kernel_[d][idx] = 2.0*A(1+d,r);
+                ++r;
+            }
+        }
+    }
+    // Compute the kernel for the gradient
+    int c_base = 1+NDIM;
+    if (shape_.IsSymmetric()) {
+        A = (F1.transpose()*F1).inverse()*F1.transpose();
+        c_base = 0;
+    }
+    for (int d = 0; d<NDIM; ++d) {
+        grad_kernel_[d].resize(m_vox_,0.0);
+        r = 0;
+        for (int idx = 0; idx<m_vox_; ++idx) {
+            if (shape_[idx]) {
+                grad_kernel_[d][idx] = A(c_base+d,r);
                 ++r;
             }
         }
@@ -105,9 +153,9 @@ FDLaplacianKernel(const Shape &shape) :
     return;
 }
 
-// FDLaplacianKernel apply
+// FDSavitzkyGolayFilter apply
 template <typename NumType>
-EPTlibError_t FDLaplacianKernel::
+EPTlibError_t FDSavitzkyGolayFilter::
 ComputeLaplacian(NumType *dst, const NumType *src, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd) {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
@@ -147,14 +195,62 @@ ComputeLaplacian(NumType *dst, const NumType *src, const std::array<int,NDIM> &n
                 int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
                 dst[idx] = 0.0;
                 for (int d = 0; d<NDIM; ++d) {
-                    dst[idx] += std::inner_product(kernel_[d].begin(),kernel_[d].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d]/dd[d];
+                    dst[idx] += std::inner_product(lapl_kernel_[d].begin(),lapl_kernel_[d].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d]/dd[d];
                 }
             }
         }
     }
     return EPTlibError::Success;
 }
+// FDSavitzkyGolayFilter apply
+template <typename NumType>
+EPTlibError_t FDSavitzkyGolayFilter::
+ComputeGradient(const int d_grad, NumType *dst, const NumType *src,
+    const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) {
+    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    std::array<int,NDIM> ii;
+    std::array<int,NDIM> rr;
+    std::array<int,NDIM> inc;
+    for (int d = 0; d<NDIM; ++d) {
+        rr[d] = shape_.GetSize()[d]/2;
+    }
+    inc[0] = 1;
+    inc[1] = nn[0]-shape_.GetSize()[0];
+    inc[2] = nn[0]*(nn[1]-shape_.GetSize()[1]);
+    // loop over field voxels
+    for (ii[2] = rr[2]; ii[2]<nn[2]-rr[2]; ++ii[2]) {
+        for (ii[1] = rr[1]; ii[1]<nn[1]-rr[1]; ++ii[1]) {
+            for (ii[0] = rr[0]; ii[0]<nn[0]-rr[0]; ++ii[0]) {
+                std::array<int,NDIM> ii_l;
+                std::vector<NumType> field_crop(m_vox_,0.0);
+                // inner loop over kernel voxels
+                int idx_l = 0;
+                int idx_g = ii[0]-rr[0] + nn[0]*(ii[1]-rr[1] + nn[1]*(ii[2]-rr[2]));
+                for (ii_l[2] = -rr[2]; ii_l[2]<=rr[2]; ++ii_l[2]) {
+                    for (ii_l[1] = -rr[1]; ii_l[1]<=rr[1]; ++ii_l[1]) {
+                        for (ii_l[0] = -rr[0]; ii_l[0]<=rr[0]; ++ii_l[0]) {
+                            if (shape_[idx_l]) {
+                                // set the field_crop to the field value
+                                field_crop[idx_l] = src[idx_g];
+                            }
+                            ++idx_l;
+                            idx_g += inc[0];
+                        }
+                        idx_g += inc[1];
+                    }
+                    idx_g += inc[2];
+                }
+                // compute the laplacian
+                int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
+                dst[idx] = std::inner_product(grad_kernel_[d_grad].begin(),grad_kernel_[d_grad].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d_grad];
+            }
+        }
+    }
+    return EPTlibError::Success;
+}
 
-// FDLaplacianKernel specialisations
-template EPTlibError_t FDLaplacianKernel::ComputeLaplacian<double>(double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
-template EPTlibError_t FDLaplacianKernel::ComputeLaplacian<std::complex<double>>(std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+// FDSavitzkyGolayFilter specialisations
+template EPTlibError_t FDSavitzkyGolayFilter::ComputeLaplacian<double>(double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+template EPTlibError_t FDSavitzkyGolayFilter::ComputeLaplacian<std::complex<double>>(std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+template EPTlibError_t FDSavitzkyGolayFilter::ComputeGradient<double>(const int d, double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+template EPTlibError_t FDSavitzkyGolayFilter::ComputeGradient<std::complex<double>>(const int d, std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
