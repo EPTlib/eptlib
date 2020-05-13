@@ -31,6 +31,7 @@
 #=============================================================================
 
 set(EPTLIB_SRC
+    ept_convreact.cc
     ept_helmholtz.cc
     ept_interface.cc
     finite_difference.cc

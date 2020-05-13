@@ -32,6 +32,7 @@
 
 set(EPTlib_TEST_SRC
     main.cc
+    test_ept_convreact.cc
     test_ept_helmholtz.cc
     test_ept_interface.cc
     test_finite_difference.cc

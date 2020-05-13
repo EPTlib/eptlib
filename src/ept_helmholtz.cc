@@ -45,13 +45,13 @@ EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
     return;
 }
 
-// EPTHelmholtz destructor.
+// EPTHelmholtz destructor
 EPTHelmholtz::
 ~EPTHelmholtz() {
     return;
 }
 
-// EPTHelmholtz run.
+// EPTHelmholtz run
 EPTlibError_t EPTHelmholtz::
 Run() {
     if (thereis_tx_sens_.all()) {

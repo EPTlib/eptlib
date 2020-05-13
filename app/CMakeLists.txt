@@ -31,7 +31,6 @@
 #=============================================================================
 
 # EPT-Helmholtz
-
 set(EPT_HELMHOLTZ_NAME "EPTlib_HELM")
 
 add_executable(${EPT_HELMHOLTZ_NAME}
@@ -47,3 +46,20 @@ target_include_directories(${EPT_HELMHOLTZ_NAME}
         ${PROJECT_SOURCE_DIR}/extern/tinytoml/include)
 
 target_link_libraries(${EPT_HELMHOLTZ_NAME} PRIVATE EPTlib)
+
+# EPT convection-reaction
+set(EPT_CONVREACT_NAME "EPTlib_CR")
+
+add_executable(${EPT_CONVREACT_NAME}
+    ept_convreact_main.cc)
+
+configure_file(${PROJECT_SOURCE_DIR}/app/ept_convreact_main.h.in
+    ${PROJECT_BINARY_DIR}/app/ept_convreact_main.h
+    @ONLY)
+
+target_include_directories(${EPT_CONVREACT_NAME}
+    PRIVATE
+        ${PROJECT_BINARY_DIR}/app
+        ${PROJECT_SOURCE_DIR}/extern/tinytoml/include)
+
+target_link_libraries(${EPT_CONVREACT_NAME} PRIVATE EPTlib)

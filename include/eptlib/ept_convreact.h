@@ -30,8 +30,8 @@
 *
 *****************************************************************************/
 
-#ifndef EPTLIB_EPT_HELMHOLTZ_H_
-#define EPTLIB_EPT_HELMHOLTZ_H_
+#ifndef EPTLIB_EPT_CONVREACT_H_
+#define EPTLIB_EPT_CONVREACT_H_
 
 #include "eptlib/ept_interface.h"
 
@@ -44,9 +44,9 @@
 namespace eptlib {
 
 /**
- * Implementation of the Helmholtz-based EPT method.
+ * Implementation of the convection-reaction EPT method.
  */
-class EPTHelmholtz : public EPTInterface {
+class EPTConvReact : public EPTInterface {
     public:
         /**
          * Constructor.
@@ -58,34 +58,27 @@ class EPTHelmholtz : public EPTInterface {
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
-        EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
+        EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
             const std::array<double,NDIM> &dd, const Shape &shape);
         /**
          * Virtual destructor.
          */
-        virtual ~EPTHelmholtz();
+        virtual ~EPTConvReact();
         /**
-         * Perform the Helmholtz-based EPT.
+         * Perform the convection-reaction EPT.
          * 
          * @return an error index about the state of the tomography.
-         * 
-         * Three variants of the EPT technique are implemented: when both the
-         * tx sensitivity and the trx phase are known the complete method is
-         * used, otherwise the magnitude-based or the phase-based
-         * approximations are applied.
          */
         virtual EPTlibError_t Run() override;
     private:
-        /// Filter for the Laplacian computation.
-        FDSavitzkyGolayFilter fd_lapl_;
-        /// Perform the complete Helmholtz-based EPT.
-        void CompleteEPTHelm();
-        /// Perform the phase approximated Helmholtz-based EPT.
-        void PhaseEPTHelm();
-        /// Perform the magnitude approximated Helmholtz-based EPT.
-        void MagnitudeEPTHelm();
+        /// Filter for the derivative computation.
+        FDSavitzkyGolayFilter fd_filter_;
+        /// Perform the complete convection-reaction EPT.
+        EPTlibError_t CompleteEPTConvReact();
+        /// Perform the phase approximated convection-reaction EPT.
+        EPTlibError_t PhaseEPTConvReact();
 };
 
 }  // namespace eptlib
 
-#endif  // EPTLIB_EPT_HELMHOLTZ_H_
+#endif  // EPTLIB_EPT_CONVREACT_H_
