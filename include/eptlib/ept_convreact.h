@@ -70,7 +70,39 @@ class EPTConvReact : public EPTInterface {
          * @return an error index about the state of the tomography.
          */
         virtual EPTlibError_t Run() override;
+        /**
+         * Set the tomography on a volume domain.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t SetVolumeTomography();
+        /**
+         * Unset the tomography on a volume domain.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t UnsetVolumeTomography();
+        /**
+         * Set the artificial diffusion stabilisation.
+         * 
+         * @param diff_coeff the coefficient of the artificial diffusion stabilisation.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t SetArtificialDiffusion(const double diff_coeff);
+        /**
+         * Unset the artificial diffusion stabilisation.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t UnsetArtificialDiffusion();
     private:
+        /// Volume tomography flag.
+        bool is_volume_;
+        /// Artificial diffusion coefficient.
+        double diff_coeff_;
+        /// Artificial diffusion flag.
+        bool thereis_diff_;
         /// Filter for the derivative computation.
         FDSavitzkyGolayFilter fd_filter_;
         /// Perform the complete convection-reaction EPT.

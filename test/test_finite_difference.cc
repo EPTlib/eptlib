@@ -70,9 +70,10 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
     std::vector<double> c_lapl(n_vox);
     std::vector<double> l_lapl(n_vox);
     std::vector<double> q_lapl(n_vox);
-    fd_lapl.ComputeLaplacian(c_lapl.data(),c_field.data(),nn,dd);
-    fd_lapl.ComputeLaplacian(l_lapl.data(),l_field.data(),nn,dd);
-    fd_lapl.ComputeLaplacian(q_lapl.data(),q_field.data(),nn,dd);
+    DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
+    fd_lapl.Apply(diff_op,c_lapl.data(),c_field.data(),nn,dd);
+    fd_lapl.Apply(diff_op,l_lapl.data(),l_field.data(),nn,dd);
+    fd_lapl.Apply(diff_op,q_lapl.data(),q_field.data(),nn,dd);
     //
     for (int idx = 0; idx<n_vox; ++idx) {
         ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
@@ -127,9 +128,10 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
         c_grad[d].resize(n_vox);
         l_grad[d].resize(n_vox);
         q_grad[d].resize(n_vox);
-        fd_grad.ComputeGradient(d,c_grad[d].data(),c_field.data(),nn,dd);
-        fd_grad.ComputeGradient(d,l_grad[d].data(),l_field.data(),nn,dd);
-        fd_grad.ComputeGradient(d,q_grad[d].data(),q_field.data(),nn,dd);
+        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
+        fd_grad.Apply(diff_op,c_grad[d].data(),c_field.data(),nn,dd);
+        fd_grad.Apply(diff_op,l_grad[d].data(),l_field.data(),nn,dd);
+        fd_grad.Apply(diff_op,q_grad[d].data(),q_field.data(),nn,dd);
     }
     //
     for (int d = 0; d<NDIM; ++d) {
@@ -198,9 +200,10 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
     std::vector<double> c_lapl(n_vox);
     std::vector<double> l_lapl(n_vox);
     std::vector<double> q_lapl(n_vox);
-    fd_lapl.ComputeLaplacian(c_lapl.data(),c_field.data(),nn,dd);
-    fd_lapl.ComputeLaplacian(l_lapl.data(),l_field.data(),nn,dd);
-    fd_lapl.ComputeLaplacian(q_lapl.data(),q_field.data(),nn,dd);
+    DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
+    fd_lapl.Apply(diff_op,c_lapl.data(),c_field.data(),nn,dd);
+    fd_lapl.Apply(diff_op,l_lapl.data(),l_field.data(),nn,dd);
+    fd_lapl.Apply(diff_op,q_lapl.data(),q_field.data(),nn,dd);
     //
     for (int idx = 0; idx<n_vox; ++idx) {
         ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
@@ -270,9 +273,10 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayGradient) {
         c_grad[d].resize(n_vox);
         l_grad[d].resize(n_vox);
         q_grad[d].resize(n_vox);
-        fd_grad.ComputeGradient(d,c_grad[d].data(),c_field.data(),nn,dd);
-        fd_grad.ComputeGradient(d,l_grad[d].data(),l_field.data(),nn,dd);
-        fd_grad.ComputeGradient(d,q_grad[d].data(),q_field.data(),nn,dd);
+        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
+        fd_grad.Apply(diff_op,c_grad[d].data(),c_field.data(),nn,dd);
+        fd_grad.Apply(diff_op,l_grad[d].data(),l_field.data(),nn,dd);
+        fd_grad.Apply(diff_op,q_grad[d].data(),q_field.data(),nn,dd);
     }
     //
     for (int d = 0; d<NDIM; ++d) {
