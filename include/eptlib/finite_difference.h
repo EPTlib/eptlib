@@ -75,7 +75,17 @@ class FDSavitzkyGolayFilter {
          */
         FDSavitzkyGolayFilter(const Shape &shape);
         /**
+         * Apply the FD filter to an input field.
          * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param[in] diff_op differential operator type.
+         * @param[out] dst pointer to the output destination.
+         * @param[in] src pointer to the input source.
+         * @param[in] nn number of voxels in each direction.
+         * @param[in] dd size of voxels in each direction.
+         * 
+         * @return a Success or Unknown error.
          */
         template <typename NumType>
         EPTlibError_t Apply(const DifferentialOperator_t diff_op, NumType *dst,
@@ -91,13 +101,13 @@ class FDSavitzkyGolayFilter {
         std::array<std::vector<double>,NDIM> grad_kernel_;
         /// Apply the kernel for first order derivatives.
         template <typename NumType>
-        NumType ApplyKernelFirst(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
+        NumType FirstOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
         /// Apply the kernel for second order derivatives.
         template <typename NumType>
-        NumType ApplyKernelSecond(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
+        NumType SecondOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
         /// Apply the kernel for Laplacian computation.
         template <typename NumType>
-        NumType ApplyKernelLaplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
+        NumType Laplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
 };
 
 }  // namespace eptlib

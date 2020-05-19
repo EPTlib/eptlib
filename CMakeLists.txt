@@ -118,7 +118,7 @@ install(FILES "${CMAKE_CURRENT_BINARY_DIR}/EPTlibConfig.cmake"
         "${CMAKE_CURRENT_BINARY_DIR}/EPTlibConfigVersion.cmake"
     DESTINATION lib/cmake/eptlib)
 
-install(TARGETS EPTlib_HELM
+install(TARGETS EPTlib_HELM EPTlib_CR
     RUNTIME DESTINATION bin)
 
 # ----- Packaging -----

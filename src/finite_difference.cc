@@ -195,14 +195,14 @@ Apply(const DifferentialOperator_t diff_op, NumType *dst, const NumType *src, co
                     diff_op==DifferentialOperator::GradientY||
                     diff_op==DifferentialOperator::GradientZ) {
                     int d = diff_op - DifferentialOperator::GradientX;
-                    dst[idx] = ApplyKernelFirst(d,field_crop,dd);
+                    dst[idx] = FirstOrder(d,field_crop,dd);
                 } else if (diff_op==DifferentialOperator::GradientXX||
                     diff_op==DifferentialOperator::GradientYY||
                     diff_op==DifferentialOperator::GradientZZ) {
                     int d = diff_op - DifferentialOperator::GradientXX;
-                    dst[idx] = ApplyKernelSecond(d,field_crop,dd);
+                    dst[idx] = SecondOrder(d,field_crop,dd);
                 } else if (diff_op==DifferentialOperator::Laplacian) {
-                    dst[idx] = ApplyKernelLaplacian(field_crop,dd);
+                    dst[idx] = Laplacian(field_crop,dd);
                 }
             }
         }
@@ -213,21 +213,21 @@ Apply(const DifferentialOperator_t diff_op, NumType *dst, const NumType *src, co
 // FDSavitzkyGolayFilter apply kernel first order derivative
 template <typename NumType>
 NumType FDSavitzkyGolayFilter::
-ApplyKernelFirst(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) {
+FirstOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) {
     NumType dst = std::inner_product(grad_kernel_[d].begin(),grad_kernel_[d].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d];
     return dst;
 }
 // FDSavitzkyGolayFilter apply kernel second order derivative
 template <typename NumType>
 NumType FDSavitzkyGolayFilter::
-ApplyKernelSecond(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) {
+SecondOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) {
     NumType dst = std::inner_product(lapl_kernel_[d].begin(),lapl_kernel_[d].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d]/dd[d];
     return dst;
 }
 // FDSavitzkyGolayFilter apply kernel laplacian
 template <typename NumType>
 NumType FDSavitzkyGolayFilter::
-ApplyKernelLaplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) {
+Laplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) {
     NumType dst = 0.0;
     for (int d = 0; d<NDIM; ++d) {
         dst += std::inner_product(lapl_kernel_[d].begin(),lapl_kernel_[d].end(),field_crop.begin(),static_cast<NumType>(0.0))/dd[d]/dd[d];
