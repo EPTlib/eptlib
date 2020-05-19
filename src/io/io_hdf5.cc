@@ -156,7 +156,7 @@ IOh5::
 // IOh5 read dataset
 template <typename T>
 State_t IOh5::
-ReadDataset(Image<T> &img, const std::string &url, const std::string &urn) {
+ReadDataset(Image<T> *img, const std::string &url, const std::string &urn) {
     H5::Exception::dontPrint();
     try {
         // locate the dataset
@@ -167,8 +167,8 @@ ReadDataset(Image<T> &img, const std::string &url, const std::string &urn) {
         size_t ndim = dspace.getSimpleExtentDims(dims.data(),NULL);
         std::vector<int> nn(dims.size());
         std::reverse_copy(dims.begin(),dims.end(),nn.begin());
-        img = Image<T>(nn);
-        dset.read(img.GetData().data(),::HDF5Types<T>::Type());
+        *img = Image<T>(nn);
+        dset.read(img->GetData().data(),::HDF5Types<T>::Type());
     } catch (const H5::FileIException&) {
         return State::HDF5FileException;
     } catch (const H5::DataSetIException&) {
@@ -219,11 +219,11 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
 
 // Template specialisations
 // ReadDataset
-template State_t IOh5::ReadDataset<size_t>(Image<size_t> &img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<float>(Image<float> &img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<double>(Image<double> &img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<int>(Image<int> &img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<long>(Image<long> &img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<size_t>(Image<size_t> *img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<float>(Image<float> *img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<double>(Image<double> *img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<int>(Image<int> *img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<long>(Image<long> *img, const std::string &url, const std::string &urn);
 // WriteDataset
 template State_t IOh5::WriteDataset<size_t>(const Image<size_t> &img, const std::string &url, const std::string &urn) const;
 template State_t IOh5::WriteDataset<float>(const Image<float> &img, const std::string &url, const std::string &urn) const;

@@ -67,14 +67,14 @@ namespace io {
              * 
              * @tparam T scalar typename.
              * 
-             * @param img destination image.
+             * @param img pointer to the destination image.
              * @param url url of the dataset.
              * @param urn urn of the dataset.
              * 
              * @return the IO state.
              */
             template <typename T>
-            State_t ReadDataset(Image<T> &img, const std::string &url, const std::string &urn);
+            State_t ReadDataset(Image<T> *img, const std::string &url, const std::string &urn);
             /**
              * Write a datates into the .h5 file.
              * 

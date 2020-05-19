@@ -48,7 +48,7 @@ TEST(IOhdf5GTest,ReadDataset) {
 
     std::string url = "/test/input/";
     std::string urn = "data";
-    ifile.ReadDataset(img, url,urn);
+    ifile.ReadDataset(&img, url,urn);
 
     std::array<int,NDIM> nn_expected{20,10,30};
     std::vector<double> data_expected(Prod(nn_expected));
@@ -75,7 +75,7 @@ TEST(IOhdf5GTest,WriteDataset) {
 
     Image<double> img;
 
-    ofile.ReadDataset(img, url,urn);
+    ofile.ReadDataset(&img, url,urn);
     for (int d = 0; d<NDIM; ++d) {
         ASSERT_EQ(img.GetSize(d),img_expected.GetSize(d));
     }
