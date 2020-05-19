@@ -45,7 +45,8 @@ using namespace eptlib;
 EPTConvReact::
 EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd, 1,1), diff_coeff_(0.0), thereis_diff_(false), fd_filter_(shape) {
+    EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
+    is_volume_(false), diff_coeff_(0.0), thereis_diff_(false), fd_filter_(shape) {
     return;
 }
 
@@ -58,13 +59,14 @@ EPTConvReact::
 // EPTConvReact run
 EPTlibError_t EPTConvReact::
 Run() {
+    int n_out = is_volume_?n_vox_:nn_[0]*nn_[1];
     if (thereis_tx_sens_.all()) {
         thereis_epsr_ = true;
-        epsr_.resize(n_vox_);
+        epsr_.resize(n_out);
     }
     if (thereis_trx_phase_.all()) {
         thereis_sigma_ = true;
-        sigma_.resize(n_vox_);
+        sigma_.resize(n_out);
     } else {
         return EPTlibError::MissingData;
     }
@@ -101,9 +103,6 @@ SetArtificialDiffusion(const double diff_coeff) {
 // EPTConvReact unset artificial diffusion
 EPTlibError_t EPTConvReact::
 UnsetArtificialDiffusion() {
-    if (!thereis_diff_) {
-        return EPTlibError::Unknown;
-    }
     thereis_diff_ = false;
     return EPTlibError::Success;
 }
@@ -111,19 +110,19 @@ UnsetArtificialDiffusion() {
 // EPTConvReact complete EPT
 EPTlibError_t EPTConvReact::
 CompleteEPTConvReact() {
-    double dir_epsr = 1.0;
-    double dir_sigma = 0.0;
-    std::complex<double> dir_x = 1.0/std::complex<double>(dir_epsr*EPS0,-dir_sigma/omega_);
+    int n_out = is_volume_?n_vox_:nn_[0]*nn_[1];
+    std::complex<double> dir_x = 1.0/std::complex<double>(dir_epsr_*EPS0,-dir_sigma_/omega_);
     // compute the gradient
     std::vector<std::complex<double> > tx_sens_c(n_vox_);
     std::array<std::vector<std::complex<double> >,NDIM> beta;
     for (int idx = 0; idx<n_vox_; ++idx) {
         tx_sens_c[idx] = tx_sens_[0][idx]*std::exp(std::complex<double>(0.0,0.5*trx_phase_[0][idx]));
     }
-    for (int d = 0; d<NDIM; ++d) {
+    int grad_size = is_volume_?NDIM:NDIM-1;
+    for (int d = 0; d<grad_size; ++d) {
         beta[d].resize(n_vox_,NAN);
         DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
-        EPTlibError_t error = fd_filter_.Apply(diff_op, beta[0].data(),tx_sens_c.data(),nn_,dd_);
+        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),tx_sens_c.data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -131,7 +130,14 @@ CompleteEPTConvReact() {
     for (int idx = 0; idx<n_vox_; ++idx) {
         beta[0][idx] = beta[0][idx] - std::complex<double>(0.0,1.0)*beta[1][idx];
         beta[1][idx] = std::complex<double>(0.0,1.0)*beta[0][idx];
-        beta[2][idx] = beta[2][idx];
+    }
+    if (!is_volume_) {
+        beta[2].resize(n_vox_,NAN);
+        DifferentialOperator_t diff_op = DifferentialOperator::GradientZZ;
+        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[2].data(),tx_sens_c.data(),nn_,dd_);
+        if (error!=EPTlibError::Success) {
+            return error;
+        }
     }
     // select the degrees of freedom
     std::vector<int> dof(n_vox_);
@@ -176,7 +182,7 @@ CompleteEPTConvReact() {
         if (idof > 0) {
             b[idof-1] = 0.0;
             // coefficient matrix
-            for (int d = 0; d<NDIM; ++d) {
+            for (int d = 0; d<grad_size; ++d) {
                 if (thereis_diff_) {
                     A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,idof-1,2.0*diff_coeff_/dd_[d]/dd_[d]));
                 }
@@ -188,16 +194,10 @@ CompleteEPTConvReact() {
                         A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,-diff_coeff_/dd_[d]/dd_[d]));
                     }
                 } else {
-
-                    if (d<2) {
-
-                        b[idof-1] += -dir_x*beta[d][jdx]/2.0/dd_[d];
-                        if (thereis_diff_) {
-                            b[idof-1] += dir_x*diff_coeff_/dd_[d]/dd_[d];
-                        }
-
+                    b[idof-1] += -dir_x*beta[d][jdx]/2.0/dd_[d];
+                    if (thereis_diff_) {
+                        b[idof-1] += dir_x*diff_coeff_/dd_[d]/dd_[d];
                     }
-
                 }
                 jdx = idx-step[d];
                 jdof = dof[jdx];
@@ -207,17 +207,14 @@ CompleteEPTConvReact() {
                         A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,-diff_coeff_/dd_[d]/dd_[d]));
                     }
                 } else {
-
-                    if (d<2) {
-
-                        b[idof-1] += dir_x*beta[d][jdx]/2.0/dd_[d];
-                        if (thereis_diff_) {
-                            b[idof-1] += dir_x*diff_coeff_/dd_[d]/dd_[d];
-                        }
-
+                    b[idof-1] += dir_x*beta[d][jdx]/2.0/dd_[d];
+                    if (thereis_diff_) {
+                        b[idof-1] += dir_x*diff_coeff_/dd_[d]/dd_[d];
                     }
-
                 }
+            }
+            if (!is_volume_) {
+                A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,idof-1,beta[2][idx]));
             }
             // forcing term
             b[idof-1] += -omega_*omega_*MU0*tx_sens_c[idx];
@@ -240,8 +237,8 @@ CompleteEPTConvReact() {
             epsr_[idx] = epsc.real()/EPS0;
             sigma_[idx] = -epsc.imag()*omega_;
         } else {
-            epsr_[idx] = dir_epsr;
-            sigma_[idx] = dir_sigma;
+            epsr_[idx] = dir_epsr_;
+            sigma_[idx] = dir_sigma_;
         }
     }
     return EPTlibError::Success;

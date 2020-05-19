@@ -32,6 +32,7 @@
 
 #include <array>
 #include <algorithm>
+#include <chrono>
 #include <exception>
 #include <fstream>
 #include <iostream>
@@ -93,6 +94,8 @@ int main(int argc, char **argv) {
     bool thereis_sigma;
     string epsr_address;
     bool thereis_epsr;
+    double diff_coeff;
+    bool thereis_diff;
 
     // initialise the channel wildcard variables
     char chwc_tx = '>';
@@ -200,6 +203,14 @@ int main(int argc, char **argv) {
     if (thereis_epsr) {
         cout<<"  Output relative permittivity: '"<<epsr_address<<"'\n";
     }
+    // ...parameters
+    error = io_toml.GetValue<double>(diff_coeff,"parameter.artificial-diffusion");
+    if (!error) {
+        thereis_diff = true;
+        cout<<"\n  Artificial diffusion: '"<<diff_coeff<<"'\n";
+    } else {
+        thereis_diff = false;
+    }
 
     // load the files and perform the EPT
     std::array<int,NDIM> rr = {1,1,1};
@@ -217,10 +228,16 @@ int main(int argc, char **argv) {
             }
         }
     }
+    if (thereis_diff) {
+        ept_cr.SetArtificialDiffusion(diff_coeff);
+    }
     cout<<"\nRun convection-reaction EPT..."<<flush;
+    auto start = std::chrono::system_clock::now();
     error = ept_cr.Run();
+    auto end = std::chrono::system_clock::now();
     if (!error) {
-        cout<<"done!\n"<<endl;
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+        cout<<"done! ["<<elapsed.count()<<" s]\n"<<endl;
     } else {
         cout<<"execution failed\n"<<endl;
         return 1;
@@ -233,14 +250,14 @@ int main(int argc, char **argv) {
     thereis_epsr = thereis_epsr&!ept_cr.GetRelativePermittivity(epsr.data());
     if (thereis_sigma) {
         error = WriteData(sigma, nn, sigma_address);
-        if (!error) {
+        if (error!=EPTlibError::Success) {
             cout<<"Fatal ERROR: impossible write file '"<<sigma_address<<"'"<<endl;
             return 2;
         }
     }
     if (thereis_epsr) {
         error = WriteData(epsr, nn, epsr_address);
-        if (!error) {
+        if (error!=EPTlibError::Success) {
             cout<<"Fatal ERROR: impossible write file '"<<epsr_address<<"'"<<endl;
             return 2;
         }

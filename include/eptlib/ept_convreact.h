@@ -97,6 +97,10 @@ class EPTConvReact : public EPTInterface {
          */
         EPTlibError_t UnsetArtificialDiffusion();
     private:
+        /// Dirichlet condition of relative permittivity.
+        double dir_epsr_;
+        /// Dirichlet condition of electric conductivity.
+        double dir_sigma_;
         /// Volume tomography flag.
         bool is_volume_;
         /// Artificial diffusion coefficient.
