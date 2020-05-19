@@ -61,11 +61,11 @@ class SubEPTInterface : public EPTInterface {
         EPTlibError_t Run() override {
             thereis_sigma_ = true;
             thereis_epsr_ = true;
-            sigma_.resize(n_vox_);
-            epsr_.resize(n_vox_);
+            sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
+            epsr_ = Image<double>(nn_[0],nn_[1],nn_[2]);
             for (int idx = 0; idx<n_vox_; ++idx) {
-                sigma_[idx] = tx_sens_[0][idx];
-                epsr_[idx] = trx_phase_[0][idx];
+                sigma_[idx] = (*tx_sens_[0])[idx];
+                epsr_[idx] = (*trx_phase_[0])[idx];
             }
             return EPTlibError::Success;
         }
@@ -74,10 +74,10 @@ class SubEPTInterface : public EPTInterface {
 TEST(EPTInterfaceGTest,SettersGetters) {
     constexpr int n_dim = 3;
     const std::array<int,n_dim> nn = {100,100,100};
-    const std::array<real_t,n_dim> dd = {0.002,0.002,0.002};
+    const std::array<double,n_dim> dd = {0.002,0.002,0.002};
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
-    std::vector<real_t> tx_sens(n_vox);
-    std::vector<real_t> trx_phase(n_vox);
+    Image<double> tx_sens(nn[0],nn[1],nn[2]);
+    Image<double> trx_phase(nn[0],nn[1],nn[2]);
     for (int idx = 0; idx<n_vox; ++idx) {
         tx_sens[idx] = idx+1;
         trx_phase[idx] = -idx-1;
@@ -86,28 +86,26 @@ TEST(EPTInterfaceGTest,SettersGetters) {
     EPTlibError_t ierr;
     SubEPTInterface epti(nn,dd);
     //
-    ierr = epti.SetTxSensitivity(tx_sens.data());
+    ierr = epti.SetTxSensitivity(&tx_sens);
     ASSERT_EQ(ierr,EPTlibError::Success);
     //
-    ierr = epti.SetTRxPhase(trx_phase.data());
+    ierr = epti.SetTRxPhase(&trx_phase);
     ASSERT_EQ(ierr,EPTlibError::Success);
     //
     ierr = epti.Run();
     ASSERT_EQ(ierr,EPTlibError::Success);
     //
-    std::vector<real_t> sigma;
-    std::vector<real_t> epsr;
-    sigma.resize(n_vox);
-    epsr.resize(n_vox);
+    Image<double> sigma;
+    Image<double> epsr;
     //
-    ierr = epti.GetElectricConductivity(sigma.data());
+    ierr = epti.GetElectricConductivity(&sigma);
     ASSERT_EQ(ierr,EPTlibError::Success);
-    real_t err_s = std::inner_product(tx_sens.begin(),tx_sens.end(),sigma.begin(),0.0,std::plus<real_t>(),std::minus<real_t>());
+    real_t err_s = std::inner_product(tx_sens.GetData().begin(),tx_sens.GetData().end(),sigma.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
     ASSERT_DOUBLE_EQ(err_s,0.0);
     //
-    ierr = epti.GetRelativePermittivity(epsr.data());
+    ierr = epti.GetRelativePermittivity(&epsr);
     ASSERT_EQ(ierr,EPTlibError::Success);
-    real_t err_e = std::inner_product(trx_phase.begin(),trx_phase.end(),epsr.begin(),0.0,std::plus<real_t>(),std::minus<real_t>());
+    real_t err_e = std::inner_product(trx_phase.GetData().begin(),trx_phase.GetData().end(),epsr.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
     ASSERT_DOUBLE_EQ(err_e,0.0);
     //
     return;

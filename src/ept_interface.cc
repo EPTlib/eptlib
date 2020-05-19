@@ -44,7 +44,7 @@ EPTInterface(const double freq, const std::array<int,NDIM> &nn,
     n_vox_(std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>())),
     tx_sens_(tx_ch,nullptr), trx_phase_(tx_ch*rx_ch,nullptr),
     thereis_tx_sens_(tx_ch,false), thereis_trx_phase_(tx_ch*rx_ch,false),
-    sigma_(0), epsr_(0), thereis_sigma_(false), thereis_epsr_(false),
+    sigma_(), epsr_(), thereis_sigma_(false), thereis_epsr_(false),
     postpro_(nullptr), thereis_postpro_(false) {
     return;
 }
@@ -57,18 +57,34 @@ EPTInterface::
 
 // EPTInterface setters
 EPTlibError_t EPTInterface::
-SetTxSensitivity(const double *tx_sens, const int j) {
+SetTxSensitivity(const Image<double> *tx_sens, const int j) {
     if (j<0 || j>=tx_ch_) {
         return EPTlibError::OutOfRange;
+    }
+    if (tx_sens->GetNDim()!=NDIM) {
+        return EPTlibError::WrongDataFormat;
+    }
+    for (int d = 0; d<NDIM; ++d) {
+        if (tx_sens->GetSize(d)!=nn_[d]) {
+            return EPTlibError::WrongDataFormat;
+        }
     }
     tx_sens_[j] = tx_sens;
     thereis_tx_sens_.set(j);
     return EPTlibError::Success;
 }
 EPTlibError_t EPTInterface::
-SetTRxPhase(const double *trx_phase, const int j, const int k) {
+SetTRxPhase(const Image<double> *trx_phase, const int j, const int k) {
     if (j<0 || j>=tx_ch_ || k<0 || k>=rx_ch_) {
         return EPTlibError::OutOfRange;
+    }
+    if (trx_phase->GetNDim()!=NDIM) {
+        return EPTlibError::WrongDataFormat;
+    }
+    for (int d = 0; d<NDIM; ++d) {
+        if (trx_phase->GetSize(d)!=nn_[d]) {
+            return EPTlibError::WrongDataFormat;
+        }
     }
     trx_phase_[j+k*tx_ch_] = trx_phase;
     thereis_trx_phase_.set(j+k*tx_ch_);
@@ -77,19 +93,19 @@ SetTRxPhase(const double *trx_phase, const int j, const int k) {
 
 // EPTInterface getters
 EPTlibError_t EPTInterface::
-GetElectricConductivity(double *sigma) {
+GetElectricConductivity(Image<double> *sigma) {
     if (!thereis_sigma_) {
         return EPTlibError::MissingData;
     }
-    std::memcpy(sigma,sigma_.data(),n_vox_*sizeof(double));
+    *sigma = sigma_;
     return EPTlibError::Success;    
 }
 EPTlibError_t EPTInterface::
-GetRelativePermittivity(double *epsr) {
+GetRelativePermittivity(Image<double> *epsr) {
     if (!thereis_epsr_) {
         return EPTlibError::MissingData;
     }
-    std::memcpy(epsr,epsr_.data(),n_vox_*sizeof(double));
+    *epsr = epsr_;
     return EPTlibError::Success;
 }
 
@@ -119,12 +135,12 @@ ApplyPostPro(const double *img) {
     }
     std::vector<double> tmp(n_vox_);
     if (thereis_sigma_) {
-        postpro_->ApplyFilter(tmp.data(),sigma_.data(),nn_,img);
-        std::memcpy(sigma_.data(),tmp.data(),n_vox_*sizeof(double));
+        postpro_->ApplyFilter(tmp.data(),sigma_.GetData().data(),nn_,img);
+        std::memcpy(sigma_.GetData().data(),tmp.data(),n_vox_*sizeof(double));
     }
     if (thereis_epsr_) {
-        postpro_->ApplyFilter(tmp.data(),epsr_.data(),nn_,img);
-        std::memcpy(epsr_.data(),tmp.data(),n_vox_*sizeof(double));
+        postpro_->ApplyFilter(tmp.data(),epsr_.GetData().data(),nn_,img);
+        std::memcpy(epsr_.GetData().data(),tmp.data(),n_vox_*sizeof(double));
     }
     return EPTlibError::Success;
 }

@@ -38,6 +38,7 @@
 
 #include <boost/dynamic_bitset.hpp>
 
+#include "eptlib/image.h"
 #include "eptlib/median_filter.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
@@ -60,7 +61,8 @@ class EPTInterface {
          * @param rx_ch number of receive channels.
          */
         EPTInterface(const double freq, const std::array<int,NDIM> &nn,
-            const std::array<double,NDIM> &dd, const int tx_ch=1, const int rx_ch=1);
+            const std::array<double,NDIM> &dd, const int tx_ch=1,
+            const int rx_ch=1);
         /**
          * Virtual destructor.
          */
@@ -74,18 +76,19 @@ class EPTInterface {
         /**
          * Set the transmit sensitivity of j-th Tx channel.
          * 
-         * @param tx_sens pointer to transmit sensitivity distribution.
+         * @param tx_sens pointer to transmit sensitivity image.
          * @param j transmit channel id.
          * 
          * @return a Success or OutOfRange error.
          * 
          * Note that just the _reference_ to tx_sens is stored.
          */
-        EPTlibError_t SetTxSensitivity(const double *tx_sens, const int j = 0);
+        EPTlibError_t SetTxSensitivity(const Image<double> *tx_sens,
+            const int j = 0);
         /**
          * Set the transceive phase of j-th Tx channel w.r.t k-th Rx channel.
          * 
-         * @param trx_phase pointer to transceive phase distribution.
+         * @param trx_phase pointer to transceive phase image.
          * @param j transmit channel id.
          * @param k receive channel id.
          * 
@@ -93,7 +96,8 @@ class EPTInterface {
          * 
          * Note that just the _reference_ to trx_phase is stored.
          */
-        EPTlibError_t SetTRxPhase(const double *trx_phase, const int j = 0, const int k = 0);
+        EPTlibError_t SetTRxPhase(const Image<double> *trx_phase,
+            const int j = 0, const int k = 0);
         /**
          * Get the electric conductivity.
          * 
@@ -101,7 +105,7 @@ class EPTInterface {
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError_t GetElectricConductivity(double *sigma);
+        EPTlibError_t GetElectricConductivity(Image<double> *sigma);
         /**
          * Get the relative permittivity.
          * 
@@ -109,7 +113,7 @@ class EPTInterface {
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError_t GetRelativePermittivity(double *epsr);
+        EPTlibError_t GetRelativePermittivity(Image<double> *epsr);
         /**
          * Set a post-processing median filter.
          * 
@@ -148,17 +152,17 @@ class EPTInterface {
         /// Total number of voxels.
         int n_vox_;
         /// Collection of pointers to transmit sensitivity distributions.
-        std::vector<const double*> tx_sens_;
+        std::vector<const Image<double>*> tx_sens_;
         /// Collection of pointers to transceive phase distributions (tx_ch faster).
-        std::vector<const double*> trx_phase_;
+        std::vector<const Image<double>*> trx_phase_;
         /// Transmit sensitivity data flag.
         boost::dynamic_bitset<> thereis_tx_sens_;
         /// Transceive phase data flag.
         boost::dynamic_bitset<> thereis_trx_phase_;
         /// Electric conductivity distribution.
-        std::vector<double> sigma_;
+        Image<double> sigma_;
         /// Relative permittivity distribution.
-        std::vector<double> epsr_;
+        Image<double> epsr_;
         /// Electric conductivity data flag.
         bool thereis_sigma_;
         /// Relative permittivity data flag.

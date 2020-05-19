@@ -56,11 +56,11 @@ EPTlibError_t EPTHelmholtz::
 Run() {
     if (thereis_tx_sens_.all()) {
         thereis_epsr_ = true;
-        epsr_.resize(n_vox_);
+        epsr_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
     if (thereis_trx_phase_.all()) {
         thereis_sigma_ = true;
-        sigma_.resize(n_vox_);
+        sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
     if (thereis_epsr_ && thereis_sigma_) {
         // ...complete Helmholtz-based
@@ -84,7 +84,7 @@ CompleteEPTHelm() {
     std::vector<std::complex<double> > tx_sens_c(n_vox_);
     std::vector<std::complex<double> > epsc(n_vox_);
     for (int idx = 0; idx<n_vox_; ++idx) {
-        tx_sens_c[idx] = tx_sens_[0][idx]*std::exp(std::complex<double>(0.0,0.5*trx_phase_[0][idx]));
+        tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
     DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
     fd_lapl_.Apply(diff_op,epsc.data(),tx_sens_c.data(),nn_,dd_);
@@ -98,16 +98,16 @@ CompleteEPTHelm() {
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
     DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,epsr_.data(),tx_sens_[0],nn_,dd_);
+    fd_lapl_.Apply(diff_op,epsr_.GetData().data(),tx_sens_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
-        epsr_[idx] /= -EPS0*MU0*omega_*omega_*tx_sens_[0][idx];
+        epsr_[idx] /= -EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx];
     }
     return;
 }
 void EPTHelmholtz::
 PhaseEPTHelm() {
     DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,sigma_.data(),trx_phase_[0],nn_,dd_);
+    fd_lapl_.Apply(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
         sigma_[idx] /= 2.0*MU0*omega_;
     }

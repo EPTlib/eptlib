@@ -62,11 +62,11 @@ Run() {
     int n_out = is_volume_?n_vox_:nn_[0]*nn_[1];
     if (thereis_tx_sens_.all()) {
         thereis_epsr_ = true;
-        epsr_.resize(n_out);
+        epsr_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
     if (thereis_trx_phase_.all()) {
         thereis_sigma_ = true;
-        sigma_.resize(n_out);
+        sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     } else {
         return EPTlibError::MissingData;
     }
@@ -116,7 +116,7 @@ CompleteEPTConvReact() {
     std::vector<std::complex<double> > tx_sens_c(n_vox_);
     std::array<std::vector<std::complex<double> >,NDIM> beta;
     for (int idx = 0; idx<n_vox_; ++idx) {
-        tx_sens_c[idx] = tx_sens_[0][idx]*std::exp(std::complex<double>(0.0,0.5*trx_phase_[0][idx]));
+        tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
     int grad_size = is_volume_?NDIM:NDIM-1;
     for (int d = 0; d<grad_size; ++d) {
