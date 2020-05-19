@@ -86,6 +86,26 @@ class Image {
 		 */
 		int GetNDim() const;
 		/**
+		 * Get a reference to the image dimensions.
+		 * 
+		 * @return a reference to the dimensions.
+		 */
+		std::vector<int>& GetSize();
+		/**
+		 * Get a constant reference to the image dimensions.
+		 * 
+		 * @return a constant reference to the dimensions.
+		 */
+		const std::vector<int>& GetSize() const;
+		/**
+		 * Number of voxels along dimension d.
+		 * 
+		 * @param d dimension of interest.
+		 * 
+		 * @return the number of voxels.
+		 */
+		int GetSize(const int d) const;
+		/**
 		 * Number of voxels of the image.
 		 * 
 		 * @return the number of voxels.
@@ -97,6 +117,12 @@ class Image {
 		 * @return a reference to the data.
 		 */
 		std::vector<NumType>& GetData();
+		/**
+		 * Get a constant reference to the data vector.
+		 * 
+		 * @return a constant reference to the data.
+		 */
+		const std::vector<NumType>& GetData() const;
 		/**
 		 * Get a reference to the idx-th voxel in the image.
 		 * 

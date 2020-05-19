@@ -74,7 +74,7 @@ namespace {
         while (!subpath.empty()) {
             try {
                 group = depth ? tmp->openGroup(subpath) : file.openGroup(subpath);
-            } catch (const H5::Exception& e) {
+            } catch (const H5::Exception&) {
                 group = depth ? tmp->createGroup(subpath) : file.createGroup(subpath);
             }
             snip = ++snap;
@@ -138,7 +138,7 @@ IOh5(const std::string &fname, const Mode_t mode) :
         case Mode::Append:
             try {
                 file_ = H5::H5File(fname_, H5F_ACC_RDWR);
-            } catch (const H5::FileIException &e) {
+            } catch (const H5::FileIException&) {
                 file_ = H5::H5File(fname_, H5F_ACC_TRUNC);
             }
             break;
@@ -156,25 +156,26 @@ IOh5::
 // IOh5 read dataset
 template <typename T>
 State_t IOh5::
-ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) {
+ReadDataset(Image<T> &img, const std::string &url, const std::string &urn) {
     H5::Exception::dontPrint();
     try {
         // locate the dataset
         H5::DataSet dset = file_.openDataSet(URI(url,urn));
         H5::DataSpace dspace = dset.getSpace();
         // read the data
-        std::array<hsize_t,NDIM> dims;
+        std::vector<hsize_t> dims(dspace.getSimpleExtentNdims());
         size_t ndim = dspace.getSimpleExtentDims(dims.data(),NULL);
+        std::vector<int> nn(dims.size());
         std::reverse_copy(dims.begin(),dims.end(),nn.begin());
-        data.resize(Prod(nn));
-        dset.read(data.data(),::HDF5Types<T>::Type());
-    } catch (const H5::FileIException& e) {
+        img = Image<T>(nn);
+        dset.read(img.GetData().data(),::HDF5Types<T>::Type());
+    } catch (const H5::FileIException&) {
         return State::HDF5FileException;
-    } catch (const H5::DataSetIException& e) {
+    } catch (const H5::DataSetIException&) {
         return State::HDF5DatasetException;
-    } catch (const H5::DataSpaceIException& e) {
+    } catch (const H5::DataSpaceIException&) {
         return State::HDF5DataspaceException;
-    } catch (const H5::DataTypeIException& e) {
+    } catch (const H5::DataTypeIException&) {
         return State::HDF5DatatypeException;
     }
     return State::Success;
@@ -183,33 +184,34 @@ ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &u
 // IOh5 write dataset
 template <typename T>
 State_t IOh5::
-WriteDataset(const std::vector<T> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const {
+WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const {
     H5::Exception::dontPrint();
     try {
         // open or create the group
         H5::Group group;
         try {
             group = file_.openGroup(url);
-        } catch (const H5::Exception& e) {
+        } catch (const H5::Exception&) {
             group = CreateGroup(file_,url);
         }
         // create the dataset
-        std::array<hsize_t,NDIM> dims;
-        std::reverse_copy(nn.begin(),nn.end(),dims.begin());
-        H5::DataSpace dspace(NDIM,dims.data());
+        int n_dim = img.GetNDim();
+        std::vector<hsize_t> dims(n_dim);
+        std::reverse_copy(img.GetSize().begin(),img.GetSize().end(),dims.begin());
+        H5::DataSpace dspace(n_dim,dims.data());
         H5::DataType dtype(::HDF5Types<T>::Type());
         H5::DataSet dset = group.createDataSet(urn,dtype,dspace);
         // write the data in the dataset
-        dset.write(data.data(),dtype);
-    } catch (const H5::FileIException& e) {
+        dset.write(img.GetData().data(),dtype);
+    } catch (const H5::FileIException&) {
         return State::HDF5FileException;
-    } catch (const H5::GroupIException& e) {
+    } catch (const H5::GroupIException&) {
         return State::HDF5FileException;
-    } catch (const H5::DataSetIException& e) {
+    } catch (const H5::DataSetIException&) {
         return State::HDF5DatasetException;
-    } catch (const H5::DataSpaceIException& e) {
+    } catch (const H5::DataSpaceIException&) {
         return State::HDF5DataspaceException;
-    } catch (const H5::DataTypeIException& e) {
+    } catch (const H5::DataTypeIException&) {
         return State::HDF5DatatypeException;
     }
     return State::Success;
@@ -217,14 +219,14 @@ WriteDataset(const std::vector<T> &data, const std::array<int,NDIM> &nn, const s
 
 // Template specialisations
 // ReadDataset
-template State_t IOh5::ReadDataset<size_t>(std::vector<size_t> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<float>(std::vector<float> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<double>(std::vector<double> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<int>(std::vector<int> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<long>(std::vector<long> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<size_t>(Image<size_t> &img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<float>(Image<float> &img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<double>(Image<double> &img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<int>(Image<int> &img, const std::string &url, const std::string &urn);
+template State_t IOh5::ReadDataset<long>(Image<long> &img, const std::string &url, const std::string &urn);
 // WriteDataset
-template State_t IOh5::WriteDataset<size_t>(const std::vector<size_t> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<float>(const std::vector<float> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<double>(const std::vector<double> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<int>(const std::vector<int> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<long>(const std::vector<long> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<size_t>(const Image<size_t> &img, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<float>(const Image<float> &img, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<double>(const Image<double> &img, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<int>(const Image<int> &img, const std::string &url, const std::string &urn) const;
+template State_t IOh5::WriteDataset<long>(const Image<long> &img, const std::string &url, const std::string &urn) const;

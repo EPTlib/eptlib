@@ -80,6 +80,21 @@ GetNDim() const {
 	return static_cast<int>(nn_.size());
 }
 template <typename NumType>
+std::vector<int>& Image<NumType>::
+GetSize() {
+	return nn_;
+}
+template <typename NumType>
+const std::vector<int>& Image<NumType>::
+GetSize() const {
+	return nn_;
+}
+template <typename NumType>
+int Image<NumType>::
+GetSize(const int d) const {
+	return nn_[d];
+}
+template <typename NumType>
 size_t Image<NumType>::
 GetNVox() const {
 	return data_.size();
@@ -87,6 +102,11 @@ GetNVox() const {
 template <typename NumType>
 std::vector<NumType>& Image<NumType>::
 GetData() {
+	return data_;
+}
+template <typename NumType>
+const std::vector<NumType>& Image<NumType>::
+GetData() const {
 	return data_;
 }
 template <typename NumType>
@@ -99,3 +119,9 @@ NumType Image<NumType>::
 operator[](const size_t idx) const {
 	return data_[idx];
 }
+
+template Image<size_t>;
+template Image<float>;
+template Image<double>;
+template Image<int>;
+template Image<long>;

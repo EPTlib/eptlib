@@ -39,6 +39,7 @@
 #include <vector>
 #include <string>
 
+#include "eptlib/image.h"
 #include "eptlib/io/io_util.h"
 
 namespace eptlib {
@@ -66,29 +67,27 @@ namespace io {
              * 
              * @tparam T scalar typename.
              * 
-             * @param data pointer to the data begin.
-             * @param nn number of elements in each direction of the data.
+             * @param img destination image.
              * @param url url of the dataset.
              * @param urn urn of the dataset.
              * 
              * @return the IO state.
              */
             template <typename T>
-            State_t ReadDataset(std::vector<T> &data, std::array<int,NDIM> &nn, const std::string &url, const std::string &urn);
+            State_t ReadDataset(Image<T> &img, const std::string &url, const std::string &urn);
             /**
              * Write a datates into the .h5 file.
              * 
              * @tparam T scalar typename.
              * 
-             * @param data pointer to the data begin.
-             * @param nn number of elements in each direction of the data.
+             * @param img source image.
              * @param url url of the dataset.
              * @param urn urn of the dataset.
              * 
              * @return the IO state.
              */
             template <typename T>
-            State_t WriteDataset(const std::vector<T> &data, const std::array<int,NDIM> &nn, const std::string &url, const std::string &urn) const;
+            State_t WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const;
         private:
             /// Address of the file to open.
             std::string fname_;
@@ -98,8 +97,8 @@ namespace io {
             H5::H5File file_;
     };
 
-}  // io
+}  // namespace io
 
-}  // eptlib
+}  // namespace eptlib
 
 #endif  // IO_HDF5_H_

@@ -35,53 +35,51 @@
 #include "eptlib/io/io_hdf5.h"
 
 #include "eptlib/util.h"
+#include "eptlib/image.h"
 
 using namespace eptlib;
 using namespace eptlib::io;
 
 TEST(IOhdf5GTest,ReadDataset) {
-    std::array<int,NDIM> nn;
-    std::vector<double> data;
+    Image<double> img;
 
     std::string fname = "test/input/test_input.h5";
     IOh5 ifile(fname, Mode::In);
 
     std::string url = "/test/input/";
     std::string urn = "data";
-    ifile.ReadDataset(data,nn, url,urn);
+    ifile.ReadDataset(img, url,urn);
 
     std::array<int,NDIM> nn_expected{20,10,30};
     std::vector<double> data_expected(Prod(nn_expected));
     std::iota(data_expected.begin(),data_expected.end(),0.0);
     
     for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(nn[d],nn_expected[d]);
+        ASSERT_EQ(img.GetSize(d),nn_expected[d]);
     }
-    for (int idx = 0; idx<Prod(nn); ++idx) {
-        ASSERT_DOUBLE_EQ(data[idx],data_expected[idx]);
+    for (int idx = 0; idx<Prod(img.GetSize()); ++idx) {
+        ASSERT_DOUBLE_EQ(img[idx],data_expected[idx]);
     }
 }
 
 TEST(IOhdf5GTest,WriteDataset) {
-    std::array<int,NDIM> nn_expected{20,10,30};
-    std::vector<double> data_expected(Prod(nn_expected));
-    std::iota(data_expected.begin(),data_expected.end(),0.0);
+    Image<double> img_expected(20,10,30);
+    std::iota(img_expected.GetData().begin(),img_expected.GetData().end(),0.0);
 
     std::string fname = "test/input/test_output.h5";
     IOh5 ofile(fname, Mode::Out);
 
     std::string url = "/test/input/";
     std::string urn = "data";
-    ofile.WriteDataset(data_expected,nn_expected, url,urn);
+    ofile.WriteDataset(img_expected, url,urn);
 
-    std::array<int,NDIM> nn;
-    std::vector<double> data;
+    Image<double> img;
 
-    ofile.ReadDataset(data,nn, url,urn);
+    ofile.ReadDataset(img, url,urn);
     for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(nn[d],nn_expected[d]);
+        ASSERT_EQ(img.GetSize(d),img_expected.GetSize(d));
     }
-    for (int idx = 0; idx<Prod(nn); ++idx) {
-        ASSERT_DOUBLE_EQ(data[idx],data_expected[idx]);
+    for (int idx = 0; idx<Prod(img.GetSize()); ++idx) {
+        ASSERT_DOUBLE_EQ(img[idx],img_expected[idx]);
     }
 }
