@@ -52,9 +52,9 @@ using namespace eptlib;
 constexpr char software::name[];
 
 template <typename T>
-EPTlibError_t ReadData(std::vector<T> &dst, const std::string &address);
+EPTlibError_t ReadData(Image<T> &dst, const std::string &address);
 template <typename T>
-EPTlibError_t WriteData(const std::vector<T> &src, const std::array<int,NDIM> &nn, const std::string &address);
+EPTlibError_t WriteData(const Image<T> &src, const std::array<int,NDIM> &nn, const std::string &address);
 
 int main(int argc, char **argv) {
     // starting boilerplate
@@ -83,12 +83,12 @@ int main(int argc, char **argv) {
     int n_rx_ch;
     string tx_sens_address_wc;
     string trx_phase_address_wc;
-    vector<vector<double> > tx_sens(0);
+    vector<Image<double> > tx_sens(0);
     bool thereis_tx_sens = false;
-    vector<vector<double> > trx_phase(0);
+    vector<Image<double> > trx_phase(0);
     bool thereis_trx_phase = false;
     string ref_img_address;
-    std::vector<double> ref_img;
+    Image<double> ref_img;
     bool thereis_ref_img;
     string sigma_address;
     bool thereis_sigma;
@@ -155,7 +155,7 @@ int main(int argc, char **argv) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
             string tx_sens_address(tx_sens_address_wc);
             replace(tx_sens_address.begin(),tx_sens_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
-            std::vector<double> tmp(n_vox);
+            Image<double> tmp(nn[0],nn[1],nn[2]);
             if (ReadData<double>(tmp, tx_sens_address)) {
                 cout<<"Fatal ERROR: impossible read file '"<<tx_sens_address<<"'\n";
                 return 2;
@@ -174,7 +174,7 @@ int main(int argc, char **argv) {
                 string trx_phase_address(trx_phase_address_wc);
                 replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_tx,to_string(id_tx*chwc_step+chwc_start_from).c_str()[0]);
                 replace(trx_phase_address.begin(),trx_phase_address.end(),chwc_rx,to_string(id_rx*chwc_step+chwc_start_from).c_str()[0]);
-                std::vector<double> tmp(n_vox);
+                Image<double> tmp(nn[0],nn[1],nn[2]);
                 if (ReadData<double>(tmp, trx_phase_address)) {
                     cout<<"Fatal ERROR: impossible read file '"<<trx_phase_address<<"'\n";
                     return 2;
@@ -187,7 +187,7 @@ int main(int argc, char **argv) {
     }
     thereis_ref_img = !io_toml.GetValue<string>(ref_img_address, "input.reference-img");
     if (thereis_ref_img) {
-        ref_img.resize(n_vox);
+        ref_img = Image<double>(nn[0],nn[1],nn[2]);
         if (ReadData<double>(ref_img, ref_img_address)) {
             cout<<"Fatal ERROR: impossible read file '"<<ref_img_address<<"'\n";
             return 2;
@@ -218,13 +218,13 @@ int main(int argc, char **argv) {
     eptlib::EPTConvReact ept_cr(freq, nn, dd, kernel_shape);
     if (thereis_tx_sens) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-            ept_cr.SetTxSensitivity(tx_sens[id_tx].data(), id_tx);
+            ept_cr.SetTxSensitivity(&(tx_sens[id_tx]), id_tx);
         }
     }
     if (thereis_trx_phase) {
         for (int id_rx = 0; id_rx<n_rx_ch; ++id_rx) {
             for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-                ept_cr.SetTRxPhase(trx_phase[id_tx+n_tx_ch*id_rx].data(), id_tx,id_rx);
+                ept_cr.SetTRxPhase(&(trx_phase[id_tx+n_tx_ch*id_rx]), id_tx,id_rx);
             }
         }
     }
@@ -244,10 +244,10 @@ int main(int argc, char **argv) {
     }
 
     // write the result
-    std::vector<double> sigma(n_vox);
-    std::vector<double> epsr(n_vox);
-    thereis_sigma = thereis_sigma&!ept_cr.GetElectricConductivity(sigma.data());
-    thereis_epsr = thereis_epsr&!ept_cr.GetRelativePermittivity(epsr.data());
+    Image<double> sigma(nn[0],nn[1],nn[2]);
+    Image<double> epsr(nn[0],nn[1],nn[2]);
+    thereis_sigma = thereis_sigma&!ept_cr.GetElectricConductivity(&sigma);
+    thereis_epsr = thereis_epsr&!ept_cr.GetRelativePermittivity(&epsr);
     if (thereis_sigma) {
         error = WriteData(sigma, nn, sigma_address);
         if (error!=EPTlibError::Success) {
@@ -266,8 +266,7 @@ int main(int argc, char **argv) {
 }
 
 template <typename T>
-EPTlibError_t ReadData(std::vector<T> &dst, const std::string &address) {
-    std::array<int,NDIM> nn;
+EPTlibError_t ReadData(Image<T> &dst, const std::string &address) {
     std::string fname;
     std::string uri;
     io::GetAddress(address, fname,uri);
@@ -275,14 +274,14 @@ EPTlibError_t ReadData(std::vector<T> &dst, const std::string &address) {
     if (fname.substr(snip)==".raw") {
         std::ifstream ifile(fname,ios::binary);
         if (ifile.is_open()) {
-            ifile.read(reinterpret_cast<char*>(dst.data()),dst.size()*sizeof(T));
+            ifile.read(reinterpret_cast<char*>(dst.GetData().data()),dst.GetNVox()*sizeof(T));
             ifile.close();
         } else {
             return EPTlibError::MissingData;
         }
     } else {
         io::IOh5 ifile(fname, io::Mode::In);
-        io::State_t io_state = ifile.ReadDataset(dst,nn, "/",uri);
+        io::State_t io_state = ifile.ReadDataset(&dst, "/",uri);
         if (io_state!=io::State::Success) {
             return EPTlibError::MissingData;
         }
@@ -290,7 +289,7 @@ EPTlibError_t ReadData(std::vector<T> &dst, const std::string &address) {
     return EPTlibError::Success;
 }
 template <typename T>
-EPTlibError_t WriteData(const std::vector<T> &src, const std::array<int,NDIM> &nn, const std::string &address) {
+EPTlibError_t WriteData(const Image<T> &src, const std::array<int,NDIM> &nn, const std::string &address) {
     std::string fname;
     std::string uri;
     io::GetAddress(address, fname,uri);
@@ -298,14 +297,14 @@ EPTlibError_t WriteData(const std::vector<T> &src, const std::array<int,NDIM> &n
     if (fname.substr(snip)==".raw") {
         std::ofstream ofile(fname,ios::binary);
         if (ofile.is_open()) {
-            ofile.write(reinterpret_cast<const char*>(src.data()), src.size()*sizeof(T));
+            ofile.write(reinterpret_cast<const char*>(src.GetData().data()), src.GetNVox()*sizeof(T));
             ofile.close();
         } else {
             return EPTlibError::Unknown;
         }
     } else {
         io::IOh5 ofile(fname, io::Mode::Append);
-        io::State_t io_state = ofile.WriteDataset(src,nn, "/",uri);
+        io::State_t io_state = ofile.WriteDataset(src, "/",uri);
         if (io_state!=io::State::Success) {
             return EPTlibError::Unknown;
         }
