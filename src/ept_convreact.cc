@@ -45,7 +45,7 @@ using namespace eptlib;
 EPTConvReact::
 EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
+    EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0), plane_idx_(nn[2]/2),
     is_volume_(false), diff_coeff_(0.0), thereis_diff_(false), fd_filter_(shape) {
     return;
 }
@@ -62,11 +62,19 @@ Run() {
     int n_out = is_volume_?n_vox_:nn_[0]*nn_[1];
     if (thereis_tx_sens_.all()) {
         thereis_epsr_ = true;
-        epsr_ = Image<double>(nn_[0],nn_[1],nn_[2]);
+        if (is_volume_) {
+            epsr_ = Image<double>(nn_[0],nn_[1],nn_[2]);
+        } else {
+            epsr_ = Image<double>(nn_[0],nn_[1]);
+        }
     }
     if (thereis_trx_phase_.all()) {
         thereis_sigma_ = true;
-        sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
+        if (is_volume_) {
+            sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
+        } else {
+            sigma_ = Image<double>(nn_[0],nn_[1]);
+        }
     } else {
         return EPTlibError::MissingData;
     }
@@ -80,6 +88,23 @@ Run() {
     return EPTlibError::Success;
 }
 
+// EPTConvReact set the dirichlet boundary condition
+EPTlibError_t EPTConvReact::
+SetDirichlet(const double dir_epsr, const double dir_sigma) {
+    if (dir_epsr<1.0||dir_sigma<0.0) {
+        return EPTlibError::WrongDataFormat;
+    }
+    dir_epsr_ = dir_epsr;
+    dir_sigma_ = dir_sigma;
+    return EPTlibError::Success;
+}
+
+// EPTConvReact set the selected plane index
+EPTlibError_t EPTConvReact::
+SelectPlane(const int plane_idx) {
+    plane_idx_ = plane_idx;
+    return EPTlibError::Success;
+}
 // EPTConvReact set volume tomography
 EPTlibError_t EPTConvReact::
 SetVolumeTomography() {
@@ -108,9 +133,36 @@ UnsetArtificialDiffusion() {
 }
 
 // EPTConvReact complete EPT
+namespace { // details
+    void FillDoF(std::vector<int> *dof, int *idx_dof, int *n_dof, int *n_dop,
+        const int n_dim, const int i2, const std::array<int,NDIM> &step,
+        const std::vector<std::complex<double> > &beta) {
+        int idx = step[2]*i2;
+        for (int idx_out = 0; idx_out<step[2]; ++idx_out) {
+            if (beta[idx]==beta[idx]) {
+                // if beta is not a NaN, it could be a DoF...
+                (*dof)[(*idx_dof)++] = ++(*n_dof);
+                for (int d = 0; d<n_dim; ++d) {
+                    if (beta[idx+step[d]]!=beta[idx+step[d]] || beta[idx-step[d]]!=beta[idx-step[d]]) {
+                        // ...unless it is near to a NaN
+                        (*dof)[*idx_dof-1] = --(*n_dop);
+                        --(*n_dof);
+                        break;
+                    }
+                }
+            } else {
+                (*dof)[(*idx_dof)++] = --(*n_dop);
+            }
+            ++idx;
+        }
+        return;
+    }
+}  // namespace
 EPTlibError_t EPTConvReact::
 CompleteEPTConvReact() {
-    int n_out = is_volume_?n_vox_:nn_[0]*nn_[1];
+    const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
+    int n_dim = is_volume_?NDIM:NDIM-1;
+    int n_out = is_volume_?n_vox_:step[2];
     std::complex<double> dir_x = 1.0/std::complex<double>(dir_epsr_*EPS0,-dir_sigma_/omega_);
     // compute the gradient
     std::vector<std::complex<double> > tx_sens_c(n_vox_);
@@ -118,8 +170,7 @@ CompleteEPTConvReact() {
     for (int idx = 0; idx<n_vox_; ++idx) {
         tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
-    int grad_size = is_volume_?NDIM:NDIM-1;
-    for (int d = 0; d<grad_size; ++d) {
+    for (int d = 0; d<n_dim; ++d) {
         beta[d].resize(n_vox_,NAN);
         DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
         EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),tx_sens_c.data(),nn_,dd_);
@@ -140,54 +191,34 @@ CompleteEPTConvReact() {
         }
     }
     // select the degrees of freedom
-    std::vector<int> dof(n_vox_);
+    std::vector<int> dof(n_out);
+    int idx_dof = 0;
     int n_dof = 0;
     int n_dop = 0;
-
-    // To be written in a universal way....
-    {
-        int idx = 0;
+    if (is_volume_) {
         for (int i2 = 0; i2<nn_[2]; ++i2) {
-            for (int i1 = 0; i1<nn_[1]; ++i1) {
-                for (int i0 = 0; i0<nn_[0]; ++i0) {
-                    if (i0<2 || i0>nn_[0]-3 || i1<2 || i1>nn_[1]-3) {
-                        dof[idx++] = --n_dop;
-                    } else {
-                        if (beta[0][idx]==beta[0][idx]) {
-                            dof[idx++] = ++n_dof;
-                        } else {
-                            dof[idx++] = --n_dop;
-                        }    
-                    }
-                }
-            }
+            ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,i2,step,beta[0]);
         }
+    } else {
+        ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,plane_idx_,step,beta[0]);
     }
-
-//    for (int idx = 0; idx<n_vox_; ++idx) {
-//        if (beta[0][idx]==beta[0][idx]) {
-//            dof[idx] = ++n_dof;
-//        } else {
-//            dof[idx] = --n_dop;
-//        }        
-//    }
-    
     // build coefficient matrix and forcing term
-    const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
-    Eigen::SparseMatrix<std::complex<double> > A(n_dof,n_dof);
+    Eigen::SparseMatrix<std::complex<double>> A(n_dof,n_dof);
     std::vector<Eigen::Triplet<std::complex<double> > > A_trip(0);
     Eigen::VectorXcd b(n_dof);
-    for (int idx = 0; idx<n_vox_; ++idx) {
-        int idof = dof[idx];
+    for (int idx_out = 0; idx_out<n_out; ++idx_out) {
+        int idx = is_volume_?idx_out:idx_out+step[2]*plane_idx_;
+        int idof = dof[idx_out];
         if (idof > 0) {
             b[idof-1] = 0.0;
             // coefficient matrix
-            for (int d = 0; d<grad_size; ++d) {
+            for (int d = 0; d<n_dim; ++d) {
                 if (thereis_diff_) {
                     A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,idof-1,2.0*diff_coeff_/dd_[d]/dd_[d]));
                 }
+                int jdx_out = idx_out+step[d];
                 int jdx = idx+step[d];
-                int jdof = dof[jdx];
+                int jdof = dof[jdx_out];
                 if (jdof > 0) {
                     A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,beta[d][jdx]/2.0/dd_[d]));
                     if (thereis_diff_) {
@@ -199,8 +230,9 @@ CompleteEPTConvReact() {
                         b[idof-1] += dir_x*diff_coeff_/dd_[d]/dd_[d];
                     }
                 }
+                jdx_out = idx_out-step[d];
                 jdx = idx-step[d];
-                jdof = dof[jdx];
+                jdof = dof[jdx_out];
                 if (jdof > 0) {
                     A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,-beta[d][jdx]/2.0/dd_[d]));
                     if (thereis_diff_) {
@@ -221,16 +253,14 @@ CompleteEPTConvReact() {
         }
     }
     A.setFromTriplets(A_trip.begin(),A_trip.end());
-    // Solve the linear system
-//    Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double> > > solver;
-//    solver.compute(A);
-    Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double> > > solver;
     A.makeCompressed();
+    // Solve the linear system
+    Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double> > > solver;
     solver.analyzePattern(A);
     solver.factorize(A);
     Eigen::VectorXcd x = solver.solve(b);
     // Extract the electric properties from the result
-    for (int idx = 0; idx<n_vox_; ++idx) {
+    for (int idx = 0; idx<n_out; ++idx) {
         int idof = dof[idx];
         if (idof > 0) {
             std::complex<double> epsc = 1.0/x[idof-1];

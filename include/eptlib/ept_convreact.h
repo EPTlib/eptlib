@@ -71,6 +71,18 @@ class EPTConvReact : public EPTInterface {
          */
         virtual EPTlibError_t Run() override;
         /**
+         * Set the dirichlet boundary conditions.
+         * 
+         * @return a Success or Unknown error.
+         */
+        EPTlibError_t SetDirichlet(const double dir_epsr, const double dir_sigma);
+        /**
+         * Set the selected plane index for plane tomography.
+         * 
+         * @return a Success or WrongDataFormat error.
+         */
+        EPTlibError_t SelectPlane(const int plane_idx);
+        /**
          * Set the tomography on a volume domain.
          * 
          * @return a Success or Unknown error.
@@ -101,6 +113,8 @@ class EPTConvReact : public EPTInterface {
         double dir_epsr_;
         /// Dirichlet condition of electric conductivity.
         double dir_sigma_;
+        /// Selected plane index.
+        int plane_idx_;
         /// Volume tomography flag.
         bool is_volume_;
         /// Artificial diffusion coefficient.
