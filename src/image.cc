@@ -120,8 +120,8 @@ operator[](const size_t idx) const {
 	return data_[idx];
 }
 
-template Image<size_t>;
-template Image<float>;
-template Image<double>;
-template Image<int>;
-template Image<long>;
+template class Image<size_t>;
+template class Image<float>;
+template class Image<double>;
+template class Image<int>;
+template class Image<long>;
