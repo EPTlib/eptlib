@@ -132,11 +132,11 @@ UnsetArtificialDiffusion() {
     return EPTlibError::Success;
 }
 
-// EPTConvReact complete EPT
 namespace { // details
+    template <typename T>
     void FillDoF(std::vector<int> *dof, int *idx_dof, int *n_dof, int *n_dop,
         const int n_dim, const int i2, const std::array<int,NDIM> &step,
-        const std::vector<std::complex<double> > &beta) {
+        const std::vector<T> &beta) {
         int idx = step[2]*i2;
         for (int idx_out = 0; idx_out<step[2]; ++idx_out) {
             if (beta[idx]==beta[idx]) {
@@ -158,6 +158,8 @@ namespace { // details
         return;
     }
 }  // namespace
+
+// EPTConvReact complete EPT
 EPTlibError_t EPTConvReact::
 CompleteEPTConvReact() {
     const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
@@ -277,5 +279,115 @@ CompleteEPTConvReact() {
 // EPTConvReact phase-based EPT
 EPTlibError_t EPTConvReact::
 PhaseEPTConvReact() {
+    const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
+    int n_dim = is_volume_?NDIM:NDIM-1;
+    int n_out = is_volume_?n_vox_:step[2];
+    double dir_x = 1.0/dir_sigma_;
+    // compute the gradient
+    std::array<std::vector<double>,NDIM> beta;
+    for (int d = 0; d<n_dim; ++d) {
+        beta[d].resize(n_vox_,NAN);
+        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
+        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        if (error!=EPTlibError::Success) {
+            return error;
+        }
+    }
+    if (!is_volume_) {
+        beta[2].resize(n_vox_,NAN);
+        DifferentialOperator_t diff_op = DifferentialOperator::GradientZZ;
+        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        if (error!=EPTlibError::Success) {
+            return error;
+        }
+    }
+    // select the degrees of freedom
+    std::vector<int> dof(n_out);
+    int idx_dof = 0;
+    int n_dof = 0;
+    int n_dop = 0;
+    if (is_volume_) {
+        for (int i2 = 0; i2<nn_[2]; ++i2) {
+            ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,i2,step,beta[0]);
+        }
+    } else {
+        ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,plane_idx_,step,beta[0]);
+    }
+    // build coefficient matrix and forcing term
+    Eigen::SparseMatrix<double> A(n_dof,n_dof);
+    std::vector<Eigen::Triplet<double> > A_trip(0);
+    Eigen::VectorXd b(n_dof);
+    for (int idx_out = 0; idx_out<n_out; ++idx_out) {
+        int idx = is_volume_?idx_out:idx_out+step[2]*plane_idx_;
+        int idof = dof[idx_out];
+        if (idof > 0) {
+            b[idof-1] = 0.0;
+            // coefficient matrix
+            for (int d = 0; d<n_dim; ++d) {
+                // diffusion (central term)
+                if (thereis_diff_) {
+                    A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,2.0*diff_coeff_/dd_[d]/dd_[d]));
+                }
+                std::array<int,2> sides{+1,-1};
+                for (int s = 0; s<2; ++s) {
+                    int jdx_out = idx_out+sides[s]*step[d];
+                    int jdx = idx+sides[s]*step[d];
+                    int jdof = dof[jdx_out];
+                    // convection
+                    if (beta[d][idx]*beta[d][jdx]>0) {
+                        if (sides[s]*beta[d][idx]>0) {
+                            double A_tmp = sides[s]*beta[d][idx]/dd_[d];
+                            A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,A_tmp));
+                        } else {
+                            double A_tmp = sides[s]*beta[d][jdx]/dd_[d];
+                            if (jdof > 0) {
+                                A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,A_tmp));
+                            } else {
+                                b[idof-1] += -dir_x*A_tmp;
+                            }
+                        }
+                    } else {
+                        double A_tmp = sides[s]*beta[d][idx]/dd_[d]/2.0;
+                        A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,A_tmp));
+                        A_tmp = sides[s]*beta[d][jdx]/dd_[d]/2.0;
+                        if (jdof > 0) {
+                            A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,A_tmp));
+                        } else {
+                            b[idof-1] += -dir_x*A_tmp;
+                        }
+                    }
+                    // diffusion
+                    if (thereis_diff_) {
+                        if (jdof > 0) {
+                            A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,-diff_coeff_/dd_[d]/dd_[d]));
+                        } else {
+                            b[idof-1] += dir_x*diff_coeff_/dd_[d]/dd_[d];
+                        }
+                    }
+                }
+            }
+            if (!is_volume_) {
+                A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,beta[2][idx]));
+            }
+            // forcing term
+            b[idof-1] += 2*omega_*MU0;
+        }
+    }
+    A.setFromTriplets(A_trip.begin(),A_trip.end());
+    A.makeCompressed();
+    // Solve the linear system
+    Eigen::SparseLU<Eigen::SparseMatrix<double> > solver;
+    solver.analyzePattern(A);
+    solver.factorize(A);
+    Eigen::VectorXd x = solver.solve(b);
+    // Extract the electric properties from the result
+    for (int idx = 0; idx<n_out; ++idx) {
+        int idof = dof[idx];
+        if (idof > 0) {
+            sigma_[idx] = 1.0/x[idof-1];
+        } else {
+            sigma_[idx] = dir_sigma_;
+        }
+    }
     return EPTlibError::Success;
 }
