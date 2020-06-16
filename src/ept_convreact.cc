@@ -33,6 +33,7 @@
 #include "eptlib/ept_convreact.h"
 
 #include <complex>
+#include <limits>
 
 #include <iostream>
 #include <fstream>
@@ -173,7 +174,7 @@ CompleteEPTConvReact() {
         tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
     for (int d = 0; d<n_dim; ++d) {
-        beta[d].resize(n_vox_,NAN);
+        beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
         DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
         EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),tx_sens_c.data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
@@ -185,7 +186,7 @@ CompleteEPTConvReact() {
         beta[1][idx] = std::complex<double>(0.0,1.0)*beta[0][idx];
     }
     if (!is_volume_) {
-        beta[2].resize(n_vox_,NAN);
+        beta[2].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
         DifferentialOperator_t diff_op = DifferentialOperator::GradientZZ;
         EPTlibError_t error = fd_filter_.Apply(diff_op,beta[2].data(),tx_sens_c.data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
@@ -205,7 +206,7 @@ CompleteEPTConvReact() {
         ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,plane_idx_,step,beta[0]);
     }
     // build coefficient matrix and forcing term
-    Eigen::SparseMatrix<std::complex<double>> A(n_dof,n_dof);
+    Eigen::SparseMatrix<std::complex<double> > A(n_dof,n_dof);
     std::vector<Eigen::Triplet<std::complex<double> > > A_trip(0);
     Eigen::VectorXcd b(n_dof);
     for (int idx_out = 0; idx_out<n_out; ++idx_out) {
@@ -286,7 +287,7 @@ PhaseEPTConvReact() {
     // compute the gradient
     std::array<std::vector<double>,NDIM> beta;
     for (int d = 0; d<n_dim; ++d) {
-        beta[d].resize(n_vox_,NAN);
+        beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
         DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
         EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
@@ -294,7 +295,7 @@ PhaseEPTConvReact() {
         }
     }
     if (!is_volume_) {
-        beta[2].resize(n_vox_,NAN);
+        beta[2].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
         DifferentialOperator_t diff_op = DifferentialOperator::GradientZZ;
         EPTlibError_t error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         if (error!=EPTlibError::Success) {

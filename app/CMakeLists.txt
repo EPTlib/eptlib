@@ -63,3 +63,20 @@ target_include_directories(${EPT_CONVREACT_NAME}
         ${PROJECT_SOURCE_DIR}/extern/tinytoml/include)
 
 target_link_libraries(${EPT_CONVREACT_NAME} PRIVATE EPTlib)
+
+# EPT gradient
+set(EPT_GRADIENT_NAME "EPTlib_GRAD")
+
+add_executable(${EPT_GRADIENT_NAME}
+    ept_gradient_main.cc)
+
+configure_file(${PROJECT_SOURCE_DIR}/app/ept_gradient_main.h.in
+    ${PROJECT_BINARY_DIR}/app/ept_gradient_main.h
+    @ONLY)
+
+target_include_directories(${EPT_GRADIENT_NAME}
+    PRIVATE
+        ${PROJECT_BINARY_DIR}/app
+        ${PROJECT_SOURCE_DIR}/extern/tinytoml/include)
+
+target_link_libraries(${EPT_GRADIENT_NAME} PRIVATE EPTlib)

@@ -32,18 +32,19 @@
 
 #include <array>
 #include <algorithm>
+#include <chrono>
 #include <exception>
 #include <fstream>
 #include <iostream>
 #include <string>
 #include <vector>
 
-#include "eptlib/ept_helmholtz.h"
+#include "eptlib/ept_gradient.h"
 #include "eptlib/io/io_hdf5.h"
 #include "eptlib/io/io_toml.h"
 #include "eptlib/version.h"
 
-#include "ept_helmholtz_main.h"
+#include "ept_gradient_main.h"
 
 using namespace std;
 using namespace eptlib;
@@ -93,6 +94,8 @@ int main(int argc, char **argv) {
     bool thereis_sigma;
     string epsr_address;
     bool thereis_epsr;
+    double lambda;
+    bool thereis_lambda;
 
     // initialise the channel wildcard variables
     char chwc_tx = '>';
@@ -200,59 +203,122 @@ int main(int argc, char **argv) {
     if (thereis_epsr) {
         cout<<"  Output relative permittivity: '"<<epsr_address<<"'\n";
     }
-
+    // ...parameters
+    cout<<"\n";
+    error = io_toml.GetValue<double>(lambda,"parameter.estimate-weight");
+    if (!error) {
+        thereis_lambda = true;
+        cout<<"  Estimate weight: '"<<lambda<<"'\n";
+    } else {
+        thereis_lambda = false;
+    }
     // load the files and perform the EPT
     std::array<int,NDIM> rr = {1,1,1};
     eptlib::Shape kernel_shape = eptlib::shapes::Cross(rr);
-    eptlib::EPTHelmholtz ept_helm(freq, nn, dd, kernel_shape);
+    eptlib::EPTGradient ept_grad(freq, nn, dd, n_tx_ch, kernel_shape);
     if (thereis_tx_sens) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-            ept_helm.SetTxSensitivity(&(tx_sens[id_tx]), id_tx);
+            error = ept_grad.SetTxSensitivity(&(tx_sens[id_tx]), id_tx);
+            if (error) {
+                cout<<"\nFatal ERROR: Unable to set Tx sensitivity ch"<<id_tx<<" - "<<ToString(error)<<endl;
+                return 2;
+            }
         }
     }
     if (thereis_trx_phase) {
         for (int id_rx = 0; id_rx<n_rx_ch; ++id_rx) {
             for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
-                ept_helm.SetTRxPhase(&(trx_phase[id_tx+n_tx_ch*id_rx]), id_tx,id_rx);
+                error = ept_grad.SetTRxPhase(&(trx_phase[id_tx+n_tx_ch*id_rx]), id_tx,id_rx);
+                if (error) {
+                    cout<<"\nFatal ERROR: Unable to set TRx phase ch"<<id_tx<<","<<id_rx<<" - "<<ToString(error)<<endl;
+                    return 2;
+                }
             }
         }
     }
-    cout<<"\nRun Helmholtz-based EPT..."<<flush;
-    error = ept_helm.Run();
+    if (thereis_lambda) {
+        ept_grad.SetLambda(lambda);
+    }
+    cout<<"\nRun gradient EPT..."<<flush;
+    auto start = std::chrono::system_clock::now();
+    error = ept_grad.Run();
+    auto end = std::chrono::system_clock::now();
     if (!error) {
-        cout<<"done!\n"<<endl;
+        auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);
+        cout<<"done! ["<<elapsed.count()<<" s]\n"<<endl;
     } else {
         cout<<"execution failed\n"<<endl;
         return 1;
     }
 
-    // apply post-processing filter
-    cout<<"Post-processing..."<<flush;
-    rr = {2,2,2};
-    kernel_shape = eptlib::shapes::Ellipsoid(rr);
-    ept_helm.SetPostPro(kernel_shape);
-    EPTlibError_t eptlib_error = thereis_ref_img ? ept_helm.ApplyPostPro(ref_img.GetData().data()) : ept_helm.ApplyPostPro();
-    if (eptlib_error==EPTlibError::Success) {
-        cout<<"done!\n"<<endl;
-    } else {
-        cout<<"unknown filter\n"<<endl;
-    }
+//    // write intermediate results
+//    Image<double> tmp_real(nn[0],nn[1],nn[2]);
+//    Image<double> tmp_imag(nn[0],nn[1],nn[2]);
+//    Image<double> tmp_2(nn[0],nn[1],nn[2]);
+//    // grad_phi0_
+//    for (int idx = 0; idx<n_vox; ++idx) {
+//        tmp_real[idx] = ept_grad.GetGradPhi0()[0][idx];
+//        tmp_imag[idx] = ept_grad.GetGradPhi0()[1][idx];
+//        tmp_2[idx] = ept_grad.GetGradPhi0()[2][idx];
+//    }
+//    error = WriteData(tmp_real, nn, "grad_phi0_x.raw");
+//    error = WriteData(tmp_imag, nn, "grad_phi0_y.raw");
+//    error = WriteData(tmp_2, nn, "grad_phi0_z.raw");
+//    // g_plus_
+//    for (int idx = 0; idx<n_vox; ++idx) {
+//        int dof = ept_grad.GetDof()[idx];
+//        if (dof>0) {
+//            tmp_real[idx] = ept_grad.GetGPlus()[dof-1].real();
+//            tmp_imag[idx] = ept_grad.GetGPlus()[dof-1].imag();
+//        } else {
+//            tmp_real[idx] = 0.0;
+//            tmp_imag[idx] = 0.0;
+//        }
+//    }
+//    error = WriteData(tmp_real, nn, "g_plus_real.raw");
+//    error = WriteData(tmp_imag, nn, "g_plus_imag.raw");
+//    // g_z_
+//    for (int idx = 0; idx<n_vox; ++idx) {
+//        int dof = ept_grad.GetDof()[idx];
+//        if (dof>0) {
+//            tmp_real[idx] = ept_grad.GetGZ()[dof-1].real();
+//            tmp_imag[idx] = ept_grad.GetGZ()[dof-1].imag();
+//        } else {
+//            tmp_real[idx] = 0.0;
+//            tmp_imag[idx] = 0.0;
+//        }
+//    }
+//    error = WriteData(tmp_real, nn, "g_z_real.raw");
+//    error = WriteData(tmp_imag, nn, "g_z_imag.raw");
+//    // theta_
+//    for (int idx = 0; idx<n_vox; ++idx) {
+//        int dof = ept_grad.GetDof()[idx];
+//        if (dof>0) {
+//            tmp_real[idx] = ept_grad.GetTheta()[dof-1].real();
+//            tmp_imag[idx] = ept_grad.GetTheta()[dof-1].imag();
+//        } else {
+//            tmp_real[idx] = 0.0;
+//            tmp_imag[idx] = 0.0;
+//        }
+//    }
+//    error = WriteData(tmp_real, nn, "theta_real.raw");
+//    error = WriteData(tmp_imag, nn, "theta_imag.raw");
 
     // write the result
     Image<double> sigma(nn[0],nn[1],nn[2]);
     Image<double> epsr(nn[0],nn[1],nn[2]);
-    thereis_sigma = thereis_sigma&!ept_helm.GetElectricConductivity(&sigma);
-    thereis_epsr = thereis_epsr&!ept_helm.GetRelativePermittivity(&epsr);
+    thereis_sigma = thereis_sigma&!ept_grad.GetElectricConductivity(&sigma);
+    thereis_epsr = thereis_epsr&!ept_grad.GetRelativePermittivity(&epsr);
     if (thereis_sigma) {
         error = WriteData(sigma, nn, sigma_address);
-        if (error) {
+        if (error!=EPTlibError::Success) {
             cout<<"Fatal ERROR: impossible write file '"<<sigma_address<<"'"<<endl;
             return 2;
         }
     }
     if (thereis_epsr) {
         error = WriteData(epsr, nn, epsr_address);
-        if (error) {
+        if (error!=EPTlibError::Success) {
             cout<<"Fatal ERROR: impossible write file '"<<epsr_address<<"'"<<endl;
             return 2;
         }

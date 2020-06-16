@@ -96,6 +96,8 @@ int main(int argc, char **argv) {
     bool thereis_epsr;
     double diff_coeff;
     bool thereis_diff;
+    double dir_epsr;
+    double dir_sigma;
 
     // initialise the channel wildcard variables
     char chwc_tx = '>';
@@ -204,14 +206,26 @@ int main(int argc, char **argv) {
         cout<<"  Output relative permittivity: '"<<epsr_address<<"'\n";
     }
     // ...parameters
+    cout<<"\n";
     error = io_toml.GetValue<double>(diff_coeff,"parameter.artificial-diffusion");
     if (!error) {
         thereis_diff = true;
-        cout<<"\n  Artificial diffusion: '"<<diff_coeff<<"'\n";
+        cout<<"  Artificial diffusion: '"<<diff_coeff<<"'\n";
     } else {
         thereis_diff = false;
     }
-
+    error = io_toml.GetValue<double>(dir_epsr,"parameter.dirichlet-permittivity");
+    if (!error) {
+        cout<<"  Dirichlet permittivity: "<<dir_epsr<<"\n";
+    } else {
+        dir_epsr = 1.0;
+    }
+    error = io_toml.GetValue<double>(dir_sigma,"parameter.dirichlet-conductivity");
+    if (!error) {
+        cout<<"  Dirichlet conductivity: "<<dir_sigma<<"\n";
+    } else {
+        dir_sigma = 0.0;
+    }
     // load the files and perform the EPT
     std::array<int,NDIM> rr = {1,1,1};
     eptlib::Shape kernel_shape = eptlib::shapes::Cross(rr);
@@ -231,6 +245,7 @@ int main(int argc, char **argv) {
     if (thereis_diff) {
         ept_cr.SetArtificialDiffusion(diff_coeff);
     }
+    ept_cr.SetDirichlet(dir_epsr,dir_sigma);
     cout<<"\nRun convection-reaction EPT..."<<flush;
     auto start = std::chrono::system_clock::now();
     error = ept_cr.Run();
