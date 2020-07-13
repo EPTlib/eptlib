@@ -97,7 +97,7 @@ class EPTGradient : public EPTInterface {
 		 * 
 		 * @return a Success or Unknown error.
 		 */
-		EPTlibError_t Toggle2D();
+		EPTlibError_t Set2D();
 		/**
 		 * Unset the two-dimensional assumption.
 		 * 
