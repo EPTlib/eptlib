@@ -89,7 +89,52 @@ class FDSavitzkyGolayFilter {
          */
         template <typename NumType>
         EPTlibError_t Apply(const DifferentialOperator_t diff_op, NumType *dst,
-            const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd);
+            const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+        /**
+         * Apply the kernel for first order derivatives.
+         * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param d direction along to which derivative.
+         * @param field_crop field values within the computation kernel.
+         * @param dd size of voxels in each direction.
+         * 
+         * @return the approximated derivative.
+         */
+        template <typename NumType>
+        NumType FirstOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) const;
+        /**
+         * Apply the kernel for second order derivatives.
+         * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param d direction along to which derivative.
+         * @param field_crop field values within the computation kernel.
+         * @param dd size of voxels in each direction.
+         * 
+         * @return the approximated derivative.
+         */
+        template <typename NumType>
+        NumType SecondOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) const;
+        /**
+         * Apply the kernel for Laplacian computation.
+         * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param d direction along to which derivative.
+         * @param field_crop field values within the computation kernel.
+         * @param dd size of voxels in each direction.
+         * 
+         * @return the approximated Laplacian.
+         */
+        template <typename NumType>
+        NumType Laplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) const;
+        /**
+         * Return a const reference to the kernel shape.
+         * 
+         * @return a const reference to the kernel shape.
+         */
+        const Shape& GetShape() const;
     private:
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;
@@ -99,15 +144,6 @@ class FDSavitzkyGolayFilter {
         std::array<std::vector<double>,NDIM> lapl_kernel_;
         /// Kernel for gradient approximation.
         std::array<std::vector<double>,NDIM> grad_kernel_;
-        /// Apply the kernel for first order derivatives.
-        template <typename NumType>
-        NumType FirstOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
-        /// Apply the kernel for second order derivatives.
-        template <typename NumType>
-        NumType SecondOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
-        /// Apply the kernel for Laplacian computation.
-        template <typename NumType>
-        NumType Laplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd);
 };
 
 }  // namespace eptlib

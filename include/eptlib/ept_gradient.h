@@ -46,6 +46,18 @@
 namespace eptlib {
 
 /**
+ * Structure of a seed point for the gradient inversion.
+ */
+struct SeedPoint {
+	/// Integer coordinates of the seed point.
+	std::array<int,NDIM> ijk;
+	/// Relative permittivity in the point.
+	double epsr;
+	/// Electric conductivity in the point.
+	double sigma;
+};
+
+/**
  * Implementation of the gradient EPT method.
  */
 class EPTGradient : public EPTInterface {
@@ -75,86 +87,116 @@ class EPTGradient : public EPTInterface {
 		 */
 		virtual EPTlibError_t Run() override;
 		/**
+         * Set the selected plane index for plane tomography.
+         * 
+         * @return a Success or WrongDataFormat error.
+         */
+        EPTlibError_t SelectPlane(const int plane_idx);
+		/**
+		 * Set the two-dimensional assumption.
+		 * 
+		 * @return a Success or Unknown error.
+		 */
+		EPTlibError_t Toggle2D();
+		/**
+		 * Unset the two-dimensional assumption.
+		 * 
+		 * @return a Success or Unknown error.
+		 */
+		EPTlibError_t Unset2D();
+		/**
 		 * Set the first estimate weight.
 		 * 
 		 * @return a Success or Unknown error.
 		 */
 		EPTlibError_t SetLambda(const double lambda);
 		/**
-		 * Get a reference to the gradient of the reference phase.
+		 * Set the L-curve method to determine the optimal lambda.
 		 * 
-		 * @return a reference to the gradient of the reference phase.
+		 * @return a Success or Unknown error.
 		 */
-		std::array<std::vector<double>,NDIM>& GetGradPhi0();
+		EPTlibError_t SetLCurve();
 		/**
-		 * Get a const reference to the gradient of the reference phase.
+		 * Unset the L-curve method to determine the optimal lambda.
 		 * 
-		 * @return a const reference to the gradient of the reference phase.
+		 * @return a Success or Unknown error.
 		 */
-		const std::array<std::vector<double>,NDIM>& GetGradPhi0() const;
-		/**
-		 * Get a reference to the deegrees of freedom.
+		EPTlibError_t UnsetLCurve();
+		/*
+		 * Set/unset the median to average the local system results.
 		 * 
-		 * @return a reference to the deegrees of freedom.
+		 * @return a Success or Unknown error.
 		 */
-		std::vector<int>& GetDof();
-		/**
-		 * Get a const reference to the deegrees of freedom.
+		EPTlibError_t ToggleAverageWithMedian();
+		/*
+		 * Add a seed point to the list and set their use if not done before.
 		 * 
-		 * @return a const reference to the deegrees of freedom.
+		 * @return a Success or Unknown error.
 		 */
-		const std::vector<int>& GetDof() const;
-		/**
-		 * Get a reference to the positive derivative of the complex permittivity logarithm.
-		 * 
-		 * @return a reference to the positive derivative of the complex permittivity logarithm.
-		 */
-		std::vector<std::complex<double> >& GetGPlus();
-		/**
-		 * Get a const reference to the positive derivative of the complex permittivity logarithm.
-		 * 
-		 * @return a const reference to the positive derivative of the complex permittivity logarithm.
-		 */
-		const std::vector<std::complex<double> >& GetGPlus() const;
-		/**
-		 * Get a reference to the longitudinal derivative of the complex permittivity logarithm.
-		 * 
-		 * @return a reference to the longitudinal derivative of the complex permittivity logarithm.
-		 */
-		std::vector<std::complex<double> >& GetGZ();
-		/**
-		 * Get a const reference to the longitudinal derivative of the complex permittivity logarithm.
-		 * 
-		 * @return a const reference to the longitudinal derivative of the complex permittivity logarithm.
-		 */
-		const std::vector<std::complex<double> >& GetGZ() const;
-		/**
-		 * Get a reference to the first estimate of the complex permittivity.
-		 * 
-		 * @return a reference to the first estimate of the complex permittivity.
-		 */
-		std::vector<std::complex<double> >& GetTheta();
-		/**
-		 * Get a const reference to the first estimate of the complex permittivity.
-		 * 
-		 * @return a const reference to the first estimate of the complex permittivity.
-		 */
-		const std::vector<std::complex<double> >& GetTheta() const;
+		EPTlibError_t AddSeedPoint(const SeedPoint seed_point);
 	private:
+        /// Selected plane index (for 2D assumption only).
+        int plane_idx_;
+		/// 2D assumption flag.
+		bool is_2d_;
 		/// First estimate weight.
 		double lambda_;
+		/// Use l-curve method.
+		bool use_lcurve_;
+		/// Use the median to average the local system results.
+		bool average_with_median_;
+		/// List of seed points.
+		std::vector<SeedPoint> seed_points_;
+		/// Use the seed points.
+		bool use_seed_points_;
 		/// Filter for the derivative computation.
 		FDSavitzkyGolayFilter fd_filter_;
 		/// Gradient of the reference phase.
-		std::array<std::vector<double>,NDIM> grad_phi0_;
-		/// Deegrees of freedom of `g_plus_', `g_z_' and `theta_'.
-		std::vector<int> dof_;
+		std::vector<std::vector<double> > gradx_phi0_;
+		std::vector<std::vector<double> > grady_phi0_;
+		std::vector<std::vector<double> > gradz_phi0_;
 		/// Positive derivative of the complex permittivity logarithm.
-		std::vector<std::complex<double> > g_plus_;
+		std::vector<std::vector<std::complex<double> > > g_plus_;
 		/// Longitudinal derivative of the complex permittivity logarithm.
-		std::vector<std::complex<double> > g_z_;
+		std::vector<std::vector<std::complex<double> > > g_z_;
 		/// First estimate of the complex permittivity.
-		std::vector<std::complex<double> > theta_;
+		std::vector<std::vector<std::complex<double> > > theta_;
+		// Auxiliary methods
+		// Perform the pixel-by-pixel recovery.
+		EPTlibError_t LocalRecovery(std::vector<double> *gradx_phi0,
+			std::vector<double> *grady_phi0, std::vector<double> *gradz_phi0,
+			std::vector<std::complex<double> > *g_plus,
+			std::vector<std::complex<double> > *g_z,
+			std::vector<std::complex<double> > *theta,
+			const int iref);
+		/// Perform pixel-by-pixel recovery in a slice.
+		EPTlibError_t LocalRecoverySlice(std::vector<double> *gradx_phi0,
+			std::vector<double> *grady_phi0, std::vector<double> *gradz_phi0,
+			std::vector<std::complex<double> > *g_plus,
+			std::vector<std::complex<double> > *g_z,
+			std::vector<std::complex<double> > *theta,
+			const int iref, const int i2);
+		/// Estimate the complex permittivity from theta local recovery.
+		EPTlibError_t Theta2Epsc(std::vector<std::complex<double> > *epsc,
+			const std::array<std::vector<double>*,NDIM> &grad_phi0,
+			const std::vector<std::complex<double> > &g_plus,
+			const std::vector<std::complex<double> > &g_z,
+			const std::vector<std::complex<double> > &theta);
+		/// Average a quantity to improve its quality.
+		EPTlibError_t AverageQuantity(std::vector<std::complex<double> > *avg,
+			const std::vector<std::vector<std::complex<double> > > &src);
+		/// Select the degrees of freedom.
+		EPTlibError_t SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
+			int *n_dof, const std::vector<std::complex<double> > &epsc,
+			const std::vector<int> &locstep);
+		/// Solve the global minimisation problem.
+		EPTlibError_t GlobalMinimisation(
+			std::vector<std::complex<double> > *epsc,
+			const std::vector<std::complex<double> > &g_plus,
+			const std::vector<std::complex<double> > &g_z);
+		/// Extract the electric properties of a slice.
+		EPTlibError_t ExtractElectricPropertiesSlice(const int i2,
+			const int out_i2, const std::vector<std::complex<double> > &epsc);
 };
 
 }  // namespace eptlib

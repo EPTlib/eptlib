@@ -94,8 +94,14 @@ int main(int argc, char **argv) {
     bool thereis_sigma;
     string epsr_address;
     bool thereis_epsr;
+    bool is_2d;
     double lambda;
+    bool use_lcurve;
     bool thereis_lambda;
+    int max_it;
+    bool thereis_max_it;
+    double tol;
+    bool thereis_tol;
 
     // initialise the channel wildcard variables
     char chwc_tx = '>';
@@ -205,16 +211,43 @@ int main(int argc, char **argv) {
     }
     // ...parameters
     cout<<"\n";
+    error = io_toml.GetValue<bool>(is_2d,"parameter.2d-assumption");
+    if (!error) {
+        cout<<"  2D assumption: '"<<(is_2d?"True":"False")<<"'\n";
+    } else {
+        is_2d = false;
+    }
+    error = io_toml.GetValue<bool>(use_lcurve,"parameter.use-lcurve");
+    if (!error) {
+        cout<<"  Use L-curve: '"<<(use_lcurve?"True":"False")<<"'\n";
+    } else {
+        use_lcurve = false;
+    }
     error = io_toml.GetValue<double>(lambda,"parameter.estimate-weight");
     if (!error) {
         thereis_lambda = true;
-        cout<<"  Estimate weight: '"<<lambda<<"'\n";
+        cout<<"  Estimate weight: "<<lambda<<"\n";
     } else {
         thereis_lambda = false;
+    }
+    error = io_toml.GetValue<int>(max_it,"parameter.maximum-iterations");
+    if (!error) {
+        thereis_max_it = true;
+        cout<<"  Maximum iterations: "<<max_it<<"\n";
+    } else {
+        thereis_max_it = false;
+    }
+    error = io_toml.GetValue<double>(tol,"parameter.tolerance");
+    if (!error) {
+        thereis_tol = true;
+        cout<<"  Tolerance: "<<tol<<"\n";
+    } else {
+        thereis_tol = false;
     }
     // load the files and perform the EPT
     std::array<int,NDIM> rr = {1,1,1};
     eptlib::Shape kernel_shape = eptlib::shapes::Cross(rr);
+//    eptlib::Shape kernel_shape = eptlib::shapes::Ellipsoid(rr);
     eptlib::EPTGradient ept_grad(freq, nn, dd, n_tx_ch, kernel_shape);
     if (thereis_tx_sens) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
@@ -236,9 +269,22 @@ int main(int argc, char **argv) {
             }
         }
     }
+    if (is_2d) {
+        ept_grad.Set2D();
+    }
+    if (use_lcurve) {
+        ept_grad.SetLCurve();
+    }
     if (thereis_lambda) {
         ept_grad.SetLambda(lambda);
     }
+
+    SeedPoint sp;
+    sp.ijk = {70,120,5};
+    sp.epsr = 43.8;
+    sp.sigma = 0.412;
+    ept_grad.AddSeedPoint(sp);
+
     cout<<"\nRun gradient EPT..."<<flush;
     auto start = std::chrono::system_clock::now();
     error = ept_grad.Run();
@@ -250,59 +296,6 @@ int main(int argc, char **argv) {
         cout<<"execution failed\n"<<endl;
         return 1;
     }
-
-//    // write intermediate results
-//    Image<double> tmp_real(nn[0],nn[1],nn[2]);
-//    Image<double> tmp_imag(nn[0],nn[1],nn[2]);
-//    Image<double> tmp_2(nn[0],nn[1],nn[2]);
-//    // grad_phi0_
-//    for (int idx = 0; idx<n_vox; ++idx) {
-//        tmp_real[idx] = ept_grad.GetGradPhi0()[0][idx];
-//        tmp_imag[idx] = ept_grad.GetGradPhi0()[1][idx];
-//        tmp_2[idx] = ept_grad.GetGradPhi0()[2][idx];
-//    }
-//    error = WriteData(tmp_real, nn, "grad_phi0_x.raw");
-//    error = WriteData(tmp_imag, nn, "grad_phi0_y.raw");
-//    error = WriteData(tmp_2, nn, "grad_phi0_z.raw");
-//    // g_plus_
-//    for (int idx = 0; idx<n_vox; ++idx) {
-//        int dof = ept_grad.GetDof()[idx];
-//        if (dof>0) {
-//            tmp_real[idx] = ept_grad.GetGPlus()[dof-1].real();
-//            tmp_imag[idx] = ept_grad.GetGPlus()[dof-1].imag();
-//        } else {
-//            tmp_real[idx] = 0.0;
-//            tmp_imag[idx] = 0.0;
-//        }
-//    }
-//    error = WriteData(tmp_real, nn, "g_plus_real.raw");
-//    error = WriteData(tmp_imag, nn, "g_plus_imag.raw");
-//    // g_z_
-//    for (int idx = 0; idx<n_vox; ++idx) {
-//        int dof = ept_grad.GetDof()[idx];
-//        if (dof>0) {
-//            tmp_real[idx] = ept_grad.GetGZ()[dof-1].real();
-//            tmp_imag[idx] = ept_grad.GetGZ()[dof-1].imag();
-//        } else {
-//            tmp_real[idx] = 0.0;
-//            tmp_imag[idx] = 0.0;
-//        }
-//    }
-//    error = WriteData(tmp_real, nn, "g_z_real.raw");
-//    error = WriteData(tmp_imag, nn, "g_z_imag.raw");
-//    // theta_
-//    for (int idx = 0; idx<n_vox; ++idx) {
-//        int dof = ept_grad.GetDof()[idx];
-//        if (dof>0) {
-//            tmp_real[idx] = ept_grad.GetTheta()[dof-1].real();
-//            tmp_imag[idx] = ept_grad.GetTheta()[dof-1].imag();
-//        } else {
-//            tmp_real[idx] = 0.0;
-//            tmp_imag[idx] = 0.0;
-//        }
-//    }
-//    error = WriteData(tmp_real, nn, "theta_real.raw");
-//    error = WriteData(tmp_imag, nn, "theta_imag.raw");
 
     // write the result
     Image<double> sigma(nn[0],nn[1],nn[2]);

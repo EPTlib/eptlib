@@ -60,7 +60,6 @@ EPTConvReact::
 // EPTConvReact run
 EPTlibError_t EPTConvReact::
 Run() {
-    int n_out = is_volume_?n_vox_:nn_[0]*nn_[1];
     if (thereis_tx_sens_.all()) {
         thereis_epsr_ = true;
         if (is_volume_) {
