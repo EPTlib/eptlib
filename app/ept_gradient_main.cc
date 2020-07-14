@@ -248,7 +248,7 @@ int main(int argc, char **argv) {
     std::array<int,NDIM> rr = {1,1,1};
     eptlib::Shape kernel_shape = eptlib::shapes::Cross(rr);
 //    eptlib::Shape kernel_shape = eptlib::shapes::Ellipsoid(rr);
-    eptlib::EPTGradient ept_grad(freq, nn, dd, n_tx_ch, kernel_shape);
+    eptlib::EPTGradient ept_grad(freq, nn, dd, n_tx_ch, kernel_shape, is_2d);
     if (thereis_tx_sens) {
         for (int id_tx = 0; id_tx<n_tx_ch; ++id_tx) {
             error = ept_grad.SetTxSensitivity(&(tx_sens[id_tx]), id_tx);
@@ -269,12 +269,6 @@ int main(int argc, char **argv) {
             }
         }
     }
-    if (is_2d) {
-        ept_grad.Set2D();
-    }
-    if (use_lcurve) {
-        ept_grad.SetLCurve();
-    }
     if (thereis_lambda) {
         ept_grad.SetLambda(lambda);
     }
@@ -284,6 +278,9 @@ int main(int argc, char **argv) {
     sp.epsr = 43.8;
     sp.sigma = 0.412;
     ept_grad.AddSeedPoint(sp);
+    ept_grad.ToggleSeedPoints();
+
+    ept_grad.SetRunMode(EPTGradientRun::FULL);
 
     cout<<"\nRun gradient EPT..."<<flush;
     auto start = std::chrono::system_clock::now();

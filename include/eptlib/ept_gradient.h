@@ -58,6 +58,18 @@ struct SeedPoint {
 };
 
 /**
+ * Codes for the run modality of the gradient EPT method.
+ */
+typedef enum EPTGradientRun {
+	/// Complete application of gradient EPT.
+	FULL = 0,
+	/// Solve the local system and return the first approximation.
+	LOCAL,
+	/// Solve the gradient inversion problem if a local solution is provided.
+	GRADIENT,
+} EPTGradientRun_t;
+
+/**
  * Implementation of the gradient EPT method.
  */
 class EPTGradient : public EPTInterface {
@@ -70,12 +82,13 @@ class EPTGradient : public EPTInterface {
 		 * @param dd voxel sizes in each direction.
 		 * @param tx_ch number of transmit channels.
 		 * @param shape mask over which apply the finite difference scheme.
+		 * @param is_2d 2D assumption flag.
 		 * 
 		 * The number of Rx channels is fixed equal to one.
 		 */
 		EPTGradient(const double freq, const std::array<int,NDIM> &nn,
 			const std::array<double,NDIM> &dd, const int tx_ch,
-			const Shape &shape);
+			const Shape &shape, const bool is_2d);
 		/**
 		 * Virtual destructor.
 		 */
@@ -87,104 +100,103 @@ class EPTGradient : public EPTInterface {
 		 */
 		virtual EPTlibError_t Run() override;
 		/**
+		 * Set the run mode of the next gradient EPT run.
+		 * 
+		 * @param run_mode run mode to be set.
+		 */
+		void SetRunMode(EPTGradientRun_t run_mode);
+		/**
+		 * Set/unset the use of seed points to invert the gradient.
+		 * 
+		 * @return if it has been set.
+		 */
+		bool ToggleSeedPoints();
+		/*
+		 * Add a seed point to the list and set their use if not done before.
+		 * 
+		 * @param seed_point seed point to the added to the list.
+		 */
+		void AddSeedPoint(const SeedPoint seed_point);
+		/**
          * Set the selected plane index for plane tomography.
          * 
          * @return a Success or WrongDataFormat error.
          */
         EPTlibError_t SelectPlane(const int plane_idx);
 		/**
-		 * Set the two-dimensional assumption.
-		 * 
-		 * @return a Success or Unknown error.
-		 */
-		EPTlibError_t Set2D();
-		/**
-		 * Unset the two-dimensional assumption.
-		 * 
-		 * @return a Success or Unknown error.
-		 */
-		EPTlibError_t Unset2D();
-		/**
 		 * Set the first estimate weight.
 		 * 
-		 * @return a Success or Unknown error.
+		 * @return a Success or WrongDataFormat error.
 		 */
 		EPTlibError_t SetLambda(const double lambda);
 		/**
-		 * Set the L-curve method to determine the optimal lambda.
+		 * Get the complex permittivity.
 		 * 
-		 * @return a Success or Unknown error.
+		 * @param[out] epsc pointer to the complex permittivity destination.
+		 * 
+		 * @return a Success or MissingData error.
 		 */
-		EPTlibError_t SetLCurve();
+		EPTlibError_t GetEpsC(std::vector<std::complex<double> > *epsc);
 		/**
-		 * Unset the L-curve method to determine the optimal lambda.
+		 * Get the positive derivative of the complex permittivity logarithm.
 		 * 
-		 * @return a Success or Unknown error.
-		 */
-		EPTlibError_t UnsetLCurve();
-		/*
-		 * Set/unset the median to average the local system results.
+		 * @param[out] g_plus pointer to the positive derivative destination.
 		 * 
-		 * @return a Success or Unknown error.
+		 * @return a Success or MissingData error.
 		 */
-		EPTlibError_t ToggleAverageWithMedian();
-		/*
-		 * Add a seed point to the list and set their use if not done before.
+		EPTlibError_t GetGPlus(std::vector<std::complex<double> > *g_plus);
+		/**
+		 * Get the longitudinal derivative of the complex permittivity logarithm.
 		 * 
-		 * @return a Success or Unknown error.
+		 * @param[out] g_plus pointer to the longitudinal derivative destination.
+		 * 
+		 * @return a Success or MissingData error.
 		 */
-		EPTlibError_t AddSeedPoint(const SeedPoint seed_point);
+		EPTlibError_t GetGZ(std::vector<std::complex<double> > *g_z);
 	private:
-        /// Selected plane index (for 2D assumption only).
-        int plane_idx_;
 		/// 2D assumption flag.
-		bool is_2d_;
-		/// First estimate weight.
-		double lambda_;
-		/// Use l-curve method.
-		bool use_lcurve_;
-		/// Use the median to average the local system results.
-		bool average_with_median_;
-		/// List of seed points.
-		std::vector<SeedPoint> seed_points_;
-		/// Use the seed points.
+		const bool is_2d_;
+		/// Seed points flag.
 		bool use_seed_points_;
+        /// Selected plane index (used if 2D is set).
+        int plane_idx_;
+		/// First estimate weight (used if seed points are unset).
+		double lambda_;
+		/// List of seed points (used if seed points is set).
+		std::vector<SeedPoint> seed_points_;
 		/// Filter for the derivative computation.
 		FDSavitzkyGolayFilter fd_filter_;
-		/// Gradient of the reference phase.
-		std::vector<std::vector<double> > gradx_phi0_;
-		std::vector<std::vector<double> > grady_phi0_;
-		std::vector<std::vector<double> > gradz_phi0_;
-		/// Positive derivative of the complex permittivity logarithm.
-		std::vector<std::vector<std::complex<double> > > g_plus_;
-		/// Longitudinal derivative of the complex permittivity logarithm.
-		std::vector<std::vector<std::complex<double> > > g_z_;
 		/// First estimate of the complex permittivity.
-		std::vector<std::vector<std::complex<double> > > theta_;
+		std::vector<std::complex<double> > epsc_;
+		/// Positive derivative of the complex permittivity logarithm.
+		std::vector<std::complex<double> > g_plus_;
+		/// Longitudinal derivative of the complex permittivity logarithm.
+		std::vector<std::complex<double> > g_z_;
+		/// First estimate flag
+		bool thereis_epsc_;
+		/// Gradient EPT run flag.
+		EPTGradientRun_t run_mode_;
+
 		// Auxiliary methods
-		// Perform the pixel-by-pixel recovery.
-		EPTlibError_t LocalRecovery(std::vector<double> *gradx_phi0,
-			std::vector<double> *grady_phi0, std::vector<double> *gradz_phi0,
+		/// Perform the pixel-by-pixel recovery.
+		EPTlibError_t LocalRecovery(
+			std::array<std::vector<double>,NDIM> *grad_phi0,
 			std::vector<std::complex<double> > *g_plus,
 			std::vector<std::complex<double> > *g_z,
 			std::vector<std::complex<double> > *theta,
 			const int iref);
 		/// Perform pixel-by-pixel recovery in a slice.
-		EPTlibError_t LocalRecoverySlice(std::vector<double> *gradx_phi0,
-			std::vector<double> *grady_phi0, std::vector<double> *gradz_phi0,
+		EPTlibError_t LocalRecoverySlice(
+			std::array<std::vector<double>,NDIM> *grad_phi0,
 			std::vector<std::complex<double> > *g_plus,
 			std::vector<std::complex<double> > *g_z,
 			std::vector<std::complex<double> > *theta,
 			const int iref, const int i2);
 		/// Estimate the complex permittivity from theta local recovery.
-		EPTlibError_t Theta2Epsc(std::vector<std::complex<double> > *epsc,
-			const std::array<std::vector<double>*,NDIM> &grad_phi0,
+		EPTlibError_t Theta2Epsc(std::vector<std::complex<double> > *theta,
+			const std::array<std::vector<double>,NDIM> &grad_phi0,
 			const std::vector<std::complex<double> > &g_plus,
-			const std::vector<std::complex<double> > &g_z,
-			const std::vector<std::complex<double> > &theta);
-		/// Average a quantity to improve its quality.
-		EPTlibError_t AverageQuantity(std::vector<std::complex<double> > *avg,
-			const std::vector<std::vector<std::complex<double> > > &src);
+			const std::vector<std::complex<double> > &g_z);
 		/// Select the degrees of freedom.
 		EPTlibError_t SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
 			int *n_dof, const std::vector<std::complex<double> > &epsc,
