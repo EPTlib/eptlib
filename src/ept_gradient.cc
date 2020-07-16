@@ -722,7 +722,8 @@ namespace { //details
 			::SolveGlobalSystem(x, A+lambda_k*B,b+lambda_k*l);
 //			::SolveGlobalSystem(&z, A+lambda_k*B,A*(*x)-b);
 			std::complex<double> Fg = x->adjoint()*(A*(*x)-2.0*b);
-			Fg += g.adjoint()*(B*g);
+			std::complex<double> tmp = g.adjoint()*(B*g);
+			Fg += tmp;
 			double rho = std::real(Fg);
 			double eta = (*x-x0).norm();
 //			Fg = -4.0/lambda_k*(*x-x0).adjoint()*z;
