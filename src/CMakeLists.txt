@@ -35,6 +35,7 @@ set(EPTLIB_SRC
     ept_gradient.cc
     ept_helmholtz.cc
     ept_interface.cc
+    ept_methods.cc
     finite_difference.cc
     image.cc
     median_filter.cc

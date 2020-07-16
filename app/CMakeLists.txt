@@ -30,6 +30,22 @@
 #
 #=============================================================================
 
+# EPTlib app
+set(EPTLIB_APP_NAME "EPTlib_app")
+set(WALL true)
+
+add_executable(${EPTLIB_APP_NAME}
+    eptlib_main.cc)
+
+configure_file(${PROJECT_SOURCE_DIR}/app/eptlib_main.h.in
+    ${PROJECT_BINARY_DIR}/app/eptlib_main.h
+    @ONLY)
+
+target_include_directories(${EPTLIB_APP_NAME}
+    PRIVATE ${PROJECT_BINARY_DIR}/app)
+    
+target_link_libraries(${EPTLIB_APP_NAME} PRIVATE EPTlib)
+
 # EPT-Helmholtz
 set(EPT_HELMHOLTZ_NAME "EPTlib_HELM")
 
