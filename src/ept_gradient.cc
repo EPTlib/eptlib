@@ -77,6 +77,7 @@ Run() {
 		return EPTlibError::MissingData;
 	}
 	// Set-up the output
+	int n_out = is_2d_?nn_[0]*nn_[1]:n_vox_;
 	if (thereis_tx_sens_.all() && thereis_trx_phase_.all()) {
 		thereis_epsr_ = true;
 		thereis_sigma_ = true;
@@ -95,41 +96,48 @@ Run() {
 		thereis_epsc_ = true;
 		// Clear and re-allocate the intermediate results
 		epsc_.clear();
-		epsc_.resize(n_vox_,0.0);
+		epsc_.resize(n_out,0.0);
 		g_plus_.clear();
-		g_plus_.resize(n_vox_,0.0);
+		g_plus_.resize(n_out,0.0);
 		g_z_.clear();
 		if (!is_2d_) {
-			g_z_.resize(n_vox_,0.0);
+			g_z_.resize(n_out,0.0);
 		}
 		// For each transmit channel as reference...
-		std::vector<double> totweight(n_vox_,0.0);
+		int r2 = fd_filter_.GetShape().GetSize()[2];
+		int n_int = is_2d_?nn_[0]*nn_[1]*r2:n_vox_;
+		std::vector<double> totweight(n_out,0.0);
 		for (int iref = 0; iref<tx_ch_; ++iref) {
 			// ...allocate memory for auxiliary quantities
 			std::array<std::vector<double>,NDIM> grad_phi0;
 			for (int d = 0; d<NDIM; ++d) {
-				grad_phi0[d].resize(n_vox_,::nand);
+				grad_phi0[d].resize(n_int,::nand);
 			}
-			std::vector<std::complex<double> > g_plus(n_vox_,::nancd);
-			std::vector<std::complex<double> > g_z(n_vox_,::nancd);
-			std::vector<std::complex<double> > theta(n_vox_,::nancd);
+			std::vector<std::complex<double> > g_plus(n_int,::nancd);
+			std::vector<std::complex<double> > g_z(n_int,::nancd);
+			std::vector<std::complex<double> > theta(n_int,::nancd);
 			// ...perform the local recovery
 			LocalRecovery(&grad_phi0,&g_plus,&g_z,&theta,iref);
 			// ...estimate the complex permittivity from theta
-			Theta2Epsc(&theta,grad_phi0,g_plus,g_z);
+			EPTlibError_t error = Theta2Epsc(&theta,grad_phi0,g_plus,g_z);
+			if (error!=EPTlibError::Success) {
+				return error;
+			}
 			// ...contribute in averaging
-			for (int idx = 0; idx<n_vox_; ++idx) {
-				double weight = (*tx_sens_[iref])[idx];
-				epsc_[idx] += theta[idx]*weight;
-				g_plus_[idx] += g_plus[idx]*weight;
+			for (int idx = 0; idx<n_out; ++idx) {
+				int idx_tx = is_2d_?(idx+nn_[0]*nn_[1]*plane_idx_):idx;
+				int idx_int = is_2d_?(idx+nn_[0]*nn_[1]*(r2/2)):idx;
+				double weight = (*tx_sens_[iref])[idx_tx];
+				epsc_[idx] += theta[idx_int]*weight;
+				g_plus_[idx] += g_plus[idx_int]*weight;
 				if (!is_2d_) {
-					g_z_[idx] += g_z[idx]*weight;
+					g_z_[idx] += g_z[idx_int]*weight;
 				}
 				totweight[idx] += weight;
 			}
 		}
 		// Average the epsc, g_plus and g_z quantities
-		for (int idx = 0; idx<n_vox_; ++idx) {
+		for (int idx = 0; idx<n_out; ++idx) {
 			epsc_[idx] /= totweight[idx];
 			g_plus_[idx] /= totweight[idx];
 			if (!is_2d_) {
@@ -139,16 +147,10 @@ Run() {
 	}
 	// Optimise the estimate using the gradient information
 	if (run_mode_==EPTGradientRun::FULL || run_mode_==EPTGradientRun::GRADIENT) {
-		GlobalMinimisation(&epsc_, g_plus_,g_z_);
+		GlobalMinimisation();
 	}
 	// Extract the electric properties
-	if (is_2d_) {
-		ExtractElectricPropertiesSlice(plane_idx_,0,epsc_);
-	} else {
-		for (int i2 = 0; i2<nn_[2]; ++i2) {
-			ExtractElectricPropertiesSlice(i2,i2,epsc_);
-		}
-	}
+	ExtractElectricProperties();
 	return EPTlibError::Success;
 }
 
@@ -219,7 +221,7 @@ namespace { //details
 	static constexpr int col_gz = 7;
 
 	// Fill the local matrix for pixel-by-pixel recovery.
-	EPTlibError_t FillLocalMatrix(Eigen::MatrixXd *A, Eigen::VectorXd *b,
+	void FillLocalMatrix(Eigen::MatrixXd *A, Eigen::VectorXd *b,
 		const std::vector<std::vector<std::complex<double> > > &field_crop,
 		const FDSavitzkyGolayFilter &fd_filter,
 		const std::array<double,NDIM> &dd, const int tx_ch, const bool is_2d) {
@@ -267,10 +269,10 @@ namespace { //details
 			(*A)(row,col_theta+1) = -tmp.imag();
 			(*A)(row+1,col_theta+1) = tmp.real();
 		}
-		return EPTlibError::Success;
+		return;
 	}
 	// Solve the local system for pixel-by-pixel recovery.
-	EPTlibError_t SolveLocalSystem(double *gradx_phi0, double *grady_phi0,
+	void SolveLocalSystem(double *gradx_phi0, double *grady_phi0,
 		double *gradz_phi0, std::complex<double> *g_plus,
 		std::complex<double> *g_z, std::complex<double> *theta,
 		Eigen::MatrixXd A, Eigen::VectorXd b, const bool is_2d) {
@@ -287,11 +289,11 @@ namespace { //details
 			*gradz_phi0 = x[col_phi+2];
 			*g_z = std::complex<double>(x[col_gz],x[col_gz+1]);
 		}
-		return EPTlibError::Success;
+		return;
 	}
 }  // namespace
 // Perform the pixel-by-pixel recovery
-EPTlibError_t EPTGradient::
+void EPTGradient::
 LocalRecovery(std::array<std::vector<double>,NDIM> *grad_phi0,
 	std::vector<std::complex<double> > *g_plus,
 	std::vector<std::complex<double> > *g_z,
@@ -307,10 +309,10 @@ LocalRecovery(std::array<std::vector<double>,NDIM> *grad_phi0,
 			LocalRecoverySlice(grad_phi0,g_plus,g_z,theta,iref,i2);
 		}
 	}
-	return EPTlibError::Success;
+	return;
 }
 // Perform pixel-by-pixel recovery in a slice.
-EPTlibError_t EPTGradient::
+void EPTGradient::
 LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 	std::vector<std::complex<double> > *g_plus,
 	std::vector<std::complex<double> > *g_z,
@@ -360,13 +362,18 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 			Eigen::VectorXd b;
 			::FillLocalMatrix(&A,&b, field_crop,fd_filter_,dd_,tx_ch_,is_2d_);
 			// solve the system
-			int idx = ii[0] + nn_[0]*(ii[1] + nn_[1]*ii[2]);
+			int idx = ii[0] + nn_[0]*ii[1];
+			if (is_2d_) {
+				idx += nn_[0]*nn_[1]*(ii[2]-plane_idx_+rr[2]);
+			} else {
+				idx += nn_[0]*nn_[1]*ii[2];
+			}
 			::SolveLocalSystem(&((*grad_phi0)[0][idx]),&((*grad_phi0)[1][idx]),
 				&((*grad_phi0)[2][idx]),&((*g_plus)[idx]),&((*g_z)[idx]),
 				&((*theta)[idx]), A,b,is_2d_);
 		}
 	}
-	return EPTlibError::Success;
+	return;
 }
 
 /////////////////////////////////////////////////////////////////////////////
@@ -379,59 +386,91 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
 	const std::vector<std::complex<double> > &g_plus,
 	const std::vector<std::complex<double> > &g_z) {
 	int n_dim = is_2d_?2:3;
+	int r2 = fd_filter_.GetShape().GetSize()[2];
+	std::array<int,NDIM> nn{nn_[0],nn_[1],is_2d_?r2:nn_[2]};
+	int n_vox = nn[0]*nn[1]*nn[2];
+	int offset = is_2d_?nn[0]*nn[1]*(r2/2):0;
 	// grad_phi0 laplacian...
 	for (int d = 0; d<n_dim; ++d) {
-		std::vector<double> lapl_phi0(n_vox_);
+		std::vector<double> lapl_phi0(n_vox);
 		DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
 		EPTlibError_t error = fd_filter_.Apply(diff_op,lapl_phi0.data(),
-			grad_phi0[d].data(),nn_,dd_);
+			grad_phi0[d].data(),nn,dd_);
 		if (error!=EPTlibError::Success) {
 			return error;
 		}
-		std::transform(theta->begin(),theta->end(),lapl_phi0.begin(),theta->begin(),
+		std::transform(theta->begin()+offset,
+			theta->end()-offset,
+			lapl_phi0.begin()+offset,
+			theta->begin()+offset,
 			[](const std::complex<double> &a,const double &b)->std::complex<double>{
 				return a + std::complex<double>(0.0,b);
 			});
 	}
 	// grad_phi0 magnitude...
 	for (int d = 0; d<n_dim; ++d) {
-		std::vector<double> tmp(n_vox_);
-		std::transform(grad_phi0[d].begin(),grad_phi0[d].end(),tmp.begin(),
+		std::vector<double> tmp(n_vox);
+		std::transform(grad_phi0[d].begin()+offset,
+			grad_phi0[d].end()-offset,
+			tmp.begin()+offset,
 			[](const double &a)->double{
 				return a*a;
 			});
-		std::transform(theta->begin(),theta->end(),tmp.begin(),theta->begin(),
-		[](const std::complex<double> &a,const double &b)->std::complex<double>{
-			return a-b;
-		});
+		std::transform(theta->begin()+offset,
+			theta->end()-offset,
+			tmp.begin()+offset,
+			theta->begin()+offset,
+			[](const std::complex<double> &a,const double &b)->std::complex<double>{
+				return a-b;
+			});
 	}
 	// grad_phi0, g inner product...
-	std::vector<std::complex<double> > tmp(n_vox_);
+	std::vector<std::complex<double> > tmp(n_vox);
 	// ...component 0
-	std::transform(grad_phi0[0].begin(),grad_phi0[0].end(),g_plus.begin(),tmp.begin(),
+	std::transform(grad_phi0[0].begin()+offset,
+		grad_phi0[0].end()-offset,
+		g_plus.begin()+offset,
+		tmp.begin()+offset,
 		[](const double &a,const std::complex<double> &b)->std::complex<double>{
 			return std::complex<double>(0.0,a)*b;
 		});
-	std::transform(theta->begin(),theta->end(),tmp.begin(),theta->begin(),
+	std::transform(theta->begin()+offset,
+		theta->end()-offset,
+		tmp.begin()+offset,
+		theta->begin()+offset,
 		std::minus<std::complex<double> >());
 	// ...component 1
-	std::transform(grad_phi0[1].begin(),grad_phi0[1].end(),g_plus.begin(),tmp.begin(),
+	std::transform(grad_phi0[1].begin()+offset,
+		grad_phi0[1].end()-offset,
+		g_plus.begin()+offset,
+		tmp.begin()+offset,
 		[](const double &a,const std::complex<double> &b)->std::complex<double>{
 			return a*b;
 		});
-	std::transform(theta->begin(),theta->end(),tmp.begin(),theta->begin(),
+	std::transform(theta->begin()+offset,
+		theta->end()-offset,
+		tmp.begin()+offset,
+		theta->begin()+offset,
 		std::minus<std::complex<double> >());
 	if (!is_2d_) {
 		// ...component 2
-		std::transform(grad_phi0[2].begin(),grad_phi0[2].end(),g_z.begin(),tmp.begin(),
-		[](const double &a,const std::complex<double> &b)->std::complex<double>{
-			return std::complex<double>(0.0,a)*b;
-		});
-		std::transform(theta->begin(),theta->end(),tmp.begin(),theta->begin(),
+		std::transform(grad_phi0[2].begin()+offset,
+			grad_phi0[2].end()-offset,
+			g_z.begin()+offset,
+			tmp.begin()+offset,
+			[](const double &a,const std::complex<double> &b)->std::complex<double>{
+				return std::complex<double>(0.0,a)*b;
+			});
+		std::transform(theta->begin()+offset,
+			theta->end()-offset,
+			tmp.begin()+offset,
+			theta->begin()+offset,
 			std::minus<std::complex<double> >());
 	}
 	// multiplicative factor...
-	std::transform(theta->begin(),theta->end(),theta->begin(),
+	std::transform(theta->begin()+offset,
+		theta->end()-offset,
+		theta->begin()+offset,
 		[this](const std::complex<double> &a)->std::complex<double>{
 			return -a/omega_/omega_/MU0;
 		});
@@ -445,24 +484,8 @@ namespace { //details
 	static constexpr int vox_nodes = 8;
 	static constexpr int quad_nodes = 4;
 
-	// Select the degrees of freedom.
-	EPTlibError_t FillDoF(std::vector<int> *dof, int *idx_dof, int *n_dof,
-		int *n_dop, const int i2, const std::array<int,NDIM> &nn,
-		const std::vector<std::complex<double> > &epsc) {
-		int nxy = nn[0]*nn[1];
-		int idx = nxy*i2;
-		for (int out_idx = 0; out_idx<nxy; ++out_idx) {
-			if (epsc[idx]==epsc[idx]) {
-				(*dof)[(*idx_dof)++] = ++(*n_dof);
-			} else {
-				(*dof)[(*idx_dof)++] = --(*n_dop);
-			}
-			++idx;
-		}
-		return EPTlibError::Success;
-	}
 	// Select the NaN-free elements.
-	EPTlibError_t NaNFreeEle(std::vector<int> *ele, int *idx_ele, const int i2,
+	void NaNFreeEle(std::vector<int> *ele, int *idx_ele, const int i2,
 		const std::array<int,NDIM> &nn, const std::vector<int> &locstep,
 		const std::vector<int> &dof, const bool is_2d) {
 		int ele_nodes = is_2d?quad_nodes:vox_nodes;
@@ -486,10 +509,10 @@ namespace { //details
 			}
 			++idx_out;
 		}
-		return EPTlibError::Success;
+		return;
 	}
 	// Clean dof by counting to how many elements they belong.
-	EPTlibError_t CleanDoF(std::vector<int> *dof, int *n_dof, int *n_dop,
+	void CleanDoF(std::vector<int> *dof, int *n_dof, int *n_dop,
 		const std::vector<int> &ele, const std::vector<int> &locstep,
 		const bool is_2d) {
 		int ele_nodes = is_2d?quad_nodes:vox_nodes;
@@ -513,31 +536,27 @@ namespace { //details
 				(*dof)[idx] = --(*n_dop);
 			}
 		}
-		return EPTlibError::Success;
+		return;
 	}
 
 	// Associate each seed point to its dof.
-	EPTlibError_t SeedPointsToDoF(std::vector<std::complex<double> > *dir,
+	void SeedPointsToDoF(std::vector<std::complex<double> > *dir,
 		std::vector<int> *dof, int *n_dof,
-		const std::vector<SeedPoint> &seed_points, const std::array<int,NDIM> &nn,
-		const int i2, const double omega, const bool is_2d) {
+		const std::vector<SeedPoint> &seed_points,
+		const std::array<int,NDIM> &nn, const int i2, const double omega,
+		const bool is_2d) {
 		// for each seed find the corresponding idx
 		auto n_out = dof->size();
 		std::vector<int> idx2sp(n_out,-1);
 		for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
 			SeedPoint sp = seed_points[idx_sp];
-			if (is_2d && sp.ijk[2]!=i2) {
-				continue;
-			}
 			int idx = sp.ijk[0] + nn[0]*sp.ijk[1];
 			if (!is_2d) {
 				idx += nn[0]*nn[1]*sp.ijk[2];
 			}
-			std::cout << idx << ": " << std::flush;
 			idx2sp[idx] = idx_sp;
-			(*dir)[idx_sp] = std::log(std::complex<double>(sp.epsr*EPS0,-sp.sigma/omega));
-
-			std::cout << idx_sp << ", " << (*dir)[idx_sp] << std::endl;
+			(*dir)[idx_sp] = std::log(std::complex<double>(sp.epsr*EPS0,
+				-sp.sigma/omega));
 		}
 		// correct the dof
 		*n_dof = 0;
@@ -552,44 +571,42 @@ namespace { //details
 				(*dof)[idx] = 0;
 			}
 		}
-		return EPTlibError::Success;
+		return;
 	}
 	
 	// Fill the global matrix for minimisation.
-	EPTlibError_t FillGlobalMatrix(Eigen::SparseMatrix<std::complex<double> > *A,
+	void FillGlobalMatrix(Eigen::SparseMatrix<std::complex<double> > *A,
 		Eigen::SparseMatrix<std::complex<double> > *B, Eigen::VectorXcd *b,
 		Eigen::VectorXcd *l, const std::vector<int> &dof, const int n_dof,
 		const std::vector<int> &ele, const std::vector<int> &locstep,
 		const std::vector<std::complex<double> > &epsc,
 		const std::vector<std::complex<double> > &g_plus,
 		const std::vector<std::complex<double> > &g_z,
-		const std::array<double,NDIM> &dd, const int idx0,
-		const bool is_2d, const bool use_seed_points_,
+		const std::array<double,NDIM> &dd, const bool is_2d,
+		const bool use_seed_points_,
 		const std::vector<std::complex<double> > &dir) {
-		int ele_nodes = is_2d?quad_nodes:vox_nodes;
-		int n_dim = is_2d?2:3;
+		const int ele_nodes = is_2d?quad_nodes:vox_nodes;
+		const int n_dim = is_2d?2:3;
 		std::vector<Eigen::Triplet<std::complex<double> > > A_trip(0);
 		std::vector<Eigen::Triplet<std::complex<double> > > B_trip(0);
 		*b = Eigen::VectorXcd::Zero(n_dof);
 		*l = Eigen::VectorXcd::Zero(n_dof);
 		// loop the elements
 		for (int idx_ele = 0; idx_ele<ele.size(); ++idx_ele) {
-			int idx_out = ele[idx_ele];
-			if (idx_out<0) {
+			int idx = ele[idx_ele];
+			if (idx<0) {
 				continue;
 			}
 			// loop the equation index
 			for (int i = 0; i<ele_nodes; ++i) {
-				int iidx_out = idx_out+locstep[i];
-				int iidx = idx0+iidx_out;
-				int ii = dof[iidx_out];
+				int iidx = idx+locstep[i];
+				int ii = dof[iidx];
 				if (ii>0) {
 					--ii;
 					// loop the unknown index
 					for (int j = 0; j<ele_nodes; ++j) {
-						int jidx_out = idx_out+locstep[j];
-						int jidx = idx0+jidx_out;
-						int jj = dof[jidx_out];
+						int jidx = idx+locstep[j];
+						int jj = dof[jidx];
 						std::array<bool,NDIM> same_side;
 						for (int d = 0; d<NDIM; ++d) {
 							same_side[d] = (i&(1<<d))==(j&(1<<d));
@@ -661,38 +678,79 @@ namespace { //details
 		(*A).makeCompressed();
 		(*B).setFromTriplets(B_trip.begin(),B_trip.end());
 		(*B).makeCompressed();
-		return EPTlibError::Success;
+		return;
 	}
 	// Solve the global system for minimisation.
-	EPTlibError_t SolveGlobalSystem(Eigen::VectorXcd *x,
-		const Eigen::SparseMatrix<std::complex<double> > A,
-		const Eigen::VectorXcd b) {
+	void SolveGlobalSystem(Eigen::VectorXcd *x,
+		const Eigen::SparseMatrix<std::complex<double> > &A,
+		const Eigen::VectorXcd &b) {
 		Eigen::SimplicialLDLT<Eigen::SparseMatrix<std::complex<double> > > solver;
 		solver.compute(A);
 		*x = solver.solve(b);
-		return EPTlibError::Success;
+		return;
+	}
+
+	// Implements the l-curve method. !NOT IMPLEMENTED YET!
+	void LCurve(Eigen::VectorXcd *x,
+		const Eigen::SparseMatrix<std::complex<double> > &A,
+		const Eigen::SparseMatrix<std::complex<double> > &B,
+		const Eigen::VectorXcd &b,
+		const Eigen::VectorXcd &l,
+		const double lambda, const std::vector<int> &dof, const int n_dof,
+		const std::vector<std::complex<double> > &epsc,
+		const std::vector<std::complex<double> > &g_plus,
+		const std::vector<std::complex<double> > &g_z,
+		const bool is_2d) {
+		const auto n_vox = dof.size();
+		Eigen::VectorXcd g(n_dof);
+		Eigen::VectorXcd x0(n_dof);
+//		Eigen::VectorXcd z(n_dof);
+		for (int idx = 0; idx<n_vox; ++idx) {
+			if (dof[idx]>0) {
+				g[dof[idx]-1] = g_plus[idx];
+				if (!is_2d) {
+					g[dof[idx]-1] += g_z[idx];
+				}
+				x0[dof[idx]-1] = std::log(epsc[idx]);
+			}
+		}
+//		for (int idx = 0; idx<n_dof; ++idx) {
+//			z[idx] = (*x)[idx];
+//		}
+		double lambda_k = lambda;
+		for (int k = 0; k<20; ++k) {
+			::SolveGlobalSystem(x, A+lambda_k*B,b+lambda_k*l);
+//			::SolveGlobalSystem(&z, A+lambda_k*B,A*(*x)-b);
+			std::complex<double> Fg = x->adjoint()*(A*(*x)-2.0*b);
+			Fg += g.adjoint()*(B*g);
+			double rho = std::real(Fg);
+			double eta = (*x-x0).norm();
+//			Fg = -4.0/lambda_k*(*x-x0).adjoint()*z;
+//			double eta_d = std::real(Fg);
+//			double kappa = 2.0*eta*rho/eta_d*(lambda_k*lambda_k*eta_d*rho + 2.0*lambda_k*eta*rho + lambda_k*lambda_k*lambda_k*lambda_k*eta*eta_d)/std::sqrt((lambda_k*lambda_k*eta*eta+rho*rho)*(lambda_k*lambda_k*eta*eta+rho*rho)*(lambda_k*lambda_k*eta*eta+rho*rho));
+			lambda_k *= 10.0;
+		}
+		return;
 	}
 }  // namespace
 // Select the degree of freedom.
-EPTlibError_t EPTGradient::
-SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
-	int *n_dof, const std::vector<std::complex<double> > &epsc,
+void EPTGradient::
+SelectDoF(std::vector<int> *dof, std::vector<int> *ele, int *n_dof,
 	const std::vector<int> &locstep) {
 	// select the dof
-	int idx_dof = 0;
 	int n_dop = 0;
 	*n_dof = 0;
-	if (is_2d_) {
-		::FillDoF(dof,&idx_dof,n_dof,&n_dop, plane_idx_,nn_,epsc);
-	} else {
-		for (int i2 = 0; i2<nn_[2]; ++i2) {
-			::FillDoF(dof,&idx_dof,n_dof,&n_dop, i2,nn_,epsc);
+	for (int idx = 0; idx<dof->size(); ++idx) {
+		if (epsc_[idx]==epsc_[idx]) {
+			(*dof)[idx] = ++(*n_dof);
+		} else {
+			(*dof)[idx] = --n_dop;
 		}
 	}
 	// determine the nan-free elements
 	int idx_ele = 0;
 	if (is_2d_) {
-		::NaNFreeEle(ele,&idx_ele, plane_idx_,nn_,locstep,*dof,is_2d_);
+		::NaNFreeEle(ele,&idx_ele, 0,nn_,locstep,*dof,is_2d_);
 	} else {
 		for (int i2 = 0; i2<nn_[2]-1; ++i2) {
 			::NaNFreeEle(ele,&idx_ele, i2,nn_,locstep,*dof,is_2d_);
@@ -700,17 +758,15 @@ SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
 	}
 	// clean the dof by counting to how many elements they belong
 	::CleanDoF(dof,n_dof,&n_dop, *ele,locstep,is_2d_);
-	return EPTlibError::Success;
+	return;
 }
 // Solve the global minimisation problem.
-EPTlibError_t EPTGradient::
-GlobalMinimisation(std::vector<std::complex<double> > *epsc,
-	const std::vector<std::complex<double> > &g_plus,
-	const std::vector<std::complex<double> > &g_z) {
-	int ele_nodes = is_2d_?quad_nodes:vox_nodes;
-	int n_dim = is_2d_?2:3;
-	std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
-	int n_out = is_2d_?step[2]:n_vox_;
+void EPTGradient::
+GlobalMinimisation() {
+	const int ele_nodes = is_2d_?quad_nodes:vox_nodes;
+	const int n_dim = is_2d_?2:3;
+	const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
+	const int n_out = is_2d_?step[2]:n_vox_;
 	// define the computational elements
 	std::vector<int> locstep(ele_nodes,0);
 	for (int locid = 0; locid<ele_nodes; ++locid) {
@@ -726,103 +782,54 @@ GlobalMinimisation(std::vector<std::complex<double> > *epsc,
 	std::vector<int> dof(n_out);
 	std::vector<int> ele(n_ele);
 	int ndof;
-	SelectDoF(&dof,&ele,&ndof, *epsc,locstep);
+	SelectDoF(&dof,&ele,&ndof,locstep);
 	// set the dirichlet values in case of seed points
 	std::vector<std::complex<double> > dir(seed_points_.size());
 	if (use_seed_points_) {
 		::SeedPointsToDoF(&dir,&dof,&ndof, seed_points_,nn_,plane_idx_,omega_,is_2d_);
 	}
 	// create the matrix of coefficients and the forcing term
-	int idx0 = is_2d_?plane_idx_*step[2]:0;
 	Eigen::SparseMatrix<std::complex<double> > A(ndof,ndof);
 	Eigen::SparseMatrix<std::complex<double> > B(ndof,ndof);
 	Eigen::VectorXcd b;
 	Eigen::VectorXcd l;
-	::FillGlobalMatrix(&A,&B,&b,&l, dof,ndof,ele,locstep,*epsc,g_plus,g_z,dd_,
-		idx0,is_2d_, use_seed_points_,dir);
+	::FillGlobalMatrix(&A,&B,&b,&l, dof,ndof,ele,locstep,epsc_,g_plus_,g_z_,
+		dd_,is_2d_, use_seed_points_,dir);
 	// solve the linear system
 	Eigen::VectorXcd x(ndof);
-	{
-		int idx = idx0;
-		for (int idx_out = 0; idx_out<n_out; ++idx_out) {
-			if (dof[idx_out]>0) {
-				x[dof[idx_out]-1] = std::log((*epsc)[idx]);
-			}
-			++idx;
-		}
-	}
 	if (!use_seed_points_) {
-		Eigen::VectorXcd g(ndof);
-		Eigen::VectorXcd x0(ndof);
-		Eigen::VectorXcd z(ndof);
+		/* !NOT IMPLEMENTED YET! */
 		for (int idx = 0; idx<n_out; ++idx) {
 			if (dof[idx]>0) {
-				g[dof[idx]-1] = g_plus[idx0+idx];
-				if (!is_2d_) {
-					g[dof[idx]-1] += g_z[idx0+idx];
-				}
-				x0[dof[idx]-1] = std::log((*epsc)[idx0+idx]);
-			}
-		}
-		for (int idx = 0; idx<ndof; ++idx) {
-			z[idx] = x[idx];
-		}
-		double lambda_k = lambda_;
-		for (int k = 0; k<20; ++k) {
-			::SolveGlobalSystem(&x, A+lambda_k*B,b+lambda_k*l);
-			::SolveGlobalSystem(&z, A+lambda_k*B,A*x-b);
-
-			std::complex<double> Fg = x.adjoint()*(A*x-2.0*b);
-			Fg += g.adjoint()*(B*g);
-			double rho = std::real(Fg);
-			double eta = (x-x0).norm();
-			Fg = -4.0/lambda_k*(x-x0).adjoint()*z;
-			double eta_d = std::real(Fg);
-
-			double kappa = 2.0*eta*rho/eta_d*(lambda_k*lambda_k*eta_d*rho + 2.0*lambda_k*eta*rho + lambda_k*lambda_k*lambda_k*lambda_k*eta*eta_d)/std::sqrt((lambda_k*lambda_k*eta*eta+rho*rho)*(lambda_k*lambda_k*eta*eta+rho*rho)*(lambda_k*lambda_k*eta*eta+rho*rho));
-			std::cout<<lambda_k<<
-				","<<rho<<
-				","<<eta<<
-				","<<Fg<<
-				","<<kappa<<
-				","<<std::endl;
-
-			lambda_k *= 10.0;
-		}
-	} else {
-		::SolveGlobalSystem(&x, A+lambda_*B,b+lambda_*B*x);
-	}
-	// extract electric properties
-	{
-		int idx = idx0;
-		for (int idx_out = 0; idx_out<n_out; ++idx_out) {
-			if (dof[idx_out]>0) {
-				(*epsc)[idx] = std::exp(x[dof[idx_out]-1]);
-			} else {
-				if (use_seed_points_ && dof[idx_out]<0) {
-					(*epsc)[idx] = std::exp(dir[-dof[idx_out]-1]);
-				} else {
-					(*epsc)[idx] = ::nancd;
-				}
+				x[dof[idx]-1] = std::log(epsc_[idx]);
 			}
 			++idx;
 		}
+		::LCurve(&x, A,B,b,l,lambda_,dof,ndof,epsc_,g_plus_,g_z_,is_2d_);
+	} else {
+		::SolveGlobalSystem(&x, A,b);
 	}
-	return EPTlibError::Success;
+	// extract electric properties
+	for (int idx = 0; idx<n_out; ++idx) {
+		if (dof[idx]>0) {
+			epsc_[idx] = std::exp(x[dof[idx]-1]);
+		} else {
+			if (use_seed_points_ && dof[idx]<0) {
+				epsc_[idx] = std::exp(dir[-dof[idx]-1]);
+			} else {
+				epsc_[idx] = ::nancd;
+			}
+		}
+	}
+	return;
 }
 
 // Extract the electric properties of a slice.
-EPTlibError_t EPTGradient::
-ExtractElectricPropertiesSlice(const int i2, const int out_i2,
-	const std::vector<std::complex<double> > &epsc) {
-	int nxy = nn_[0]*nn_[1];
-	int idx = nn_[0]*nn_[1]*i2;
-	int out_idx = nn_[0]*nn_[1]*out_i2;
-	for (int s = 0; s<nxy; ++s) {
-		epsr_[out_idx] = epsc[idx].real()/EPS0;
-		sigma_[out_idx] = -epsc[idx].imag()*omega_;
-		++idx;
-		++out_idx;
+void EPTGradient::
+ExtractElectricProperties() {
+	for (int idx = 0; idx<epsc_.size(); ++idx) {
+		epsr_[idx] = epsc_[idx].real()/EPS0;
+		sigma_[idx] = -epsc_[idx].imag()*omega_;
 	}
-	return EPTlibError::Success;
+	return;
 }

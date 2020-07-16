@@ -179,14 +179,14 @@ class EPTGradient : public EPTInterface {
 
 		// Auxiliary methods
 		/// Perform the pixel-by-pixel recovery.
-		EPTlibError_t LocalRecovery(
+		void LocalRecovery(
 			std::array<std::vector<double>,NDIM> *grad_phi0,
 			std::vector<std::complex<double> > *g_plus,
 			std::vector<std::complex<double> > *g_z,
 			std::vector<std::complex<double> > *theta,
 			const int iref);
 		/// Perform pixel-by-pixel recovery in a slice.
-		EPTlibError_t LocalRecoverySlice(
+		void LocalRecoverySlice(
 			std::array<std::vector<double>,NDIM> *grad_phi0,
 			std::vector<std::complex<double> > *g_plus,
 			std::vector<std::complex<double> > *g_z,
@@ -198,17 +198,12 @@ class EPTGradient : public EPTInterface {
 			const std::vector<std::complex<double> > &g_plus,
 			const std::vector<std::complex<double> > &g_z);
 		/// Select the degrees of freedom.
-		EPTlibError_t SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
-			int *n_dof, const std::vector<std::complex<double> > &epsc,
-			const std::vector<int> &locstep);
+		void SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
+			int *n_dof, const std::vector<int> &locstep);
 		/// Solve the global minimisation problem.
-		EPTlibError_t GlobalMinimisation(
-			std::vector<std::complex<double> > *epsc,
-			const std::vector<std::complex<double> > &g_plus,
-			const std::vector<std::complex<double> > &g_z);
-		/// Extract the electric properties of a slice.
-		EPTlibError_t ExtractElectricPropertiesSlice(const int i2,
-			const int out_i2, const std::vector<std::complex<double> > &epsc);
+		void GlobalMinimisation();
+		/// Extract the electric properties from the complex permittivity.
+		void ExtractElectricProperties();
 };
 
 }  // namespace eptlib
