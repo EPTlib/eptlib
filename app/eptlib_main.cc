@@ -69,8 +69,8 @@ using namespace eptlib;
 
 constexpr char software::name[];
 
-template <class T> using data = pair<T,string>;
-template <class T> using list = pair<array<T,NDIM>,string>;
+template <class T> using cfgdata = pair<T,string>;
+template <class T> using cfglist = pair<array<T,NDIM>,string>;
 
 int main(int argc, char **argv) {
     // opening boilerplate
@@ -87,25 +87,24 @@ int main(int argc, char **argv) {
         io_toml = new io::IOtoml(std::string(argv[1]),io::Mode::In);
     } catch(const ios_base::failure &e) {
         cout<<"FATAL ERROR in config file: "<<e.what()<<endl;
-        delete io_toml;
         return 1;
     }
     // declare the input variables
     //   mandatory input
-    data<string> title; title.second = "title";
-    data<string> descr; descr.second = "description";
-    data<int> method; method.second = "method";
-    list<int> nn; nn.second = "mesh.size";
-    list<double> dd; dd.second = "mesh.step";
-    data<double> freq; freq.second = "input.frequency";
+    cfgdata<string> title; title.second = "title";
+    cfgdata<string> descr; descr.second = "description";
+    cfgdata<int> method; method.second = "method";
+    cfglist<int> nn; nn.second = "mesh.size";
+    cfglist<double> dd; dd.second = "mesh.step";
+    cfgdata<double> freq; freq.second = "input.frequency";
     //   optional input
-    data<int> n_txch; n_txch.first = 1; n_txch.second = "input.tx-channels";
-    data<int> n_rxch; n_rxch.first = 1; n_rxch.second = "input.rx-channels";
-    data<string> txsens_addr; txsens_addr.first = ""; txsens_addr.second = "input.tx-sensitivity";
-    data<string> trxphase_addr; trxphase_addr.first = ""; trxphase_addr.second = "input.trx-phase";
-    data<string> refimg_addr; refimg_addr.first = ""; refimg_addr.second = "input.reference-img";
-    data<string> sigma_addr; sigma_addr.first = ""; sigma_addr.second = "output.electric-conductivity";
-    data<string> epsr_addr; epsr_addr.first = ""; epsr_addr.second = "output.relative-permittivity";
+    cfgdata<int> n_txch; n_txch.first = 1; n_txch.second = "input.tx-channels";
+    cfgdata<int> n_rxch; n_rxch.first = 1; n_rxch.second = "input.rx-channels";
+    cfgdata<string> txsens_addr; txsens_addr.first = ""; txsens_addr.second = "input.tx-sensitivity";
+    cfgdata<string> trxphase_addr; trxphase_addr.first = ""; trxphase_addr.second = "input.trx-phase";
+    cfgdata<string> refimg_addr; refimg_addr.first = ""; refimg_addr.second = "input.reference-img";
+    cfgdata<string> sigma_addr; sigma_addr.first = ""; sigma_addr.second = "output.electric-conductivity";
+    cfgdata<string> epsr_addr; epsr_addr.first = ""; epsr_addr.second = "output.relative-permittivity";
     // load the input data
     //   title
     LOADMANDATORYDATA(io_toml,title);
