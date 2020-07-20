@@ -32,7 +32,7 @@
 
 cmake_minimum_required(VERSION 3.12)
 
-project(EPTlib VERSION 1.0.0 LANGUAGES C CXX)
+project(EPTlib VERSION 1.1.0 LANGUAGES C CXX)
 
 # Disallow in-source build
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
