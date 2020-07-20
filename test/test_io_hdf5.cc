@@ -34,6 +34,8 @@
 
 #include "eptlib/io/io_hdf5.h"
 
+#include <array>
+
 #include "eptlib/util.h"
 #include "eptlib/image.h"
 

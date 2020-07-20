@@ -56,7 +56,7 @@ constexpr double EPS0 = 1.0/MU0/C0/C0;
 /**
  * Error codes that can be provided by EPTlib functions and methods.
  */
-typedef enum EPTlibError {
+enum EPTlibError {
   /// Success.
   Success = 0,
   /// Missing data error.
@@ -67,14 +67,14 @@ typedef enum EPTlibError {
   WrongDataFormat,
   /// Unknown error.
   Unknown,
-} EPTlibError_t;
+};
 /**
  * Translates in a human-readable string the input EPTlibError symbol.
  *
  * @param error is an EPTlibError symbol.
  * @return the human-readable description of the input EPTlibError symbol.
  */
-const std::string ToString(const EPTlibError_t error);
+const std::string ToString(const EPTlibError error);
 
 /**
  * Return the license boilerplate as a string.
@@ -151,7 +151,7 @@ void IdxToMultiIdx(T &ii, int idx, const U &nn);
 // ---------------------------------------------------------------------------
 
 // Translates in a human-readable string the input EPTlibError symbol.
-inline const std::string ToString(const EPTlibError_t error) {
+inline const std::string ToString(const EPTlibError error) {
     switch (error) {
         case EPTlibError::Success:
             return "Success";

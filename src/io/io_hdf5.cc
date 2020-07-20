@@ -125,7 +125,7 @@ namespace {
 
 // IOh5 constructor
 IOh5::
-IOh5(const std::string &fname, const Mode_t mode) :
+IOh5(const std::string &fname, const Mode mode) :
     fname_(fname), mode_(mode) {
     H5::Exception::dontPrint();
     switch (mode_) {
@@ -155,7 +155,7 @@ IOh5::
 
 // IOh5 read dataset
 template <typename T>
-State_t IOh5::
+State IOh5::
 ReadDataset(Image<T> *img, const std::string &url, const std::string &urn) {
     H5::Exception::dontPrint();
     try {
@@ -183,7 +183,7 @@ ReadDataset(Image<T> *img, const std::string &url, const std::string &urn) {
 
 // IOh5 write dataset
 template <typename T>
-State_t IOh5::
+State IOh5::
 WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const {
     H5::Exception::dontPrint();
     try {
@@ -200,9 +200,14 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
         std::reverse_copy(img.GetSize().begin(),img.GetSize().end(),dims.begin());
         H5::DataSpace dspace(n_dim,dims.data());
         H5::DataType dtype(::HDF5Types<T>::Type());
-        H5::DataSet dset = group.createDataSet(urn,dtype,dspace);
+        H5::DataSet dset;
+        try {
+            dset = group.createDataSet(urn,dtype,dspace);
+        } catch (const H5::Exception&) {
+            dset = group.openDataSet(urn);
+        }
         // write the data in the dataset
-        dset.write(img.GetData().data(),dtype);
+        dset.write(img.GetData().data(),dtype,dspace);
     } catch (const H5::FileIException&) {
         return State::HDF5FileException;
     } catch (const H5::GroupIException&) {
@@ -219,14 +224,14 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
 
 // Template specialisations
 // ReadDataset
-template State_t IOh5::ReadDataset<size_t>(Image<size_t> *img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<float>(Image<float> *img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<double>(Image<double> *img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<int>(Image<int> *img, const std::string &url, const std::string &urn);
-template State_t IOh5::ReadDataset<long>(Image<long> *img, const std::string &url, const std::string &urn);
+template State IOh5::ReadDataset<size_t>(Image<size_t> *img, const std::string &url, const std::string &urn);
+template State IOh5::ReadDataset<float>(Image<float> *img, const std::string &url, const std::string &urn);
+template State IOh5::ReadDataset<double>(Image<double> *img, const std::string &url, const std::string &urn);
+template State IOh5::ReadDataset<int>(Image<int> *img, const std::string &url, const std::string &urn);
+template State IOh5::ReadDataset<long>(Image<long> *img, const std::string &url, const std::string &urn);
 // WriteDataset
-template State_t IOh5::WriteDataset<size_t>(const Image<size_t> &img, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<float>(const Image<float> &img, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<double>(const Image<double> &img, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<int>(const Image<int> &img, const std::string &url, const std::string &urn) const;
-template State_t IOh5::WriteDataset<long>(const Image<long> &img, const std::string &url, const std::string &urn) const;
+template State IOh5::WriteDataset<size_t>(const Image<size_t> &img, const std::string &url, const std::string &urn) const;
+template State IOh5::WriteDataset<float>(const Image<float> &img, const std::string &url, const std::string &urn) const;
+template State IOh5::WriteDataset<double>(const Image<double> &img, const std::string &url, const std::string &urn) const;
+template State IOh5::WriteDataset<int>(const Image<int> &img, const std::string &url, const std::string &urn) const;
+template State IOh5::WriteDataset<long>(const Image<long> &img, const std::string &url, const std::string &urn) const;

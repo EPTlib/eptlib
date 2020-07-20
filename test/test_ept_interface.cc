@@ -58,7 +58,7 @@ class SubEPTInterface : public EPTInterface {
          * 
          * Copy the transmit sensitivity in sigma and the transceive phase in epsr.
          */
-        EPTlibError_t Run() override {
+        EPTlibError Run() override {
             thereis_sigma_ = true;
             thereis_epsr_ = true;
             sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
@@ -83,7 +83,7 @@ TEST(EPTInterfaceGTest,SettersGetters) {
         trx_phase[idx] = -idx-1;
     }
     //
-    EPTlibError_t ierr;
+    EPTlibError ierr;
     SubEPTInterface epti(nn,dd);
     //
     ierr = epti.SetTxSensitivity(&tx_sens);

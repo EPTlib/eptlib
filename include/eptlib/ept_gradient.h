@@ -60,14 +60,14 @@ struct SeedPoint {
 /**
  * Codes for the run modality of the gradient EPT method.
  */
-typedef enum EPTGradientRun {
+enum class EPTGradientRun {
 	/// Complete application of gradient EPT.
 	FULL = 0,
 	/// Solve the local system and return the first approximation.
 	LOCAL,
 	/// Solve the gradient inversion problem if a local solution is provided.
 	GRADIENT,
-} EPTGradientRun_t;
+};
 
 /**
  * Implementation of the gradient EPT method.
@@ -98,13 +98,17 @@ class EPTGradient : public EPTInterface {
 		 * 
 		 * @return an error index about the state of the tomography.
 		 */
-		virtual EPTlibError_t Run() override;
+		virtual EPTlibError Run() override;
 		/**
 		 * Set the run mode of the next gradient EPT run.
 		 * 
 		 * @param run_mode run mode to be set.
 		 */
-		void SetRunMode(EPTGradientRun_t run_mode);
+		void SetRunMode(EPTGradientRun run_mode);
+		/**
+		 * Get the run mode of the next gradient EPT run.
+		 */
+		EPTGradientRun GetRunMode();
 		/**
 		 * Set/unset the use of seed points to invert the gradient.
 		 * 
@@ -122,13 +126,13 @@ class EPTGradient : public EPTInterface {
          * 
          * @return a Success or WrongDataFormat error.
          */
-        EPTlibError_t SelectPlane(const int plane_idx);
+        EPTlibError SelectSlice(const int slice_idx);
 		/**
 		 * Set the first estimate weight.
 		 * 
 		 * @return a Success or WrongDataFormat error.
 		 */
-		EPTlibError_t SetLambda(const double lambda);
+		EPTlibError SetLambda(const double lambda);
 		/**
 		 * Get the complex permittivity.
 		 * 
@@ -136,7 +140,7 @@ class EPTGradient : public EPTInterface {
 		 * 
 		 * @return a Success or MissingData error.
 		 */
-		EPTlibError_t GetEpsC(std::vector<std::complex<double> > *epsc);
+		EPTlibError GetEpsC(std::vector<std::complex<double> > *epsc);
 		/**
 		 * Get the positive derivative of the complex permittivity logarithm.
 		 * 
@@ -144,7 +148,7 @@ class EPTGradient : public EPTInterface {
 		 * 
 		 * @return a Success or MissingData error.
 		 */
-		EPTlibError_t GetGPlus(std::vector<std::complex<double> > *g_plus);
+		EPTlibError GetGPlus(std::vector<std::complex<double> > *g_plus);
 		/**
 		 * Get the longitudinal derivative of the complex permittivity logarithm.
 		 * 
@@ -152,7 +156,7 @@ class EPTGradient : public EPTInterface {
 		 * 
 		 * @return a Success or MissingData error.
 		 */
-		EPTlibError_t GetGZ(std::vector<std::complex<double> > *g_z);
+		EPTlibError GetGZ(std::vector<std::complex<double> > *g_z);
 	private:
 		/// 2D assumption flag.
 		const bool is_2d_;
@@ -175,7 +179,7 @@ class EPTGradient : public EPTInterface {
 		/// First estimate flag
 		bool thereis_epsc_;
 		/// Gradient EPT run flag.
-		EPTGradientRun_t run_mode_;
+		EPTGradientRun run_mode_;
 
 		// Auxiliary methods
 		/// Perform the pixel-by-pixel recovery.
@@ -193,7 +197,7 @@ class EPTGradient : public EPTInterface {
 			std::vector<std::complex<double> > *theta,
 			const int iref, const int i2);
 		/// Estimate the complex permittivity from theta local recovery.
-		EPTlibError_t Theta2Epsc(std::vector<std::complex<double> > *theta,
+		EPTlibError Theta2Epsc(std::vector<std::complex<double> > *theta,
 			const std::array<std::vector<double>,NDIM> &grad_phi0,
 			const std::vector<std::complex<double> > &g_plus,
 			const std::vector<std::complex<double> > &g_z);

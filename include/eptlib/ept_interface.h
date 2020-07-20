@@ -72,7 +72,7 @@ class EPTInterface {
          * 
          * @return an error index specified by each method implementation.
          */
-        virtual EPTlibError_t Run() = 0;
+        virtual EPTlibError Run() = 0;
         /**
          * Set the transmit sensitivity of j-th Tx channel.
          * 
@@ -83,7 +83,7 @@ class EPTInterface {
          * 
          * Note that just the _reference_ to tx_sens is stored.
          */
-        EPTlibError_t SetTxSensitivity(const Image<double> *tx_sens,
+        EPTlibError SetTxSensitivity(const Image<double> *tx_sens,
             const int j = 0);
         /**
          * Set the transceive phase of j-th Tx channel w.r.t k-th Rx channel.
@@ -96,7 +96,7 @@ class EPTInterface {
          * 
          * Note that just the _reference_ to trx_phase is stored.
          */
-        EPTlibError_t SetTRxPhase(const Image<double> *trx_phase,
+        EPTlibError SetTRxPhase(const Image<double> *trx_phase,
             const int j = 0, const int k = 0);
         /**
          * Get the electric conductivity.
@@ -105,7 +105,7 @@ class EPTInterface {
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError_t GetElectricConductivity(Image<double> *sigma);
+        EPTlibError GetElectricConductivity(Image<double> *sigma);
         /**
          * Get the relative permittivity.
          * 
@@ -113,7 +113,7 @@ class EPTInterface {
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError_t GetRelativePermittivity(Image<double> *epsr);
+        EPTlibError GetRelativePermittivity(Image<double> *epsr);
         /**
          * Set a post-processing median filter.
          * 
@@ -121,13 +121,13 @@ class EPTInterface {
          * 
          * @return a Success or Unknown error.
          */
-        EPTlibError_t SetPostPro(const Shape &shape);
+        EPTlibError SetPostPro(const Shape &shape);
         /**
          * Unset the post-processing filter.
          * 
          * @return a Success or Unknown error.
          */
-        EPTlibError_t UnsetPostPro();
+        EPTlibError UnsetPostPro();
         /**
          * Apply the post-processing median filter to the output electric
          * conductivity and/or relative permittivity.
@@ -137,7 +137,7 @@ class EPTInterface {
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError_t ApplyPostPro(const double *img = nullptr);
+        EPTlibError ApplyPostPro(const double *img = nullptr);
     protected:
         /// Operative harmonic frequency of the MRI scanner.
         double omega_;

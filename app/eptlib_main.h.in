@@ -34,6 +34,7 @@
 #define EPTLIB_MAIN_H_
 
 #include <array>
+#include <fstream>
 #include <string>
 
 #define WALL @WALL@
@@ -46,7 +47,7 @@ struct software {
     }
 };
 
-typedef enum EPTMethod {
+enum class EPTMethod {
     /// Helmholtz-based EPT
     HELMHOLTZ = 0,
     /// Convection-reaction EPT
@@ -55,13 +56,31 @@ typedef enum EPTMethod {
     GRADIENT,
     /// Fictitious EPT method
     END,
-} EPTMethod_t;
-
-std::string ToString(const EPTMethod_t ept_method) {
+};
+std::string ToString(const EPTMethod ept_method) {
     switch (ept_method) {
         case EPTMethod::HELMHOLTZ: return "Helmholtz-base EPT";
         case EPTMethod::CONVREACT: return "Convection-reaction EPT";
         case EPTMethod::GRADIENT: return "Gradient EPT";
+    }
+    return "";
+}
+
+enum class KernelShape {
+    /// Cross
+    CROSS = 0,
+    /// Ellipsoid
+    ELLIPSOID,
+    /// Cuboid
+    CUBOID,
+    /// Fictitious shape
+    END,
+};
+std::string ToString(const KernelShape kernel_shape) {
+    switch (kernel_shape) {
+        case KernelShape::CROSS: return "Cross";
+        case KernelShape::ELLIPSOID: return "Ellipsoid";
+        case KernelShape::CUBOID: return "Cuboid";
     }
     return "";
 }

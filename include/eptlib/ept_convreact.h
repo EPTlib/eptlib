@@ -69,31 +69,25 @@ class EPTConvReact : public EPTInterface {
          * 
          * @return an error index about the state of the tomography.
          */
-        virtual EPTlibError_t Run() override;
+        virtual EPTlibError Run() override;
         /**
-         * Set the dirichlet boundary conditions.
+         * Set/unset the tomography on a volume domain.
          * 
-         * @return a Success or Unknown error.
+         * @return if it has been set.
          */
-        EPTlibError_t SetDirichlet(const double dir_epsr, const double dir_sigma);
+        bool Toggle3D();
         /**
          * Set the selected plane index for plane tomography.
          * 
          * @return a Success or WrongDataFormat error.
          */
-        EPTlibError_t SelectPlane(const int plane_idx);
+        EPTlibError SelectSlice(const int slice_idx);
         /**
-         * Set the tomography on a volume domain.
+         * Set the dirichlet boundary conditions.
          * 
          * @return a Success or Unknown error.
          */
-        EPTlibError_t SetVolumeTomography();
-        /**
-         * Unset the tomography on a volume domain.
-         * 
-         * @return a Success or Unknown error.
-         */
-        EPTlibError_t UnsetVolumeTomography();
+        EPTlibError SetDirichlet(const double dir_epsr, const double dir_sigma);
         /**
          * Set the artificial diffusion stabilisation.
          * 
@@ -101,13 +95,13 @@ class EPTConvReact : public EPTInterface {
          * 
          * @return a Success or Unknown error.
          */
-        EPTlibError_t SetArtificialDiffusion(const double diff_coeff);
+        void SetArtificialDiffusion(const double diff_coeff);
         /**
          * Unset the artificial diffusion stabilisation.
          * 
          * @return a Success or Unknown error.
          */
-        EPTlibError_t UnsetArtificialDiffusion();
+        void UnsetArtificialDiffusion();
     private:
         /// Dirichlet condition of relative permittivity.
         double dir_epsr_;
@@ -124,9 +118,9 @@ class EPTConvReact : public EPTInterface {
         /// Filter for the derivative computation.
         FDSavitzkyGolayFilter fd_filter_;
         /// Perform the complete convection-reaction EPT.
-        EPTlibError_t CompleteEPTConvReact();
+        EPTlibError CompleteEPTConvReact();
         /// Perform the phase approximated convection-reaction EPT.
-        EPTlibError_t PhaseEPTConvReact();
+        EPTlibError PhaseEPTConvReact();
 };
 
 }  // namespace eptlib

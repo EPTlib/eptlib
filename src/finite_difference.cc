@@ -154,8 +154,8 @@ FDSavitzkyGolayFilter(const Shape &shape) :
 
 // FDSavitzkyGolayFilter apply
 template <typename NumType>
-EPTlibError_t FDSavitzkyGolayFilter::
-Apply(const DifferentialOperator_t diff_op, NumType *dst, const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
+EPTlibError FDSavitzkyGolayFilter::
+Apply(const DifferentialOperator diff_op, NumType *dst, const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;
@@ -194,12 +194,14 @@ Apply(const DifferentialOperator_t diff_op, NumType *dst, const NumType *src, co
                 if (diff_op==DifferentialOperator::GradientX||
                     diff_op==DifferentialOperator::GradientY||
                     diff_op==DifferentialOperator::GradientZ) {
-                    int d = diff_op - DifferentialOperator::GradientX;
+                    int d = static_cast<int>(diff_op) -
+                        static_cast<int>(DifferentialOperator::GradientX);
                     dst[idx] = FirstOrder(d,field_crop,dd);
                 } else if (diff_op==DifferentialOperator::GradientXX||
                     diff_op==DifferentialOperator::GradientYY||
                     diff_op==DifferentialOperator::GradientZZ) {
-                    int d = diff_op - DifferentialOperator::GradientXX;
+                    int d = static_cast<int>(diff_op) -
+                        static_cast<int>(DifferentialOperator::GradientXX);
                     dst[idx] = SecondOrder(d,field_crop,dd);
                 } else if (diff_op==DifferentialOperator::Laplacian) {
                     dst[idx] = Laplacian(field_crop,dd);
@@ -242,8 +244,8 @@ GetShape() const {
 }
 
 // FDSavitzkyGolayFilter specialisations
-template EPTlibError_t FDSavitzkyGolayFilter::Apply<double>(const DifferentialOperator_t diff_op,double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
-template EPTlibError_t FDSavitzkyGolayFilter::Apply<std::complex<double> >(const DifferentialOperator_t diff_op,std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+template EPTlibError FDSavitzkyGolayFilter::Apply<double>(const DifferentialOperator diff_op,double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+template EPTlibError FDSavitzkyGolayFilter::Apply<std::complex<double> >(const DifferentialOperator diff_op,std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
 template double FDSavitzkyGolayFilter::FirstOrder<double>(const int d,const std::vector<double> &field_crop,const std::array<double,NDIM> &dd) const;
 template std::complex<double> FDSavitzkyGolayFilter::FirstOrder<std::complex<double> >(const int d,const std::vector<std::complex<double> > &field_crop,const std::array<double,NDIM> &dd) const;
 template double FDSavitzkyGolayFilter::SecondOrder<double>(const int d,const std::vector<double> &field_crop,const std::array<double,NDIM> &dd) const;

@@ -70,7 +70,7 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
     std::vector<double> c_lapl(n_vox);
     std::vector<double> l_lapl(n_vox);
     std::vector<double> q_lapl(n_vox);
-    DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
+    DifferentialOperator diff_op = DifferentialOperator::Laplacian;
     fd_lapl.Apply(diff_op,c_lapl.data(),c_field.data(),nn,dd);
     fd_lapl.Apply(diff_op,l_lapl.data(),l_field.data(),nn,dd);
     fd_lapl.Apply(diff_op,q_lapl.data(),q_field.data(),nn,dd);
@@ -128,7 +128,7 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
         c_grad[d].resize(n_vox);
         l_grad[d].resize(n_vox);
         q_grad[d].resize(n_vox);
-        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
         fd_grad.Apply(diff_op,c_grad[d].data(),c_field.data(),nn,dd);
         fd_grad.Apply(diff_op,l_grad[d].data(),l_field.data(),nn,dd);
         fd_grad.Apply(diff_op,q_grad[d].data(),q_field.data(),nn,dd);
@@ -163,7 +163,7 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
     const std::array<int,NDIM> cross_rr = {2,1,1};
-    std::array<int,NDIM> cuboid_nn = {4,2,2};
+    std::array<int,NDIM> cuboid_nn = {2,1,1};
     Shape cuboid = shapes::Cuboid(cuboid_nn);
     std::array<int,NDIM> l = {1,1,1};
     std::array<int,NDIM> r = {0,0,0};
@@ -200,7 +200,7 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
     std::vector<double> c_lapl(n_vox);
     std::vector<double> l_lapl(n_vox);
     std::vector<double> q_lapl(n_vox);
-    DifferentialOperator_t diff_op = DifferentialOperator::Laplacian;
+    DifferentialOperator diff_op = DifferentialOperator::Laplacian;
     fd_lapl.Apply(diff_op,c_lapl.data(),c_field.data(),nn,dd);
     fd_lapl.Apply(diff_op,l_lapl.data(),l_field.data(),nn,dd);
     fd_lapl.Apply(diff_op,q_lapl.data(),q_field.data(),nn,dd);
@@ -273,7 +273,7 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayGradient) {
         c_grad[d].resize(n_vox);
         l_grad[d].resize(n_vox);
         q_grad[d].resize(n_vox);
-        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
         fd_grad.Apply(diff_op,c_grad[d].data(),c_field.data(),nn,dd);
         fd_grad.Apply(diff_op,l_grad[d].data(),l_field.data(),nn,dd);
         fd_grad.Apply(diff_op,q_grad[d].data(),q_field.data(),nn,dd);

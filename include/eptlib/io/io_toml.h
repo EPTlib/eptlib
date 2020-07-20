@@ -56,7 +56,7 @@ namespace io {
              * @param fname address of the file to open.
              * @param mode file opening mode.
              */
-            IOtoml(const std::string &fname, const Mode_t mode);
+            IOtoml(const std::string &fname, const Mode mode);
             /**
              * Destructor.
              */
@@ -73,7 +73,7 @@ namespace io {
              *     a WrongDataFormat if the value is found but it is not `T'.
              */
             template <typename T>
-            EPTlibError_t GetValue(T &value, const std::string &uri);
+            EPTlibError GetValue(T &value, const std::string &uri);
             /**
              * Extract a value from the TOML file content.
              * 
@@ -86,12 +86,12 @@ namespace io {
              *     a WrongDataFormat if the value is found but it is not `T'.
              */
             template <typename T>
-            EPTlibError_t GetArrayOf(std::array<T,NDIM> &array, const std::string &uri);
+            EPTlibError GetArrayOf(std::array<T,NDIM> &array, const std::string &uri);
         private:
             /// Address of the file to open.
             std::string fname_;
             /// File opening mode.
-            Mode_t mode_;
+            Mode mode_;
             /// TOML file.
             std::ifstream file_;
             /// TOML file content.
@@ -104,7 +104,7 @@ namespace io {
 
     // IOtoml get value
     template <typename T>
-    EPTlibError_t IOtoml::
+    EPTlibError IOtoml::
     GetValue(T &value, const std::string &uri) {
         const toml::Value* x = content_.find(uri);
         if (!x) {
@@ -117,10 +117,10 @@ namespace io {
         return EPTlibError::Success;
     }
     template <>
-    EPTlibError_t IOtoml::
+    EPTlibError IOtoml::
     GetValue<char>(char &value, const std::string &uri) {
         std::string tmp;
-        EPTlibError_t error = GetValue<std::string>(tmp, uri);
+        EPTlibError error = GetValue<std::string>(tmp, uri);
         if (error==EPTlibError::Success) {
             value = tmp[0];
         }
@@ -128,7 +128,7 @@ namespace io {
     }
     // IOtoml get array
     template <typename T>
-    EPTlibError_t IOtoml::
+    EPTlibError IOtoml::
     GetArrayOf(std::array<T,NDIM> &array, const std::string &uri) {
         const toml::Value* x = content_.find(uri);
         if (!x) {

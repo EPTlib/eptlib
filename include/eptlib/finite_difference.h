@@ -44,7 +44,7 @@ namespace eptlib {
 /**
  * Differential operators that can be approximated with Savitzky-Golay.
  */
-typedef enum DifferentialOperator {
+enum class DifferentialOperator {
     /// First order derivative along X
     GradientX = 0,
     /// First order derivative along Y
@@ -59,7 +59,7 @@ typedef enum DifferentialOperator {
     GradientZZ,
     /// Laplacian
     Laplacian,
-} DifferentialOperator_t;
+};
 
 /**
  * Class for the application of finite differences.
@@ -88,7 +88,7 @@ class FDSavitzkyGolayFilter {
          * @return a Success or Unknown error.
          */
         template <typename NumType>
-        EPTlibError_t Apply(const DifferentialOperator_t diff_op, NumType *dst,
+        EPTlibError Apply(const DifferentialOperator diff_op, NumType *dst,
             const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
         /**
          * Apply the kernel for first order derivatives.

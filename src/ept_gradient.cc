@@ -70,7 +70,7 @@ EPTGradient::
 }
 
 // EPTGradient run
-EPTlibError_t EPTGradient::
+EPTlibError EPTGradient::
 Run() {
 	// Check the run mode conditions
 	if (run_mode_==EPTGradientRun::GRADIENT && !thereis_epsc_) {
@@ -119,7 +119,7 @@ Run() {
 			// ...perform the local recovery
 			LocalRecovery(&grad_phi0,&g_plus,&g_z,&theta,iref);
 			// ...estimate the complex permittivity from theta
-			EPTlibError_t error = Theta2Epsc(&theta,grad_phi0,g_plus,g_z);
+			EPTlibError error = Theta2Epsc(&theta,grad_phi0,g_plus,g_z);
 			if (error!=EPTlibError::Success) {
 				return error;
 			}
@@ -155,9 +155,13 @@ Run() {
 }
 
 void EPTGradient::
-SetRunMode(EPTGradientRun_t run_mode) {
+SetRunMode(EPTGradientRun run_mode) {
 	run_mode_ = run_mode;
 	return;
+}
+EPTGradientRun EPTGradient::
+GetRunMode() {
+	return run_mode_;
 }
 bool EPTGradient::
 ToggleSeedPoints() {
@@ -169,15 +173,16 @@ AddSeedPoint(const SeedPoint seed_point) {
 	seed_points_.push_back(seed_point);
 	return;
 }
-EPTlibError_t EPTGradient::
-SelectPlane(const int plane_idx) {
-	if (plane_idx<0 || plane_idx>nn_[2]) {
+EPTlibError EPTGradient::
+SelectSlice(const int slice_idx) {
+	int r2 = fd_filter_.GetShape().GetSize()[2]/2;
+	if (slice_idx<2*r2||slice_idx>nn_[2]-1-2*r2) {
 		return EPTlibError::WrongDataFormat;
 	}
-    plane_idx_ = plane_idx;
+    plane_idx_ = slice_idx;
     return EPTlibError::Success;
 }
-EPTlibError_t EPTGradient::
+EPTlibError EPTGradient::
 SetLambda(const double lambda) {
 	if (lambda<0.0) {
 		return EPTlibError::WrongDataFormat;
@@ -186,7 +191,7 @@ SetLambda(const double lambda) {
 	return EPTlibError::Success;
 }
 
-EPTlibError_t EPTGradient::
+EPTlibError EPTGradient::
 GetEpsC(std::vector<std::complex<double> > *epsc) {
 	if (!thereis_epsc_) {
 		return EPTlibError::MissingData;
@@ -194,7 +199,7 @@ GetEpsC(std::vector<std::complex<double> > *epsc) {
 	*epsc = epsc_;
 	return EPTlibError::Success;
 }
-EPTlibError_t EPTGradient::
+EPTlibError EPTGradient::
 GetGPlus(std::vector<std::complex<double> > *g_plus) {
 	if (!thereis_epsc_) {
 		return EPTlibError::MissingData;
@@ -202,7 +207,7 @@ GetGPlus(std::vector<std::complex<double> > *g_plus) {
 	*g_plus = g_plus_;
 	return EPTlibError::Success;
 }
-EPTlibError_t EPTGradient::
+EPTlibError EPTGradient::
 GetGZ(std::vector<std::complex<double> > *g_z) {
 	if (!thereis_epsc_ || is_2d_) {
 		return EPTlibError::MissingData;
@@ -380,7 +385,7 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 // EPTGradient THETA TO COMPLEX PERMITTIVITY ////////////////////////////////
 /////////////////////////////////////////////////////////////////////////////
 // Estimate the complex permittivity from theta local recovery.
-EPTlibError_t EPTGradient::
+EPTlibError EPTGradient::
 Theta2Epsc(std::vector<std::complex<double> > *theta,
 	const std::array<std::vector<double>,NDIM> &grad_phi0,
 	const std::vector<std::complex<double> > &g_plus,
@@ -393,8 +398,8 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
 	// grad_phi0 laplacian...
 	for (int d = 0; d<n_dim; ++d) {
 		std::vector<double> lapl_phi0(n_vox);
-		DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
-		EPTlibError_t error = fd_filter_.Apply(diff_op,lapl_phi0.data(),
+		DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+		EPTlibError error = fd_filter_.Apply(diff_op,lapl_phi0.data(),
 			grad_phi0[d].data(),nn,dd_);
 		if (error!=EPTlibError::Success) {
 			return error;

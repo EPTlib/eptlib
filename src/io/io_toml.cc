@@ -40,7 +40,7 @@ using namespace eptlib::io;
 
 // IOtoml constructor
 IOtoml::
-IOtoml(const std::string &fname, const Mode_t mode) :
+IOtoml(const std::string &fname, const Mode mode) :
     fname_(fname), mode_(mode) {
     switch (mode_) {
         case Mode::In:

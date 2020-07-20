@@ -51,6 +51,10 @@ class Shape : public boost::addable<Shape>, boost::subtractable<Shape>,
     boost::andable<Shape> {
     public:
         /**
+         * Default constructor.
+         */
+        Shape();
+        /**
          * Constructor.
          * 
          * @param nn number of voxels in each direction.
@@ -199,6 +203,14 @@ namespace shapes {
      * @return a cuboid shape.
      */
     Shape Cuboid(const std::array<int,NDIM> &nn);
+    /**
+     * Create a cuboid shape that fill the input grid.
+     * 
+     * @param rr semi-length (in voxels) in each direction.
+     * 
+     * @return a cuboid shape.
+     */
+    Shape CuboidR(const std::array<int,NDIM> &rr);
     /**
      * Create an ellipsoid shape fitted within a grid.
      * 

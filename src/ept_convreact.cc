@@ -46,8 +46,9 @@ using namespace eptlib;
 EPTConvReact::
 EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0), plane_idx_(nn[2]/2),
-    is_volume_(false), diff_coeff_(0.0), thereis_diff_(false), fd_filter_(shape) {
+    EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
+    plane_idx_(nn[2]/2), is_volume_(false), diff_coeff_(0.0),
+    thereis_diff_(false), fd_filter_(shape) {
     return;
 }
 
@@ -58,7 +59,7 @@ EPTConvReact::
 }
 
 // EPTConvReact run
-EPTlibError_t EPTConvReact::
+EPTlibError EPTConvReact::
 Run() {
     if (thereis_tx_sens_.all()) {
         thereis_epsr_ = true;
@@ -88,8 +89,26 @@ Run() {
     return EPTlibError::Success;
 }
 
+// EPTConvReact set volume tomography
+bool EPTConvReact::
+Toggle3D() {
+    is_volume_ = !is_volume_;
+    return is_volume_;
+}
+
+// EPTConvReact set the selected plane index
+EPTlibError EPTConvReact::
+SelectSlice(const int slice_idx) {
+    int r2 = fd_filter_.GetShape().GetSize()[2]/2;
+    if (slice_idx<r2||slice_idx>nn_[2]-1-r2) {
+        return EPTlibError::OutOfRange;
+    }
+    plane_idx_ = slice_idx;
+    return EPTlibError::Success;
+}
+
 // EPTConvReact set the dirichlet boundary condition
-EPTlibError_t EPTConvReact::
+EPTlibError EPTConvReact::
 SetDirichlet(const double dir_epsr, const double dir_sigma) {
     if (dir_epsr<1.0||dir_sigma<0.0) {
         return EPTlibError::WrongDataFormat;
@@ -99,37 +118,18 @@ SetDirichlet(const double dir_epsr, const double dir_sigma) {
     return EPTlibError::Success;
 }
 
-// EPTConvReact set the selected plane index
-EPTlibError_t EPTConvReact::
-SelectPlane(const int plane_idx) {
-    plane_idx_ = plane_idx;
-    return EPTlibError::Success;
-}
-// EPTConvReact set volume tomography
-EPTlibError_t EPTConvReact::
-SetVolumeTomography() {
-    is_volume_ = true;
-    return EPTlibError::Success;
-}
-// EPTConvReact unset volume tomography
-EPTlibError_t EPTConvReact::
-UnsetVolumeTomography() {
-    is_volume_ = false;
-    return EPTlibError::Success;
-}
-
 // EPTConvReact set artificial diffusion
-EPTlibError_t EPTConvReact::
+void EPTConvReact::
 SetArtificialDiffusion(const double diff_coeff) {
     diff_coeff_ = diff_coeff;
     thereis_diff_ = true;
-    return EPTlibError::Success;
+    return;
 }
 // EPTConvReact unset artificial diffusion
-EPTlibError_t EPTConvReact::
+void EPTConvReact::
 UnsetArtificialDiffusion() {
     thereis_diff_ = false;
-    return EPTlibError::Success;
+    return;
 }
 
 namespace { // details
@@ -160,7 +160,7 @@ namespace { // details
 }  // namespace
 
 // EPTConvReact complete EPT
-EPTlibError_t EPTConvReact::
+EPTlibError EPTConvReact::
 CompleteEPTConvReact() {
     const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
     int n_dim = is_volume_?NDIM:NDIM-1;
@@ -174,8 +174,8 @@ CompleteEPTConvReact() {
     }
     for (int d = 0; d<n_dim; ++d) {
         beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
-        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
-        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),tx_sens_c.data(),nn_,dd_);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+        EPTlibError error = fd_filter_.Apply(diff_op,beta[d].data(),tx_sens_c.data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -186,8 +186,8 @@ CompleteEPTConvReact() {
     }
     if (!is_volume_) {
         beta[2].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
-        DifferentialOperator_t diff_op = DifferentialOperator::GradientZZ;
-        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[2].data(),tx_sens_c.data(),nn_,dd_);
+        DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
+        EPTlibError error = fd_filter_.Apply(diff_op,beta[2].data(),tx_sens_c.data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -277,7 +277,7 @@ CompleteEPTConvReact() {
 }
 
 // EPTConvReact phase-based EPT
-EPTlibError_t EPTConvReact::
+EPTlibError EPTConvReact::
 PhaseEPTConvReact() {
     const std::array<int,NDIM> step{1,nn_[0],nn_[0]*nn_[1]};
     int n_dim = is_volume_?NDIM:NDIM-1;
@@ -287,16 +287,16 @@ PhaseEPTConvReact() {
     std::array<std::vector<double>,NDIM> beta;
     for (int d = 0; d<n_dim; ++d) {
         beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
-        DifferentialOperator_t diff_op = static_cast<DifferentialOperator_t>(d);
-        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+        EPTlibError error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
             return error;
         }
     }
     if (!is_volume_) {
         beta[2].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
-        DifferentialOperator_t diff_op = DifferentialOperator::GradientZZ;
-        EPTlibError_t error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
+        EPTlibError error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
             return error;
         }

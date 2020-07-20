@@ -56,7 +56,7 @@ EPTInterface::
 }
 
 // EPTInterface setters
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 SetTxSensitivity(const Image<double> *tx_sens, const int j) {
     if (j<0 || j>=tx_ch_) {
         return EPTlibError::OutOfRange;
@@ -73,7 +73,7 @@ SetTxSensitivity(const Image<double> *tx_sens, const int j) {
     thereis_tx_sens_.set(j);
     return EPTlibError::Success;
 }
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 SetTRxPhase(const Image<double> *trx_phase, const int j, const int k) {
     if (j<0 || j>=tx_ch_ || k<0 || k>=rx_ch_) {
         return EPTlibError::OutOfRange;
@@ -92,7 +92,7 @@ SetTRxPhase(const Image<double> *trx_phase, const int j, const int k) {
 }
 
 // EPTInterface getters
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 GetElectricConductivity(Image<double> *sigma) {
     if (!thereis_sigma_) {
         return EPTlibError::MissingData;
@@ -100,7 +100,7 @@ GetElectricConductivity(Image<double> *sigma) {
     *sigma = sigma_;
     return EPTlibError::Success;    
 }
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 GetRelativePermittivity(Image<double> *epsr) {
     if (!thereis_epsr_) {
         return EPTlibError::MissingData;
@@ -110,7 +110,7 @@ GetRelativePermittivity(Image<double> *epsr) {
 }
 
 // EPTInterface post-processing
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 SetPostPro(const Shape &shape) {
     if (thereis_postpro_) {
         delete postpro_;
@@ -119,7 +119,7 @@ SetPostPro(const Shape &shape) {
     thereis_postpro_ = true;
     return EPTlibError::Success;
 }
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 UnsetPostPro() {
     if (thereis_postpro_) {
         delete postpro_;
@@ -128,7 +128,7 @@ UnsetPostPro() {
     thereis_postpro_ = false;
     return EPTlibError::Success;
 }
-EPTlibError_t EPTInterface::
+EPTlibError EPTInterface::
 ApplyPostPro(const double *img) {
     if (!thereis_postpro_ || !(thereis_sigma_ || thereis_epsr_)) {
         return EPTlibError::MissingData;

@@ -63,7 +63,7 @@ class MedianFilter {
          * 
          * @return a Success or Unknown error.
          */
-        EPTlibError_t ApplyFilter(double *dst, const double *src,
+        EPTlibError ApplyFilter(double *dst, const double *src,
             const std::array<int,NDIM> &nn, const double *img = nullptr);
     private:
         /// Shape of the kernel for median filter application.

@@ -35,8 +35,6 @@
 
 #include <H5Cpp.h>
 
-#include <array>
-#include <vector>
 #include <string>
 
 #include "eptlib/image.h"
@@ -57,7 +55,7 @@ namespace io {
              * @param fname address of the file to open.
              * @param mode file opening mode.
              */
-            IOh5(const std::string &fname, const Mode_t mode);
+            IOh5(const std::string &fname, const Mode mode);
             /**
              * Destructor.
              */
@@ -74,7 +72,7 @@ namespace io {
              * @return the IO state.
              */
             template <typename T>
-            State_t ReadDataset(Image<T> *img, const std::string &url, const std::string &urn);
+            State ReadDataset(Image<T> *img, const std::string &url, const std::string &urn);
             /**
              * Write a datates into the .h5 file.
              * 
@@ -87,12 +85,12 @@ namespace io {
              * @return the IO state.
              */
             template <typename T>
-            State_t WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const;
+            State WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const;
         private:
             /// Address of the file to open.
             std::string fname_;
             /// File opening mode.
-            Mode_t mode_;
+            Mode mode_;
             /// HDF5 file.
             H5::H5File file_;
     };

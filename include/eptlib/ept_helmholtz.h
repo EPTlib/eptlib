@@ -74,7 +74,7 @@ class EPTHelmholtz : public EPTInterface {
          * used, otherwise the magnitude-based or the phase-based
          * approximations are applied.
          */
-        virtual EPTlibError_t Run() override;
+        virtual EPTlibError Run() override;
     private:
         /// Filter for the Laplacian computation.
         FDSavitzkyGolayFilter fd_lapl_;

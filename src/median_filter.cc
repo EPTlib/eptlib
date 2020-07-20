@@ -45,7 +45,7 @@ MedianFilter(const Shape &shape) :
 }
 
 // MedianFilter apply
-EPTlibError_t MedianFilter::
+EPTlibError MedianFilter::
 ApplyFilter(double *dst, const double *src, const std::array<int,NDIM> &nn,
     const double *img) {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());

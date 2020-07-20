@@ -42,19 +42,19 @@ namespace io {
     /**
      * File opening modes.
      */
-    typedef enum Mode {
+    enum class Mode {
         /// Open the file in read-only mode.
         In = 0,
         /// Create a new file or overwrite an existing file.
         Out,
         /// Create a new file or append to an existing file.
         Append,
-    } Mode_t;
+    };
 
     /**
      * IO states.
      */
-    typedef enum State {
+    enum class State {
         /// Success.
         Success = 0,
         /// HDF5 file error.
@@ -65,14 +65,14 @@ namespace io {
         HDF5DataspaceException,
         /// HDF5 datatype error.
         HDF5DatatypeException,
-    } State_t;
+    };
     /**
      * Translates in a human-readable string the input IO state.
      * 
      * @param state is a State symbol.
      * @return the human-readable description of the IO state.
      */
-    const std::string ToString(const State_t state);
+    const std::string ToString(const State state);
 
     /**
      * Deduce the filename and the uri from a given address.
@@ -89,7 +89,7 @@ namespace io {
     // ---------------------------------------------------------------------------
 
     // Translates in a human-readable string the input IO state
-    inline const std::string ToString(const State_t state) {
+    inline const std::string ToString(const State state) {
         switch (state) {
             case State::Success:
                 return "Success";

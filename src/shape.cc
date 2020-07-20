@@ -38,6 +38,13 @@
 
 using namespace eptlib;
 
+// Shape default constructor
+Shape::
+Shape() :
+    nn_(), n_vox_(0), shape_(0), is_symmetric_(false) {
+    return;
+}
+
 // Shape constructor
 Shape::
 Shape(const std::array<int,NDIM> &nn) :
@@ -210,6 +217,18 @@ namespace shapes {
 
     // Cuboid
     Shape Cuboid(const std::array<int,NDIM> &nn) {
+        Shape cuboid(nn);
+        cuboid.GetShape().set();
+        cuboid.CheckSymmetry();
+        return cuboid;
+    }
+
+    // CuboidR
+    Shape CuboidR(const std::array<int,NDIM> &rr) {
+        std::array<int,NDIM> nn;
+        for (int d = 0; d<NDIM; ++d) {
+            nn[d] = 2*rr[d]+1;
+        }
         Shape cuboid(nn);
         cuboid.GetShape().set();
         cuboid.CheckSymmetry();
