@@ -31,7 +31,6 @@
 #=============================================================================
 
 # EPTlib app
-set(EPTLIB_APP_NAME "EPTlib_app")
 set(WALL true)
 
 add_executable(${EPTLIB_APP_NAME}
