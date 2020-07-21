@@ -163,7 +163,7 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
     const std::array<int,NDIM> cross_rr = {2,1,1};
-    std::array<int,NDIM> cuboid_nn = {2,1,1};
+    std::array<int,NDIM> cuboid_nn = {4,2,2};
     Shape cuboid = shapes::Cuboid(cuboid_nn);
     std::array<int,NDIM> l = {1,1,1};
     std::array<int,NDIM> r = {0,0,0};
