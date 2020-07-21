@@ -44,7 +44,7 @@ struct project {
     static constexpr int patch = @PROJECT_VERSION_PATCH@;
 
     inline static std::string str() {
-        return std::string(name)+" "+std::to_string(major)+"."+std::to_string(minor)+"."+std::to_string(minor);
+        return std::string(name)+" "+std::to_string(major)+"."+std::to_string(minor)+"."+std::to_string(patch);
     }
 };
 
