@@ -31,11 +31,17 @@
 *****************************************************************************/
 
 #include <complex>
+#include <limits>
 #include <vector>
 
 #include "eptlib/ept_helmholtz.h"
 
 using namespace eptlib;
+
+namespace {
+	static double nand = std::numeric_limits<double>::quiet_NaN();
+	static std::complex<double> nancd = std::complex<double>(nand,nand);
+}
 
 // EPTHelmholtz constructor
 EPTHelmholtz::
@@ -82,7 +88,7 @@ Run() {
 void EPTHelmholtz::
 CompleteEPTHelm() {
     std::vector<std::complex<double> > tx_sens_c(n_vox_);
-    std::vector<std::complex<double> > epsc(n_vox_);
+    std::vector<std::complex<double> > epsc(n_vox_,::nancd);
     for (int idx = 0; idx<n_vox_; ++idx) {
         tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
@@ -97,19 +103,21 @@ CompleteEPTHelm() {
 }
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
+    std::vector<double> epsr(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,epsr_.GetData().data(),tx_sens_[0]->GetData().data(),nn_,dd_);
+    fd_lapl_.Apply(diff_op,epsr.data(),tx_sens_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
-        epsr_[idx] /= -EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx];
+        epsr_[idx] = -epsr[idx]/(EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx]);
     }
     return;
 }
 void EPTHelmholtz::
 PhaseEPTHelm() {
+    std::vector<double> sigma(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    fd_lapl_.Apply(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
-        sigma_[idx] /= 2.0*MU0*omega_;
+        sigma_[idx] = sigma[idx]/(2.0*MU0*omega_);
     }
     return;
 }
