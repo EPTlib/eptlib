@@ -454,6 +454,12 @@ int main(int argc, char **argv) {
                 cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
             }
             cout<<"  Full run: "<<(full_run.first?"Yes":"No")<<"\n";
+            if (full_run.first) {
+                cout<<"  Seed point:\n";
+                cout<<"    Coordinates: ["<<seed_point.ijk[0]<<", "<<seed_point.ijk[1]<<", "<<seed_point.ijk[2]<<"]\n";
+                cout<<"    Electric conductivity: "<<seed_point.sigma<<"\n";
+                cout<<"    Relative permittivity: "<<seed_point.epsr<<"\n";
+            }
             cout<<endl;
             // combine the parameters
             Shape kernel;
