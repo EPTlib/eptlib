@@ -66,3 +66,6 @@ else()
 endif()
 
 target_compile_features(EPTlib PUBLIC cxx_std_11)
+
+set_property(TARGET EPTlib
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

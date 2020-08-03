@@ -32,7 +32,6 @@
 
 set(EPTlib_TEST_SRC
     main.cc
-    test_ept_helmholtz.cc
     test_ept_interface.cc
     test_finite_difference.cc
     test_io_hdf5.cc
@@ -49,3 +48,6 @@ gtest_add_tests(TARGET EPTlib_test
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/input
     DESTINATION ${CMAKE_RUNTIME_OUTPUT_DIRECTORY}/test)
+
+set_property(TARGET EPTlib_test
+    PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

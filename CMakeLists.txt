@@ -30,7 +30,7 @@
 #
 #=============================================================================
 
-cmake_minimum_required(VERSION 3.12)
+cmake_minimum_required(VERSION 3.16)
 
 project(EPTlib VERSION 0.1.0 LANGUAGES C CXX)
 
@@ -83,6 +83,9 @@ if(GTest_FOUND)
 endif()
 
 # ----- Installing -----
+include(InstallRequiredSystemLibraries)
+
+set(CMAKE_INSTALL_MFC_LIBRARIES ON)
 
 install(TARGETS EPTlib
     EXPORT EPTlibTargets
@@ -90,6 +93,9 @@ install(TARGETS EPTlib
     ARCHIVE DESTINATION lib
     RUNTIME DESTINATION bin
     INCLUDES DESTINATION include)
+
+install(FILES ${CMAKE_INSTALL_SYSTEM_RUNTIME_LIBS}
+    DESTINATION bin)
 
 install(EXPORT EPTlibTargets
     FILE EPTlibTargets.cmake
@@ -124,11 +130,12 @@ install(TARGETS ${EPTLIB_APP_NAME} RUNTIME DESTINATION bin)
 # ----- Packaging -----
 
 set(CPACK_PACKAGE_NAME "EPTlib")
-set(CPACK_PACKAGE_CONTACT "Alessandro Arduino <a.arduino@inrim.it>")
-set(CPACK_PACKAGE_DESCRIPTION_SUMMARY "An open source, extensible collection of EPT methods. Visit https://eptlib.github.io for more details.")
+set(CPACK_PACKAGE_VENDOR "Alessandro Arduino")
 set(CPACK_PACKAGE_VERSION_MAJOR ${PROJECT_VERSION_MAJOR})
 set(CPACK_PACKAGE_VERSION_MINOR ${PROJECT_VERSION_MINOR})
 set(CPACK_PACKAGE_VERSION_PATCH ${PROJECT_VERSION_PATCH})
+set(CPACK_PACKAGE_DESCRIPTION "An open source, extensible collection of EPT methods. Visit https://eptlib.github.io for more details.")
+set(CPACK_PACKAGE_HOMEPAGE_URL "https://eptlib.github.io")
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_SOURCE_DIR}/LICENSE")
 set(CPACK_RESOURCE_FILE_README "${PROJECT_SOURCE_DIR}/README.md")
 
@@ -136,10 +143,10 @@ set(CPACK_GENERATOR "WIX")
 set(CPACK_WIX_UPGRADE_GUID "02ED789A-5006-44F2-AB33-C07C00DBEF6B")
 configure_file(${PROJECT_SOURCE_DIR}/LICENSE ${PROJECT_BINARY_DIR}/LICENSE.txt COPYONLY)
 set(CPACK_RESOURCE_FILE_LICENSE "${PROJECT_BINARY_DIR}/LICENSE.txt")
-
-set(CPACK_DEBIAN_FILE_NAME "DEB-DEFAULT")
-set(CPACK_DEBIAN_PACKAGE_ARCHITECTURE "amd64")
-SET(CPACK_DEBIAN_PACKAGE_DEPENDS "libhdf5-cpp-100")
+set(CPACK_WIX_PRODUCT_ICON "${PROJECT_SOURCE_DIR}/img/EPTlib_ico.ico")
+set(CPACK_WIX_UI_BANNER "${PROJECT_SOURCE_DIR}/img/wix-banner.png")
+set(CPACK_WIX_UI_DIALOG "${PROJECT_SOURCE_DIR}/img/wix-dialog.png")
+set(CPACK_WIX_CMAKE_PACKAGE_REGISTRY "EPTlib")
 
 set(CPACK_SOURCE_GENERATOR "TGZ;ZIP")
 set(CPACK_SOURCE_IGNORE_FILES
