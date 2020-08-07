@@ -85,4 +85,20 @@ std::string ToString(const KernelShape kernel_shape) {
     return "";
 }
 
+void StringReplace(std::string &str, const std::string &old_sub,
+    const std::string &new_sub) {
+    size_t idx = 0;
+    size_t len_old = old_sub.size();
+    size_t len_new = new_sub.size();
+    while(true) {
+        idx = str.find(old_sub,idx);
+        if (idx==std::string::npos){
+            break;
+        }
+        str.replace(idx,len_old,new_sub);
+        idx += len_new;
+    }
+    return;
+}
+
 #endif  // EPTLIB_MAIN_H_

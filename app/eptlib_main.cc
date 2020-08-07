@@ -34,6 +34,7 @@
 #include <exception>
 #include <iostream>
 #include <memory>
+#include <regex>
 #include <utility>
 #include <vector>
 
@@ -216,7 +217,7 @@ int main(int argc, char **argv) {
         for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
             int tx = id_tx*wc_step.first+wc_start_from.first;
             string addr(txsens_addr.first);
-            replace(addr.begin(),addr.end(),tx_wc.first,to_string(tx).c_str()[0]);
+            StringReplace(addr,string(1,tx_wc.first),to_string(tx));
             Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
             LOADMAP(map,addr);
             txsens.push_back(map);
@@ -231,8 +232,8 @@ int main(int argc, char **argv) {
                 int tx = id_tx*wc_step.first+wc_start_from.first;
                 int rx = id_rx*wc_step.first+wc_start_from.first;
                 string addr(trxphase_addr.first);
-                replace(addr.begin(),addr.end(),tx_wc.first,to_string(tx).c_str()[0]);
-                replace(addr.begin(),addr.end(),rx_wc.first,to_string(rx).c_str()[0]);
+                StringReplace(addr,string(1,tx_wc.first),to_string(tx));
+                StringReplace(addr,string(1,rx_wc.first),to_string(rx));
                 Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
                 LOADMAP(map,addr);
                 trxphase.push_back(map);
