@@ -135,6 +135,18 @@ class FDSavitzkyGolayFilter {
          * @return a const reference to the kernel shape.
          */
         const Shape& GetShape() const;
+        /**
+         * Return a const reference to the kernel for Laplacian.
+         * 
+         * @return a const reference to the kernel for Laplacian.
+         */
+        const std::array<std::vector<double>,NDIM>& GetLaplKernel() const;
+        /**
+         * Return a const reference to the kernel for gradient.
+         * 
+         * @return a const reference to the kernel for gradient.
+         */
+        const std::array<std::vector<double>,NDIM>& GetGradKernel() const;
     private:
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;

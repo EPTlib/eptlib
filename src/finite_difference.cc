@@ -242,6 +242,14 @@ const Shape& FDSavitzkyGolayFilter::
 GetShape() const {
     return shape_;
 }
+const std::array<std::vector<double>,NDIM>& FDSavitzkyGolayFilter::
+GetLaplKernel() const {
+    return lapl_kernel_;
+}
+const std::array<std::vector<double>,NDIM>& FDSavitzkyGolayFilter::
+GetGradKernel() const {
+    return grad_kernel_;
+}
 
 // FDSavitzkyGolayFilter specialisations
 template EPTlibError FDSavitzkyGolayFilter::Apply<double>(const DifferentialOperator diff_op,double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
