@@ -102,6 +102,18 @@ class EPTConvReact : public EPTInterface {
          * @return a Success or Unknown error.
          */
         void UnsetArtificialDiffusion();
+        /**
+         * Get the number of iterations to solve the linear system.
+         * 
+         * @return the number of iterations to solve the linear system.
+         */
+        int GetSolverIterations();
+        /**
+         * Get the estimated error in the linear system solution.
+         * 
+         * @return the estimated error in the linear system solution.
+         */
+        double GetSolverResidual();
     private:
         /// Dirichlet condition of relative permittivity.
         double dir_epsr_;
@@ -117,6 +129,12 @@ class EPTConvReact : public EPTInterface {
         bool thereis_diff_;
         /// Filter for the derivative computation.
         FDSavitzkyGolayFilter fd_filter_;
+        /// The number of iterations to solve the linear system.
+        int solver_iterations_;
+        /// The estimated error in the linear system solution.
+        double solver_residual_;
+
+        // Auxiliary methods
         /// Perform the complete convection-reaction EPT.
         EPTlibError CompleteEPTConvReact();
         /// Perform the phase approximated convection-reaction EPT.

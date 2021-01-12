@@ -48,7 +48,8 @@ EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd, const Shape &shape) :
     EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
     plane_idx_(nn[2]/2), is_volume_(false), diff_coeff_(0.0),
-    thereis_diff_(false), fd_filter_(shape) {
+    thereis_diff_(false), fd_filter_(shape),
+    solver_iterations_(0), solver_residual_(0.0) {
     return;
 }
 
@@ -130,6 +131,17 @@ void EPTConvReact::
 UnsetArtificialDiffusion() {
     thereis_diff_ = false;
     return;
+}
+
+// EPTConvReact get the number of iterations
+int EPTConvReact::
+GetSolverIterations() {
+    return solver_iterations_;
+}
+// EPTConvReact get estimated error
+double EPTConvReact::
+GetSolverResidual() {
+    return solver_residual_;
 }
 
 namespace { // details
@@ -257,10 +269,11 @@ CompleteEPTConvReact() {
     A.setFromTriplets(A_trip.begin(),A_trip.end());
     A.makeCompressed();
     // Solve the linear system
-    Eigen::SparseLU<Eigen::SparseMatrix<std::complex<double> > > solver;
-    solver.analyzePattern(A);
-    solver.factorize(A);
+    Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double> > > solver;
+    solver.compute(A);
     Eigen::VectorXcd x = solver.solve(b);
+    solver_iterations_ = solver.iterations();
+    solver_residual_ = solver.error();
     // Extract the electric properties from the result
     for (int idx = 0; idx<n_out; ++idx) {
         int idof = dof[idx];
@@ -376,10 +389,11 @@ PhaseEPTConvReact() {
     A.setFromTriplets(A_trip.begin(),A_trip.end());
     A.makeCompressed();
     // Solve the linear system
-    Eigen::SparseLU<Eigen::SparseMatrix<double> > solver;
-    solver.analyzePattern(A);
-    solver.factorize(A);
+    Eigen::BiCGSTAB<Eigen::SparseMatrix<double> > solver;
+    solver.compute(A);
     Eigen::VectorXd x = solver.solve(b);
+    solver_iterations_ = solver.iterations();
+    solver_residual_ = solver.error();
     // Extract the electric properties from the result
     for (int idx = 0; idx<n_out; ++idx) {
         int idof = dof[idx];

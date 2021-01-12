@@ -689,7 +689,7 @@ namespace { //details
 	void SolveGlobalSystem(Eigen::VectorXcd *x,
 		const Eigen::SparseMatrix<std::complex<double> > &A,
 		const Eigen::VectorXcd &b) {
-		Eigen::SimplicialLDLT<Eigen::SparseMatrix<std::complex<double> > > solver;
+		Eigen::ConjugateGradient<Eigen::SparseMatrix<std::complex<double> > > solver;
 		solver.compute(A);
 		*x = solver.solve(b);
 		return;

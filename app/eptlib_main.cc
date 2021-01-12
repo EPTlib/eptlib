@@ -514,6 +514,12 @@ int main(int argc, char **argv) {
         cout<<"execution failed\n"<<endl;
         return 1;
     }
+    // report possible output parameters
+    if (ept_method==EPTMethod::CONVREACT) {
+        cout<<"  Iterative solver parameters:\n";
+        cout<<"    Iterations: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverIterations()<<"\n";
+        cout<<"    Estimated error: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverResidual()<<std::endl;
+    }
     cout<<endl;
     // get the results
     Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
