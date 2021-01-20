@@ -47,7 +47,7 @@ namespace eptlib {
  * Class describing a generic shape in the space. Can be used in the
  * definition of domains, masks, kernels, patches, and so on.
  */
-class Shape : public boost::addable<Shape>, boost::subtractable<Shape>,
+class Shape : boost::addable<Shape>, boost::subtractable<Shape>,
     boost::andable<Shape> {
     public:
         /**
