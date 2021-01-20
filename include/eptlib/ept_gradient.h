@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020  Alessandro Arduino
+*  Copyright (c) 2020-2021  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -115,7 +115,7 @@ class EPTGradient : public EPTInterface {
 		 * @return if it has been set.
 		 */
 		bool ToggleSeedPoints();
-		/*
+		/**
 		 * Add a seed point to the list and set their use if not done before.
 		 * 
 		 * @param seed_point seed point to the added to the list.
@@ -152,7 +152,7 @@ class EPTGradient : public EPTInterface {
 		/**
 		 * Get the longitudinal derivative of the complex permittivity logarithm.
 		 * 
-		 * @param[out] g_plus pointer to the longitudinal derivative destination.
+		 * @param[out] g_z pointer to the longitudinal derivative destination.
 		 * 
 		 * @return a Success or MissingData error.
 		 */

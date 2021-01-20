@@ -5,7 +5,7 @@
 #
 #  MIT License
 #
-#  Copyright (c) 2020  Alessandro Arduino
+#  Copyright (c) 2020-2021  Alessandro Arduino
 #  Istituto Nazionale di Ricerca Metrologica (INRiM)
 #  Strada delle cacce 91, 10135 Torino
 #  ITALY
@@ -33,6 +33,10 @@
 cmake_minimum_required(VERSION 3.16)
 
 project(EPTlib VERSION 0.1.1 LANGUAGES C CXX)
+
+# Define building options
+option(build_docs "Build documentation (requires doxygen)" ON)
+option(build_docs_latex "Build documentation with LaTeX output (requires latex)" ON)
 
 # Disallow in-source build
 if("${PROJECT_SOURCE_DIR}" STREQUAL "${PROJECT_BINARY_DIR}")
@@ -81,6 +85,43 @@ add_subdirectory(app)
 if(GTest_FOUND)
     add_subdirectory(test)
 endif()
+
+# Build the documentation
+if(build_docs)
+    VerboseFindPackage(Doxygen OPTIONAL_COMPONENTS dot)
+    if(DOXYGEN_FOUND)
+        # set the source files
+        set(DOCS_SRC
+            include/eptlib/ept_convreact.h
+            include/eptlib/ept_gradient.h
+            include/eptlib/ept_helmholtz.h
+            include/eptlib/ept_interface.h
+            include/eptlib/ept_methods.h
+            include/eptlib/finite_difference.h
+            include/eptlib/image.h
+            include/eptlib/median_filter.h
+            include/eptlib/shape.h
+            include/eptlib/util.h
+            include/eptlib/io/io_hdf5.h
+            include/eptlib/io/io_toml.h
+            include/eptlib/io/io_util.h)
+        # set custom doxygen options
+        set(DOXYGEN_OUTPUT_DIRECTORY docs)
+        set(DOXYGEN_PROJECT_BRIEF "An open-source, extensible C++ library of electric properties tomography methods.")
+        set(DOXYGEN_PROJECT_LOGO "img/EPTlib_lib512.png")
+        set(DOXYGEN_HTML_HEADER "docs/header.html")
+        set(DOXYGEN_HTML_EXTRA_STYLESHEET "docs/style.css")
+        set(DOXYGEN_EXTRACT_PRIVATE YES)
+        set(DOXYGEN_EXTRACT_LOCAL_CLASSES NO)
+        set(DOXYGEN_HIDE_UNDOC_CLASSES YES)
+        if(build_docs_latex)
+            set(DOXYGEN_GENERATE_LATEX YES)
+        endif(build_docs_latex)
+        # create the doxygen command
+        doxygen_add_docs(docs ${DOCS_SRC} ALL #USE_STAMP_FILE
+            COMMENT "Generating documentation with Doxygen")
+    endif(DOXYGEN_FOUND)
+endif(build_docs)
 
 # ----- Installing -----
 include(InstallRequiredSystemLibraries)

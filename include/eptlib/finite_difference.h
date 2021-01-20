@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020  Alessandro Arduino
+*  Copyright (c) 2020-2021  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -121,7 +121,6 @@ class FDSavitzkyGolayFilter {
          * 
          * @tparam NumType numeric typename.
          * 
-         * @param d direction along to which derivative.
          * @param field_crop field values within the computation kernel.
          * @param dd size of voxels in each direction.
          * 

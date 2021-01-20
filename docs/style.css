@@ -1,0 +1,30 @@
+/* The standard CSS for doxygen 1.9.1 */
+
+#projectname
+{
+	font: 24px Arial,Verdana,DejaVu Sans,Geneva,sans-serif;  
+	font-weight: bold;
+	display: inline;
+}
+    
+#projectbrief
+{
+	font: 16px Arial,Verdana,DejaVu Sans,Geneva,sans-serif;  
+	display: inline;
+}
+
+#projectnumber
+{
+	font: 18px Arial,Verdana,DejaVu Sans,Geneva,sans-serif;  
+	font-weight: bold;
+	display: inline;
+}
+
+#titlearea
+{
+	padding: 0px;
+	margin: 0px;
+	width: 100%;
+	border-bottom: 1px solid #5373B4;
+}
+  
