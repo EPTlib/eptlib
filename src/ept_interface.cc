@@ -45,7 +45,7 @@ EPTInterface(const double freq, const std::array<int,NDIM> &nn,
     tx_sens_(tx_ch,nullptr), trx_phase_(tx_ch*rx_ch,nullptr),
     thereis_tx_sens_(tx_ch,false), thereis_trx_phase_(tx_ch*rx_ch,false),
     sigma_(), epsr_(), thereis_sigma_(false), thereis_epsr_(false),
-    postpro_(nullptr), thereis_postpro_(false) {
+    postpro_(nullptr), thereis_postpro_(false), phase_is_wrapped_(false) {
     return;
 }
 
@@ -143,4 +143,15 @@ ApplyPostPro(const double *img) {
         std::memcpy(epsr_.GetData().data(),tmp.data(),n_vox_*sizeof(double));
     }
     return EPTlibError::Success;
+}
+
+// EPTInterface flag switch
+bool EPTInterface::
+TogglePhaseIsWrapped() {
+    phase_is_wrapped_ = !phase_is_wrapped_;
+    return phase_is_wrapped_;
+}
+bool EPTInterface::
+PhaseIsWrapped() const {
+    return phase_is_wrapped_;
 }

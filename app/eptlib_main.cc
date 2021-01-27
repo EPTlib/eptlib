@@ -126,6 +126,7 @@ int main(int argc, char **argv) {
     cfgdata<int> n_rxch(1,"input.rx-channels");
     cfgdata<string> txsens_addr("","input.tx-sensitivity");
     cfgdata<string> trxphase_addr("","input.trx-phase");
+    cfgdata<bool> wrapped_phase(false,"input.wrapped-phase");
     cfgdata<string> refimg_addr("","input.reference-img");
     cfgdata<string> sigma_addr("","output.electric-conductivity");
     cfgdata<string> epsr_addr("","output.relative-permittivity");
@@ -143,6 +144,7 @@ int main(int argc, char **argv) {
     LOADOPTIONALDATA(io_toml,n_rxch);
     LOADOPTIONALDATA(io_toml,txsens_addr);
     LOADOPTIONALDATA(io_toml,trxphase_addr);
+    LOADOPTIONALDATA(io_toml,wrapped_phase);
     LOADOPTIONALDATA(io_toml,refimg_addr);
     //   output
     LOADOPTIONALDATA(io_toml,sigma_addr);
@@ -181,6 +183,7 @@ int main(int argc, char **argv) {
     cout<<"  Rx channels: "<<n_rxch.first<<"\n";
     cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
     cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+    cout<<"  Phase is wrapped: '"<<(wrapped_phase.first?"Yes":"No")<<"\n";
     cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
     cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
     cout<<"  Output relative permittivity addr.: '"<<epsr_addr.first<<"'\n";
@@ -501,6 +504,9 @@ int main(int argc, char **argv) {
                 ept->SetTRxPhase(&(trxphase[id_tx+n_txch.first*id_rx]),id_tx,id_rx);
             }
         }
+    }
+    if (wrapped_phase.first) {
+        ept->TogglePhaseIsWrapped();
     }
     // run the method
     cout<<"Run "<<ToString(ept_method)<<"..."<<flush;

@@ -138,6 +138,18 @@ class EPTInterface {
          * @return a Success or MissingData error.
          */
         EPTlibError ApplyPostPro(const double *img = nullptr);
+        /**
+         * Set or unset the wrapped phase flag.
+         * 
+         * @return the updated wrapped phase flag.
+         */
+        bool TogglePhaseIsWrapped();
+        /**
+         * Get the wrapped phase flag.
+         * 
+         * @return the wrapped phase flag.
+         */
+        bool PhaseIsWrapped() const;
     protected:
         /// Operative harmonic frequency of the MRI scanner.
         double omega_;
@@ -171,6 +183,8 @@ class EPTInterface {
         MedianFilter *postpro_;
         /// Post-processing filter flag.
         bool thereis_postpro_;
+        /// Wrapped phase flag.
+        bool phase_is_wrapped_;
 };
 
 }  // namespace eptlib

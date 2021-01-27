@@ -260,3 +260,52 @@ template double FDSavitzkyGolayFilter::SecondOrder<double>(const int d,const std
 template std::complex<double> FDSavitzkyGolayFilter::SecondOrder<std::complex<double> >(const int d,const std::vector<std::complex<double> > &field_crop,const std::array<double,NDIM> &dd) const;
 template double FDSavitzkyGolayFilter::Laplacian<double>(const std::vector<double> &field_crop,const std::array<double,NDIM> &dd) const;
 template std::complex<double> FDSavitzkyGolayFilter::Laplacian<std::complex<double> >(const std::vector<std::complex<double> > &field_crop,const std::array<double,NDIM> &dd) const;
+
+// Apply the FD filter to an wrapped phase input field.
+EPTlibError eptlib::WrappedPhaseDerivative(const DifferentialOperator diff_op,
+    double *dst, const double *src, const std::array<int,NDIM> &nn,
+    const std::array<double,NDIM> &dd, const FDSavitzkyGolayFilter &fd_filter) {
+    int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    // initialize the exponential map
+    std::vector<std::complex<double> > emap(n_vox);
+    for (int idx = 0; idx<n_vox; ++idx) {
+        emap[idx] = std::exp(std::complex<double>(0,src[idx]));
+    }
+    // compute the derivative...
+    if (diff_op==DifferentialOperator::GradientX||
+        diff_op==DifferentialOperator::GradientY||
+        diff_op==DifferentialOperator::GradientZ) {
+        // ...first order
+        std::vector<std::complex<double> > d_emap(n_vox);
+        fd_filter.Apply(diff_op,d_emap.data(),emap.data(),nn,dd);
+        for (int idx = 0; idx<n_vox; ++idx) {
+            dst[idx] = std::imag(d_emap[idx]/emap[idx]);
+        }
+    } else if (diff_op==DifferentialOperator::GradientXX||
+        diff_op==DifferentialOperator::GradientYY||
+        diff_op==DifferentialOperator::GradientZZ) {
+        // ...second order
+        DifferentialOperator diff_op1 = static_cast<DifferentialOperator>(static_cast<int>(diff_op)-static_cast<int>(DifferentialOperator::GradientXX));
+        std::vector<std::complex<double> > d_emap(n_vox);
+        std::vector<std::complex<double> > dd_emap(n_vox);
+        fd_filter.Apply(diff_op1,d_emap.data(),emap.data(),nn,dd);
+        fd_filter.Apply(diff_op,dd_emap.data(),emap.data(),nn,dd);
+        for (int idx = 0; idx<n_vox; ++idx) {
+            dst[idx] = std::imag(d_emap[idx]*d_emap[idx]/emap[idx]/emap[idx] + dd_emap[idx]/emap[idx]);
+        }
+    } else if (diff_op==DifferentialOperator::Laplacian) {
+        // ...laplacian
+        std::vector<std::complex<double> > dx_emap(n_vox);
+        std::vector<std::complex<double> > dy_emap(n_vox);
+        std::vector<std::complex<double> > dz_emap(n_vox);
+        std::vector<std::complex<double> > dd_emap(n_vox);
+        fd_filter.Apply(DifferentialOperator::GradientX,dx_emap.data(),emap.data(),nn,dd);
+        fd_filter.Apply(DifferentialOperator::GradientY,dy_emap.data(),emap.data(),nn,dd);
+        fd_filter.Apply(DifferentialOperator::GradientZ,dz_emap.data(),emap.data(),nn,dd);
+        fd_filter.Apply(DifferentialOperator::Laplacian,dd_emap.data(),emap.data(),nn,dd);
+        for (int idx = 0; idx<n_vox; ++idx) {
+            dst[idx] = std::imag((dx_emap[idx]*dx_emap[idx]+dy_emap[idx]*dy_emap[idx]+dz_emap[idx]*dz_emap[idx])/emap[idx]/emap[idx] + dd_emap[idx]/emap[idx]);
+        }
+    }
+    return EPTlibError::Success;
+}

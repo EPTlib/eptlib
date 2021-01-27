@@ -115,7 +115,11 @@ void EPTHelmholtz::
 PhaseEPTHelm() {
     std::vector<double> sigma(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    if (PhaseIsWrapped()) {
+        WrappedPhaseDerivative(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
+    } else {
+        fd_lapl_.Apply(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    }
     for (int idx = 0; idx<n_vox_; ++idx) {
         sigma_[idx] = sigma[idx]/(2.0*MU0*omega_);
     }

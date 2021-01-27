@@ -301,7 +301,12 @@ PhaseEPTConvReact() {
     for (int d = 0; d<n_dim; ++d) {
         beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
         DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
-        EPTlibError error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        EPTlibError error;
+        if (PhaseIsWrapped()) {
+            error = WrappedPhaseDerivative(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_filter_);
+        } else {
+            error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        }
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -309,7 +314,12 @@ PhaseEPTConvReact() {
     if (!is_volume_) {
         beta[2].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
         DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
-        EPTlibError error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        EPTlibError error;
+        if (PhaseIsWrapped()) {
+            error = WrappedPhaseDerivative(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_filter_);
+        } else {
+            error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        }
         if (error!=EPTlibError::Success) {
             return error;
         }

@@ -95,7 +95,7 @@ class FDSavitzkyGolayFilter {
          * 
          * @tparam NumType numeric typename.
          * 
-         * @param d direction along to which derivative.
+         * @param d derivative direction.
          * @param field_crop field values within the computation kernel.
          * @param dd size of voxels in each direction.
          * 
@@ -108,7 +108,7 @@ class FDSavitzkyGolayFilter {
          * 
          * @tparam NumType numeric typename.
          * 
-         * @param d direction along to which derivative.
+         * @param d derivative direction.
          * @param field_crop field values within the computation kernel.
          * @param dd size of voxels in each direction.
          * 
@@ -156,6 +156,22 @@ class FDSavitzkyGolayFilter {
         /// Kernel for gradient approximation.
         std::array<std::vector<double>,NDIM> grad_kernel_;
 };
+
+/**
+ * Apply the FD filter to an wrapped phase input field.
+ * 
+ * @param[in] diff_op differential operator type.
+ * @param[out] dst pointer to the output destination.
+ * @param[in] src pointer to the input source.
+ * @param[in] nn number of voxels in each direction.
+ * @param[in] dd size of voxels in each direction.
+ * @param[in] fd_filter filter that computes the derivatives.
+ * 
+ * @return a Success or Unknown error.
+ */
+EPTlibError WrappedPhaseDerivative(const DifferentialOperator diff_op,
+    double *dst, const double *src, const std::array<int,NDIM> &nn,
+    const std::array<double,NDIM> &dd, const FDSavitzkyGolayFilter &fd_filter);
 
 }  // namespace eptlib
 
