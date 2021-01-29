@@ -188,9 +188,9 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
     H5::Exception::dontPrint();
     try {
         std::string uri = URI(url,urn);
-        size_t snip = uri.find_last_of("/");
+        size_t snip = uri.find_last_of("/")+1;
         std::string group_names = uri.substr(0,snip);
-        std::string dataset_name = uri.substr(++snip);
+        std::string dataset_name = uri.substr(snip);
         // open or create the group
         H5::Group group;
         try {
