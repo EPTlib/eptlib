@@ -187,12 +187,16 @@ State IOh5::
 WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const {
     H5::Exception::dontPrint();
     try {
+        std::string uri = URI(url,urn);
+        size_t snip = uri.find_last_of("/");
+        std::string group_names = uri.substr(0,snip);
+        std::string dataset_name = uri.substr(++snip);
         // open or create the group
         H5::Group group;
         try {
-            group = file_.openGroup(url);
+            group = file_.openGroup(group_names);
         } catch (const H5::Exception&) {
-            group = CreateGroup(file_,url);
+            group = CreateGroup(file_,group_names);
         }
         // create the dataset
         int n_dim = img.GetNDim();
@@ -202,9 +206,9 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
         H5::DataType dtype(::HDF5Types<T>::Type());
         H5::DataSet dset;
         try {
-            dset = group.createDataSet(urn,dtype,dspace);
+            dset = group.createDataSet(dataset_name,dtype,dspace);
         } catch (const H5::Exception&) {
-            dset = group.openDataSet(urn);
+            dset = group.openDataSet(dataset_name);
         }
         // write the data in the dataset
         dset.write(img.GetData().data(),dtype,dspace);
