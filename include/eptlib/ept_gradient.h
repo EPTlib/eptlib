@@ -39,6 +39,8 @@
 #include <complex>
 #include <vector>
 
+#include <boost/dynamic_bitset.hpp>
+
 #include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
@@ -116,6 +118,12 @@ class EPTGradient : public EPTInterface {
 		 */
 		bool ToggleSeedPoints();
 		/**
+		 * Get the use seed points flag.
+		 * 
+		 * @return the seed points flag.
+		 */
+		bool SeedPointsAreUsed();
+		/**
 		 * Add a seed point to the list and set their use if not done before.
 		 * 
 		 * @param seed_point seed point to the added to the list.
@@ -128,11 +136,37 @@ class EPTGradient : public EPTInterface {
          */
         EPTlibError SelectSlice(const int slice_idx);
 		/**
-		 * Set the first estimate weight.
+		 * Set the regularization coefficient.
+		 * 
+		 * @param lambda regularization coefficient.
 		 * 
 		 * @return a Success or WrongDataFormat error.
 		 */
-		EPTlibError SetLambda(const double lambda);
+		EPTlibError SetRegularizationCoefficient(const double lambda);
+		/**
+		 * Set the gradient tolerance for estimating the mask of homogeneous regions.
+		 * 
+		 * @return a Success or WrongDataFormat error.
+		 */
+		EPTlibError SetGradientTolerance(const double gradient_tolerance);
+		/**
+		 * Get the homogeneous regions mask.
+		 * 
+		 * @return a constant reference to the mask.
+		 */
+		const boost::dynamic_bitset<>& GetMask();
+		/**
+		 * Get the cost functional.
+		 * 
+		 * @return the cost functional.
+		 */
+		double GetCostFunctional();
+		/**
+		 * Get the cost regularization.
+		 * 
+		 * @return the cost regularization.
+		 */
+		double GetCostRegularization();
 		/**
 		 * Get the complex permittivity.
 		 * 
@@ -166,6 +200,10 @@ class EPTGradient : public EPTInterface {
         int plane_idx_;
 		/// First estimate weight (used if seed points are unset).
 		double lambda_;
+		/// Gradient tolerance w.r.t maximum (used if seed points are unset).
+		double gradient_tolerance_;
+		/// Mask of the homogeneous regions (used if seed points are unset).
+		boost::dynamic_bitset<> mask_;
 		/// List of seed points (used if seed points is set).
 		std::vector<SeedPoint> seed_points_;
 		/// Filter for the derivative computation.
@@ -176,6 +214,10 @@ class EPTGradient : public EPTInterface {
 		std::vector<std::complex<double> > g_plus_;
 		/// Longitudinal derivative of the complex permittivity logarithm.
 		std::vector<std::complex<double> > g_z_;
+		/// Cost functional main term.
+		double cost_functional_;
+		/// Cost functional regularization term.
+		double cost_regularization_;
 		/// First estimate flag
 		bool thereis_epsc_;
 		/// Gradient EPT run flag.

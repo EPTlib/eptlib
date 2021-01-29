@@ -389,15 +389,18 @@ int main(int argc, char **argv) {
             break;
         }
         case EPTMethod::GRADIENT: {
-                // declare the parameters
+            // declare the parameters
             cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
             cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
             cfgdata<bool> is_3d(false,"parameter.volume-tomography");
             cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
             cfgdata<bool> full_run(true,"parameter.full-run");
+            cfgdata<bool> use_seed_point(false, "parameter.seed-point.use-seed-point");
             cfglist<int> seed_point_x0({0,0,0},"parameter.seed-point.coordinates");
             cfgdata<double> seed_point_sigma(0.0,"parameter.seed-point.electric-conductivity");
             cfgdata<double> seed_point_epsr(1.0,"parameter.seed-point.relative-permittivity");
+            cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
+            cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
@@ -406,9 +409,12 @@ int main(int argc, char **argv) {
                 LOADOPTIONALDATA(io_toml,imaging_slice);
             }
             LOADOPTIONALDATA(io_toml,full_run);
+            LOADOPTIONALDATA(io_toml,use_seed_point);
             LOADOPTIONALLIST(io_toml,seed_point_x0);
             LOADOPTIONALDATA(io_toml,seed_point_sigma);
             LOADOPTIONALDATA(io_toml,seed_point_epsr);
+            LOADOPTIONALDATA(io_toml,regularization_coefficient);
+            LOADOPTIONALDATA(io_toml,regularization_gradient_tolerance);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -440,6 +446,14 @@ int main(int argc, char **argv) {
                 cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_epsr.second<<"'"<<endl;
                 return 1;
             }
+            if (regularization_coefficient.first<0.0) {
+                cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_coefficient.second<<"'"<<endl;
+                return 1;
+            }
+            if (regularization_gradient_tolerance.first<0.0 || regularization_gradient_tolerance.first>1.0) {
+                cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_gradient_tolerance.second<<"'"<<endl;
+                return 1;
+            }
             if (n_txch.first<5) {
                 cout<<"FATAL ERROR in config file: at least 5 transmit channels are needed by "<<ToString(ept_method)<<endl;
                 return 1;
@@ -460,9 +474,16 @@ int main(int argc, char **argv) {
             cout<<"  Full run: "<<(full_run.first?"Yes":"No")<<"\n";
             if (full_run.first) {
                 cout<<"  Seed point:\n";
-                cout<<"    Coordinates: ["<<seed_point.ijk[0]<<", "<<seed_point.ijk[1]<<", "<<seed_point.ijk[2]<<"]\n";
-                cout<<"    Electric conductivity: "<<seed_point.sigma<<"\n";
-                cout<<"    Relative permittivity: "<<seed_point.epsr<<"\n";
+                cout<<"    Use seed point: "<<(use_seed_point.first?"Yes":"No")<<"\n";
+                if (use_seed_point.first) {
+                    cout<<"    Coordinates: ["<<seed_point.ijk[0]<<", "<<seed_point.ijk[1]<<", "<<seed_point.ijk[2]<<"]\n";
+                    cout<<"    Electric conductivity: "<<seed_point.sigma<<"\n";
+                    cout<<"    Relative permittivity: "<<seed_point.epsr<<"\n";
+                } else {
+                    cout<<"  Regularization:\n";
+                    cout<<"    Regularization coefficient: "<<regularization_coefficient.first<<"\n";
+                    cout<<"    Gradient tolerance: "<<regularization_gradient_tolerance.first<<"\n";
+                }
             }
             cout<<endl;
             // combine the parameters
@@ -487,8 +508,13 @@ int main(int argc, char **argv) {
             if (!full_run.first) {
                 dynamic_cast<EPTGradient*>(ept.get())->SetRunMode(EPTGradientRun::LOCAL);
             }
-            dynamic_cast<EPTGradient*>(ept.get())->ToggleSeedPoints();
-            dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_point);
+            if (use_seed_point.first) {
+                dynamic_cast<EPTGradient*>(ept.get())->ToggleSeedPoints();
+                dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_point);
+            } else {
+                dynamic_cast<EPTGradient*>(ept.get())->SetRegularizationCoefficient(regularization_coefficient.first);
+                dynamic_cast<EPTGradient*>(ept.get())->SetGradientTolerance(regularization_gradient_tolerance.first);
+            }
             break;
         }
     }
@@ -525,6 +551,37 @@ int main(int argc, char **argv) {
         cout<<"  Iterative solver parameters:\n";
         cout<<"    Iterations: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverIterations()<<"\n";
         cout<<"    Estimated error: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverResidual()<<std::endl;
+    } else if (ept_method==EPTMethod::GRADIENT) {
+        if (dynamic_cast<EPTGradient*>(ept.get())->GetRunMode()==EPTGradientRun::FULL) {
+            cout<<"  Gradient inversion parameters:\n";
+            cout<<"    Cost functional: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostFunctional()<<"\n";
+            if (!dynamic_cast<EPTGradient*>(ept.get())->SeedPointsAreUsed()) {
+                cout<<"    Cost regularization: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostRegularization()<<"\n";
+                {
+                    cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
+                    LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
+                    bool thereis_mask = regularization_output_mask_addr.first!="";
+                    if (thereis_mask) {
+                        const boost::dynamic_bitset<>& mask = dynamic_cast<EPTGradient*>(ept.get())->GetMask();
+                        std::vector<int> nn_mask{nn.first[0]-1,nn.first[1]-1};
+                        if (mask.size()!=nn_mask[0]*nn_mask[1]) {
+                            nn_mask.push_back(nn.first[2]-1);
+                        }
+                        Image<int> mask_img(nn_mask);
+                        for (int idx = 0; idx<mask_img.GetNVox(); ++idx) {
+                            if (mask[idx]) {
+                                mask_img[idx] = 1;
+                            } else {
+                                mask_img[idx] = 0;
+                            }
+                        }
+                        if (thereis_mask) {
+                            SAVEMAP(mask_img,regularization_output_mask_addr.first);
+                        }
+                    }
+                }
+            }
+        }
     }
     cout<<endl;
     // get the results

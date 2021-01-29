@@ -53,9 +53,10 @@ EPTGradient(const double freq, const std::array<int,NDIM> &nn,
 	const Shape &shape, const bool is_2d) :
 	EPTInterface(freq,nn,dd,tx_ch, 1),
 	is_2d_(is_2d), use_seed_points_(false),
-	plane_idx_(nn[2]/2), lambda_(0.0), seed_points_(0),
-	fd_filter_(shape),
-	epsc_(0), g_plus_(0), g_z_(0), thereis_epsc_(false),
+	plane_idx_(nn[2]/2), lambda_(0.0), gradient_tolerance_(0.0),
+	mask_(0), seed_points_(0), fd_filter_(shape),
+	epsc_(0), g_plus_(0), g_z_(0), cost_functional_(0.0),
+	cost_regularization_(0.0), thereis_epsc_(false),
 	run_mode_(EPTGradientRun::FULL) {
 	if (tx_ch_<5) {
 		throw std::runtime_error("Impossible to solve the linear system: at least 5 transmit channels are needed.");
@@ -183,14 +184,39 @@ SelectSlice(const int slice_idx) {
     return EPTlibError::Success;
 }
 EPTlibError EPTGradient::
-SetLambda(const double lambda) {
+SetRegularizationCoefficient(const double lambda) {
 	if (lambda<0.0) {
 		return EPTlibError::WrongDataFormat;
 	}
 	lambda_ = lambda;
 	return EPTlibError::Success;
 }
+EPTlibError EPTGradient::
+SetGradientTolerance(const double gradient_tolerance) {
+	if (gradient_tolerance<0.0 || gradient_tolerance>1.0) {
+		return EPTlibError::WrongDataFormat;
+	}
+	gradient_tolerance_ = gradient_tolerance;
+	return EPTlibError::Success;
+}
 
+bool EPTGradient::
+SeedPointsAreUsed() {
+	return use_seed_points_;
+}
+
+const boost::dynamic_bitset<>& EPTGradient::
+GetMask() {
+	return mask_;
+}
+double EPTGradient::
+GetCostFunctional() {
+	return cost_functional_;
+}
+double EPTGradient::
+GetCostRegularization() {
+	return cost_regularization_;
+} 
 EPTlibError EPTGradient::
 GetEpsC(std::vector<std::complex<double> > *epsc) {
 	if (!thereis_epsc_) {
@@ -581,7 +607,8 @@ namespace { //details
 	
 	// Fill the global matrix for minimisation.
 	void FillGlobalMatrix(Eigen::SparseMatrix<std::complex<double> > *A,
-		Eigen::SparseMatrix<std::complex<double> > *B, Eigen::VectorXcd *b,
+		Eigen::SparseMatrix<std::complex<double> > *B, 
+		Eigen::SparseMatrix<std::complex<double> > *Bout, Eigen::VectorXcd *b,
 		Eigen::VectorXcd *l, const std::vector<int> &dof, const int n_dof,
 		const std::vector<int> &ele, const std::vector<int> &locstep,
 		const std::vector<std::complex<double> > &epsc,
@@ -589,11 +616,13 @@ namespace { //details
 		const std::vector<std::complex<double> > &g_z,
 		const std::array<double,NDIM> &dd, const bool is_2d,
 		const bool use_seed_points_,
-		const std::vector<std::complex<double> > &dir) {
+		const std::vector<std::complex<double> > &dir,
+		const boost::dynamic_bitset<> &mask) {
 		const int ele_nodes = is_2d?quad_nodes:vox_nodes;
 		const int n_dim = is_2d?2:3;
 		std::vector<Eigen::Triplet<std::complex<double> > > A_trip(0);
 		std::vector<Eigen::Triplet<std::complex<double> > > B_trip(0);
+		std::vector<Eigen::Triplet<std::complex<double> > > Bout_trip(0);
 		*b = Eigen::VectorXcd::Zero(n_dof);
 		*l = Eigen::VectorXcd::Zero(n_dof);
 		// loop the elements
@@ -617,11 +646,15 @@ namespace { //details
 							same_side[d] = (i&(1<<d))==(j&(1<<d));
 						}
 						// matrix B and vector l
-						if (!use_seed_points_) {
-							std::complex<double> Bij = 1.0;
-							for (int d = 0; d<n_dim; ++d) {
-								Bij *= same_side[d] ? dd[d]/3.0 : dd[d]/6.0;
+						std::complex<double> Bij = 1.0;
+						for (int d = 0; d<n_dim; ++d) {
+							Bij *= same_side[d] ? dd[d]/3.0 : dd[d]/6.0;
+						}
+						if (use_seed_points_ || !mask[idx_ele]) {
+							if (jj>0) {
+								Bout_trip.push_back(Eigen::Triplet<std::complex<double> >(ii,jj-1,Bij));
 							}
+						} else {
 							B_trip.push_back(Eigen::Triplet<std::complex<double> >(ii,jj-1,Bij));
 							(*l)[ii] += Bij*std::log(epsc[jidx]);
 						}
@@ -683,6 +716,8 @@ namespace { //details
 		(*A).makeCompressed();
 		(*B).setFromTriplets(B_trip.begin(),B_trip.end());
 		(*B).makeCompressed();
+		(*Bout).setFromTriplets(Bout_trip.begin(),Bout_trip.end());
+		(*Bout).makeCompressed();
 		return;
 	}
 	// Solve the global system for minimisation.
@@ -695,47 +730,83 @@ namespace { //details
 		return;
 	}
 
-	// Implements the l-curve method. !NOT IMPLEMENTED YET!
-	void LCurve(Eigen::VectorXcd *x,
+	// Set a gradient threshold.
+	double SetGradientThreshold(const double relative_threshold,
+		const std::vector<std::complex<double> > &g_plus,
+		const std::vector<std::complex<double> > &g_z, const bool is_2d) {
+		double Gmax = 0;
+		// loop the g_plus values
+		for (int idx = 0; idx<g_plus.size(); ++idx) {
+			if (g_plus[idx]==g_plus[idx]) {
+				double G = std::norm(g_plus[idx]);
+				if (!is_2d) {
+					G += std::norm(g_z[idx]);
+				}
+				if (G>Gmax) {
+					Gmax = G;
+				}
+			}
+		}
+		return relative_threshold*Gmax;
+	}
+	// Fill the gradient mask.
+	void FillGradientMask(boost::dynamic_bitset<> *mask,
+		const double threshold, const std::vector<int> &ele,
+		const std::vector<int> &locstep,
+		const std::vector<std::complex<double> > &g_plus,
+		const std::vector<std::complex<double> > &g_z, const bool is_2d) {
+		const int ele_nodes = is_2d?quad_nodes:vox_nodes;
+		const int n_dim = is_2d?2:3;
+		// loop the elements
+		for (int idx_ele = 0; idx_ele<ele.size(); ++idx_ele) {
+			int idx = ele[idx_ele];
+			if (idx<0) {
+				continue;
+			}
+			mask->set(idx_ele,true);
+			// loop the equation index
+			for (int i = 0; i<ele_nodes; ++i) {
+				int iidx = idx+locstep[i];
+				double G = std::norm(g_plus[iidx]);
+				if (!is_2d) {
+					G += std::norm(g_z[iidx]);
+				}
+				if (G>threshold) {
+					mask->set(idx_ele,false);
+					break;
+				}
+			}
+		}
+		return;
+	}
+	// Evaluate the costs functional terms.
+	void EvaluateCostFunctional(double *cost_functional,
+		double *cost_regularization, const Eigen::VectorXcd &x,
 		const Eigen::SparseMatrix<std::complex<double> > &A,
 		const Eigen::SparseMatrix<std::complex<double> > &B,
-		const Eigen::VectorXcd &b,
-		const Eigen::VectorXcd &l,
-		const double lambda, const std::vector<int> &dof, const int n_dof,
-		const std::vector<std::complex<double> > &epsc,
+		const Eigen::SparseMatrix<std::complex<double> > &Bout,
+		const Eigen::VectorXcd &b, const std::vector<int> &dof,
+		const int n_dof, const std::vector<std::complex<double> > &epsc,
 		const std::vector<std::complex<double> > &g_plus,
-		const std::vector<std::complex<double> > &g_z,
-		const bool is_2d) {
+		const std::vector<std::complex<double> > &g_z, const bool is_2d) {
 		const auto n_vox = dof.size();
-		Eigen::VectorXcd g(n_dof);
+		Eigen::VectorXcd gp(n_dof);
+		Eigen::VectorXcd gz(is_2d?0:n_dof);
 		Eigen::VectorXcd x0(n_dof);
-//		Eigen::VectorXcd z(n_dof);
 		for (int idx = 0; idx<n_vox; ++idx) {
 			if (dof[idx]>0) {
-				g[dof[idx]-1] = g_plus[idx];
+				gp[dof[idx]-1] = g_plus[idx];
 				if (!is_2d) {
-					g[dof[idx]-1] += g_z[idx];
+					gz[dof[idx]-1] = g_z[idx];
 				}
 				x0[dof[idx]-1] = std::log(epsc[idx]);
 			}
 		}
-//		for (int idx = 0; idx<n_dof; ++idx) {
-//			z[idx] = (*x)[idx];
-//		}
-		double lambda_k = lambda;
-		for (int k = 0; k<20; ++k) {
-			::SolveGlobalSystem(x, A+lambda_k*B,b+lambda_k*l);
-//			::SolveGlobalSystem(&z, A+lambda_k*B,A*(*x)-b);
-			std::complex<double> Fg = x->adjoint()*(A*(*x)-2.0*b);
-			std::complex<double> tmp = g.adjoint()*(B*g);
-			Fg += tmp;
-			double rho = std::real(Fg);
-			double eta = (*x-x0).norm();
-//			Fg = -4.0/lambda_k*(*x-x0).adjoint()*z;
-//			double eta_d = std::real(Fg);
-//			double kappa = 2.0*eta*rho/eta_d*(lambda_k*lambda_k*eta_d*rho + 2.0*lambda_k*eta*rho + lambda_k*lambda_k*lambda_k*lambda_k*eta*eta_d)/std::sqrt((lambda_k*lambda_k*eta*eta+rho*rho)*(lambda_k*lambda_k*eta*eta+rho*rho)*(lambda_k*lambda_k*eta*eta+rho*rho));
-			lambda_k *= 10.0;
+		*cost_functional = std::real(std::complex<double>(x.adjoint()*(A*x-2.0*b))+std::complex<double>(gp.adjoint()*((B+Bout)*gp)));
+		if (!is_2d) {
+			*cost_functional += std::real(std::complex<double>(gz.adjoint()*((B+Bout)*gz)));
 		}
+		*cost_regularization = std::real(std::complex<double>(x.adjoint()*(B*(x-2.0*x0)))+std::complex<double>(x0.adjoint()*(B*x0)));
 		return;
 	}
 }  // namespace
@@ -789,32 +860,35 @@ GlobalMinimisation() {
 	std::vector<int> ele(n_ele);
 	int ndof;
 	SelectDoF(&dof,&ele,&ndof,locstep);
-	// set the dirichlet values in case of seed points
+	// set the dirichlet values in case of seed points...
 	std::vector<std::complex<double> > dir(seed_points_.size());
 	if (use_seed_points_) {
 		::SeedPointsToDoF(&dir,&dof,&ndof, seed_points_,nn_,plane_idx_,omega_,is_2d_);
 	}
+	// otherwise set the mask
+	if (!use_seed_points_) {
+		mask_.resize(ele.size(),false);
+		double threshold = ::SetGradientThreshold(gradient_tolerance_,g_plus_,g_z_,is_2d_);
+		::FillGradientMask(&mask_, threshold,ele,locstep,g_plus_,g_z_,is_2d_);
+	}
 	// create the matrix of coefficients and the forcing term
 	Eigen::SparseMatrix<std::complex<double> > A(ndof,ndof);
 	Eigen::SparseMatrix<std::complex<double> > B(ndof,ndof);
+	Eigen::SparseMatrix<std::complex<double> > Bout(ndof,ndof); // Bout accounts for the masked out mass contributions
 	Eigen::VectorXcd b;
 	Eigen::VectorXcd l;
-	::FillGlobalMatrix(&A,&B,&b,&l, dof,ndof,ele,locstep,epsc_,g_plus_,g_z_,
-		dd_,is_2d_, use_seed_points_,dir);
+	::FillGlobalMatrix(&A,&B,&Bout,&b,&l, dof,ndof,ele,locstep,epsc_,g_plus_,g_z_,
+		dd_,is_2d_, use_seed_points_,dir,mask_);
 	// solve the linear system
 	Eigen::VectorXcd x(ndof);
 	if (!use_seed_points_) {
-		/* !NOT IMPLEMENTED YET! */
-		for (int idx = 0; idx<n_out; ++idx) {
-			if (dof[idx]>0) {
-				x[dof[idx]-1] = std::log(epsc_[idx]);
-			}
-			++idx;
-		}
-		::LCurve(&x, A,B,b,l,lambda_,dof,ndof,epsc_,g_plus_,g_z_,is_2d_);
+		::SolveGlobalSystem(&x, A+lambda_*B,b+lambda_*l);
 	} else {
 		::SolveGlobalSystem(&x, A,b);
 	}
+	// evaluate the cost functional terms
+	::EvaluateCostFunctional(&cost_functional_,&cost_regularization_, x,A,B,Bout,b,
+		dof,ndof,epsc_,g_plus_,g_z_,is_2d_);
 	// extract electric properties
 	for (int idx = 0; idx<n_out; ++idx) {
 		if (dof[idx]>0) {
