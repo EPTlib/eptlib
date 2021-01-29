@@ -316,7 +316,7 @@ PhaseEPTConvReact() {
         DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = WrappedPhaseDerivative(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_filter_);
+            error = WrappedPhaseDerivative(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_filter_);
         } else {
             error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         }
