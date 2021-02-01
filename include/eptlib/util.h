@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020  Alessandro Arduino
+*  Copyright (c) 2020-2021  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -170,7 +170,7 @@ inline const std::string ToString(const EPTlibError error) {
 // Return the license boilerplate as a string.
 inline const std::string LicenseBoilerplate() {
     const std::string boilerplate = "MIT License\n"
-        "Copyright (c) 2020  Alessandro Arduino\n"
+        "Copyright (c) 2020-2021  Alessandro Arduino\n"
         "Istituto Nazionale di Ricerca Metrologica (INRiM)\n"
         "\n"
         "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"

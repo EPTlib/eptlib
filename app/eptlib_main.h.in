@@ -59,7 +59,7 @@ enum class EPTMethod {
 };
 std::string ToString(const EPTMethod ept_method) {
     switch (ept_method) {
-        case EPTMethod::HELMHOLTZ: return "Helmholtz-base EPT";
+        case EPTMethod::HELMHOLTZ: return "Helmholtz EPT";
         case EPTMethod::CONVREACT: return "Convection-reaction EPT";
         case EPTMethod::GRADIENT: return "Gradient EPT";
     }
