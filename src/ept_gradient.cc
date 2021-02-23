@@ -609,8 +609,9 @@ namespace { //details
 	void FillGlobalMatrix(Eigen::SparseMatrix<std::complex<double> > *A,
 		Eigen::SparseMatrix<std::complex<double> > *B, 
 		Eigen::SparseMatrix<std::complex<double> > *Bout, Eigen::VectorXcd *b,
-		Eigen::VectorXcd *l, const std::vector<int> &dof, const int n_dof,
-		const std::vector<int> &ele, const std::vector<int> &locstep,
+		Eigen::VectorXcd *b_dir, Eigen::VectorXcd *l, const std::vector<int> &dof,
+		const int n_dof, const std::vector<int> &ele,
+		const std::vector<int> &locstep,
 		const std::vector<std::complex<double> > &epsc,
 		const std::vector<std::complex<double> > &g_plus,
 		const std::vector<std::complex<double> > &g_z,
@@ -624,6 +625,7 @@ namespace { //details
 		std::vector<Eigen::Triplet<std::complex<double> > > B_trip(0);
 		std::vector<Eigen::Triplet<std::complex<double> > > Bout_trip(0);
 		*b = Eigen::VectorXcd::Zero(n_dof);
+		*b_dir = Eigen::VectorXcd::Zero(n_dof);
 		*l = Eigen::VectorXcd::Zero(n_dof);
 		// loop the elements
 		for (int idx_ele = 0; idx_ele<ele.size(); ++idx_ele) {
@@ -675,20 +677,24 @@ namespace { //details
 							double tmp = 1.0;
 							tmp *= i&(1<<0) ? 0.5 : -0.5;
 							tmp *= j&(1<<1) ? 0.5 : -0.5;
-							tmp *= same_side[2] ? dd[2]/3.0 : dd[2]/6.0;
+							if (!is_2d) {
+								tmp *= same_side[2] ? dd[2]/3.0 : dd[2]/6.0;
+							}
 							Aij += std::complex<double>(0.0,tmp);
 						}
 						{
 							double tmp = -1.0;
 							tmp *= j&(1<<0) ? 0.5 : -0.5;
 							tmp *= i&(1<<1) ? 0.5 : -0.5;
-							tmp *= same_side[2] ? dd[2]/3.0 : dd[2]/6.0;
+							if (!is_2d) {
+								tmp *= same_side[2] ? dd[2]/3.0 : dd[2]/6.0;
+							}
 							Aij += std::complex<double>(0.0,tmp);
 						}
 						if (jj>0) {
 							A_trip.push_back(Eigen::Triplet<std::complex<double> >(ii,jj-1,Aij));
 						} else {
-							(*b)[ii] += -Aij*dir[-jj-1];
+							(*b_dir)[ii] += -Aij*dir[-jj-1];
 						}
 						// vector b
 						for (int d1 = 0; d1<n_dim; ++d1) {
@@ -802,7 +808,9 @@ namespace { //details
 				x0[dof[idx]-1] = std::log(epsc[idx]);
 			}
 		}
-		*cost_functional = std::real(std::complex<double>(x.adjoint()*(A*x-2.0*b))+std::complex<double>(gp.adjoint()*((B+Bout)*gp)));
+		double norm2_Dpu = std::real(std::complex<double>(x.adjoint()*(A*x)));
+		double norm2_gp = std::real(std::complex<double>(gp.adjoint()*((B+Bout)*gp)));
+		*cost_functional = norm2_Dpu + norm2_gp - 2.0*std::real(std::complex<double>(x.adjoint()*b));
 		if (!is_2d) {
 			*cost_functional += std::real(std::complex<double>(gz.adjoint()*((B+Bout)*gz)));
 		}
@@ -876,15 +884,16 @@ GlobalMinimisation() {
 	Eigen::SparseMatrix<std::complex<double> > B(ndof,ndof);
 	Eigen::SparseMatrix<std::complex<double> > Bout(ndof,ndof); // Bout accounts for the masked out mass contributions
 	Eigen::VectorXcd b;
+	Eigen::VectorXcd b_dir;
 	Eigen::VectorXcd l;
-	::FillGlobalMatrix(&A,&B,&Bout,&b,&l, dof,ndof,ele,locstep,epsc_,g_plus_,g_z_,
+	::FillGlobalMatrix(&A,&B,&Bout,&b,&b_dir,&l, dof,ndof,ele,locstep,epsc_,g_plus_,g_z_,
 		dd_,is_2d_, use_seed_points_,dir,mask_);
 	// solve the linear system
 	Eigen::VectorXcd x(ndof);
 	if (!use_seed_points_) {
 		::SolveGlobalSystem(&x, A+lambda_*B,b+lambda_*l);
 	} else {
-		::SolveGlobalSystem(&x, A,b);
+		::SolveGlobalSystem(&x, A,b+b_dir);
 	}
 	// evaluate the cost functional terms
 	::EvaluateCostFunctional(&cost_functional_,&cost_regularization_, x,A,B,Bout,b,
