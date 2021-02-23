@@ -95,6 +95,43 @@ constexpr char software::name[];
 template <class T> using cfgdata = pair<T,string>;
 template <class T> using cfglist = pair<array<T,NDIM>,string>;
 
+EPTlibError TOMLGetSeedPoints(std::vector<SeedPoint> &seed_points,
+    const io::IOtoml &io_toml, const std::string &uri) {
+    EPTlibError error;
+    toml::Array coordinates;
+    toml::Array sigmas;
+    toml::Array epsrs;
+    error = io_toml.GetValue<toml::Array>(coordinates,uri+".coordinates");
+    if (error!=EPTlibError::Success) {
+        return error;
+    }
+    error = io_toml.GetValue<toml::Array>(sigmas,uri+".electric-conductivity");
+    if (error!=EPTlibError::Success) {
+        return error;
+    }
+    error = io_toml.GetValue<toml::Array>(epsrs,uri+".relative-permittivity");
+    if (error!=EPTlibError::Success) {
+        return error;
+    }
+    int num_sp = coordinates.size();
+    if (sigmas.size()!=num_sp || epsrs.size()!=num_sp) {
+        return EPTlibError::WrongDataFormat;
+    }
+    seed_points.resize(num_sp);
+    for (int idx = 0; idx<num_sp; ++idx) {
+        const toml::Array &tmp = coordinates[idx].as<toml::Array>();
+        if (!tmp[0].is<int>()) {
+            return EPTlibError::WrongDataFormat;
+        }
+        for (int d = 0; d<NDIM; ++d) {
+            seed_points[idx].ijk[d] = tmp[d].as<int>();
+        }
+        seed_points[idx].sigma = sigmas[idx].as<double>();
+        seed_points[idx].epsr = epsrs[idx].as<double>();
+    }
+    return EPTlibError::Success;
+}
+
 int main(int argc, char **argv) {
     auto start = std::chrono::system_clock::now();
     // opening boilerplate
@@ -396,9 +433,7 @@ int main(int argc, char **argv) {
             cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
             cfgdata<bool> full_run(true,"parameter.full-run");
             cfgdata<bool> use_seed_point(false, "parameter.seed-point.use-seed-point");
-            cfglist<int> seed_point_x0({0,0,0},"parameter.seed-point.coordinates");
-            cfgdata<double> seed_point_sigma(0.0,"parameter.seed-point.electric-conductivity");
-            cfgdata<double> seed_point_epsr(1.0,"parameter.seed-point.relative-permittivity");
+            std::string seed_point_url = "parameter.seed-point";
             cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
             cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
             // load the parameters
@@ -410,18 +445,19 @@ int main(int argc, char **argv) {
             }
             LOADOPTIONALDATA(io_toml,full_run);
             LOADOPTIONALDATA(io_toml,use_seed_point);
-            LOADOPTIONALLIST(io_toml,seed_point_x0);
-            LOADOPTIONALDATA(io_toml,seed_point_sigma);
-            LOADOPTIONALDATA(io_toml,seed_point_epsr);
             LOADOPTIONALDATA(io_toml,regularization_coefficient);
             LOADOPTIONALDATA(io_toml,regularization_gradient_tolerance);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
-            SeedPoint seed_point;
-            seed_point.ijk = seed_point_x0.first;
-            seed_point.sigma = seed_point_sigma.first;
-            seed_point.epsr = seed_point_epsr.first;
+            std::vector<SeedPoint> seed_points(0);
+            if (use_seed_point.first) {
+                EPTlibError error = TOMLGetSeedPoints(seed_points,*io_toml,seed_point_url);
+                if (error != EPTlibError::Success) {
+                    cout<<"FATAL ERROR in config file: '"<<seed_point_url<<"'"<<endl;
+                    return 1;
+                }
+            }
             if (shape.first<0||kernel_shape>=KernelShape::END) {
                 cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
                 return 1;
@@ -432,19 +468,21 @@ int main(int argc, char **argv) {
                     return 1;
                 }
             }
-            for (int d = 0; d<NDIM; ++d) {
-                if (seed_point.ijk[d]<0||seed_point.ijk[d]>=nn.first[d]) {
-                    cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_x0.second<<"'"<<endl;
+            for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                for (int d = 0; d<NDIM; ++d) {
+                    if (seed_points[idx_sp].ijk[d]<0||seed_points[idx_sp].ijk[d]>=nn.first[d]) {
+                        cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
+                        return 1;
+                    }
+                }
+                if (seed_points[idx_sp].sigma<0.0) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
                     return 1;
                 }
-            }
-            if (seed_point.sigma<0.0) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_sigma.second<<"'"<<endl;
-                return 1;
-            }
-            if (seed_point.epsr<1.0) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_epsr.second<<"'"<<endl;
-                return 1;
+                if (seed_points[idx_sp].epsr<1.0) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
+                    return 1;
+                }
             }
             if (regularization_coefficient.first<0.0) {
                 cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_coefficient.second<<"'"<<endl;
@@ -476,9 +514,21 @@ int main(int argc, char **argv) {
                 cout<<"  Seed point:\n";
                 cout<<"    Use seed point: "<<(use_seed_point.first?"Yes":"No")<<"\n";
                 if (use_seed_point.first) {
-                    cout<<"    Coordinates: ["<<seed_point.ijk[0]<<", "<<seed_point.ijk[1]<<", "<<seed_point.ijk[2]<<"]\n";
-                    cout<<"    Electric conductivity: "<<seed_point.sigma<<"\n";
-                    cout<<"    Relative permittivity: "<<seed_point.epsr<<"\n";
+                    cout<<"    Coordinates: [";
+                    for (int idx_sp; idx_sp<seed_points.size(); ++idx_sp) {
+                        cout<<"["<<seed_points[idx_sp].ijk[0]<<", "<<seed_points[idx_sp].ijk[1]<<", "<<seed_points[idx_sp].ijk[2]<<"], ";
+                    }
+                    cout<<"]\n";
+                    cout<<"    Electric conductivity: [";
+                    for (int idx_sp; idx_sp<seed_points.size(); ++idx_sp) {
+                        cout<<seed_points[idx_sp].sigma<<", ";
+                    }
+                    cout<<"]\n";
+                    cout<<"    Relative permittivity: [";
+                    for (int idx_sp; idx_sp<seed_points.size(); ++idx_sp) {
+                        cout<<seed_points[idx_sp].epsr<<", ";
+                    }
+                    cout<<"]\n";
                 } else {
                     cout<<"  Regularization:\n";
                     cout<<"    Regularization coefficient: "<<regularization_coefficient.first<<"\n";
@@ -510,7 +560,9 @@ int main(int argc, char **argv) {
             }
             if (use_seed_point.first) {
                 dynamic_cast<EPTGradient*>(ept.get())->ToggleSeedPoints();
-                dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_point);
+                for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                    dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_points[idx_sp]);
+                }
             } else {
                 dynamic_cast<EPTGradient*>(ept.get())->SetRegularizationCoefficient(regularization_coefficient.first);
                 dynamic_cast<EPTGradient*>(ept.get())->SetGradientTolerance(regularization_gradient_tolerance.first);
