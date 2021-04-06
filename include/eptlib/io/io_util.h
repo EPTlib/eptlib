@@ -108,7 +108,7 @@ namespace io {
     // Read filename and uri from the address
     inline void GetAddress(const std::string &address, std::string &fname, std::string &uri) {
         size_t snip = 0;
-        size_t snap = address.find_first_of(":",0);
+        size_t snap = address.find_last_of(":");
         fname = address.substr(snip,snap);
         snip = ++snap;
         uri = address.substr(snip);
