@@ -42,6 +42,11 @@
 
 using namespace eptlib;
 
+namespace {
+	static double nand = std::numeric_limits<double>::quiet_NaN();
+	static std::complex<double> nancd = std::complex<double>(nand,nand);
+}
+
 // EPTConvReact constructor
 EPTConvReact::
 EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
@@ -282,8 +287,8 @@ CompleteEPTConvReact() {
             epsr_[idx] = epsc.real()/EPS0;
             sigma_[idx] = -epsc.imag()*omega_;
         } else {
-            epsr_[idx] = dir_epsr_;
-            sigma_[idx] = dir_sigma_;
+            epsr_[idx] = ::nand;
+            sigma_[idx] = ::nand;
         }
     }
     return EPTlibError::Success;
@@ -410,7 +415,7 @@ PhaseEPTConvReact() {
         if (idof > 0) {
             sigma_[idx] = 1.0/x[idof-1];
         } else {
-            sigma_[idx] = dir_sigma_;
+            sigma_[idx] = ::nand;
         }
     }
     return EPTlibError::Success;
