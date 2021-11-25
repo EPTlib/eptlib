@@ -432,10 +432,12 @@ int main(int argc, char **argv) {
             cfgdata<bool> is_3d(false,"parameter.volume-tomography");
             cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
             cfgdata<bool> full_run(true,"parameter.full-run");
+            cfgdata<string> output_gradient_addr("","parameter.output-gradient");
             cfgdata<bool> use_seed_point(false, "parameter.seed-point.use-seed-point");
             std::string seed_point_url = "parameter.seed-point";
             cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
             cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
+            cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
@@ -444,9 +446,11 @@ int main(int argc, char **argv) {
                 LOADOPTIONALDATA(io_toml,imaging_slice);
             }
             LOADOPTIONALDATA(io_toml,full_run);
+            LOADOPTIONALDATA(io_toml,output_gradient_addr);
             LOADOPTIONALDATA(io_toml,use_seed_point);
             LOADOPTIONALDATA(io_toml,regularization_coefficient);
             LOADOPTIONALDATA(io_toml,regularization_gradient_tolerance);
+            LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -510,6 +514,7 @@ int main(int argc, char **argv) {
                 cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
             }
             cout<<"  Full run: "<<(full_run.first?"Yes":"No")<<"\n";
+            cout<<"  Output gradient addr.: '"<<output_gradient_addr.first<<"'\n";
             if (full_run.first) {
                 cout<<"  Seed point:\n";
                 cout<<"    Use seed point: "<<(use_seed_point.first?"Yes":"No")<<"\n";
@@ -533,6 +538,7 @@ int main(int argc, char **argv) {
                     cout<<"  Regularization:\n";
                     cout<<"    Regularization coefficient: "<<regularization_coefficient.first<<"\n";
                     cout<<"    Gradient tolerance: "<<regularization_gradient_tolerance.first<<"\n";
+                    cout<<"    Output mask addr.: '"<<regularization_output_mask_addr.first<<"'\n";
                 }
             }
             cout<<endl;
@@ -593,7 +599,7 @@ int main(int argc, char **argv) {
     auto run_end = std::chrono::system_clock::now();
     if (run_error==EPTlibError::Success) {
         auto run_elapsed = std::chrono::duration_cast<std::chrono::seconds>(run_end-run_start);
-        cout<<"done! ["<<run_elapsed.count()<<" s]\n";
+        cout<<"done! ["<<run_elapsed.count()<<" s]\n"<<flush;
     } else {
         cout<<"execution failed\n"<<endl;
         return 1;
@@ -609,6 +615,7 @@ int main(int argc, char **argv) {
             cout<<"    Cost functional: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostFunctional()<<"\n";
             if (!dynamic_cast<EPTGradient*>(ept.get())->SeedPointsAreUsed()) {
                 cout<<"    Cost regularization: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostRegularization()<<"\n";
+                // Save the mask
                 {
                     cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
                     LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
@@ -627,10 +634,49 @@ int main(int argc, char **argv) {
                                 mask_img[idx] = 0;
                             }
                         }
-                        if (thereis_mask) {
-                            SAVEMAP(mask_img,regularization_output_mask_addr.first);
-                        }
+                        SAVEMAP(mask_img,regularization_output_mask_addr.first);
                     }
+                }
+            }
+        }
+        // Save the gradient distribution 
+        {
+            cfgdata<bool> is_3d(false,"parameter.volume-tomography");
+            cfgdata<string> output_gradient_addr("","parameter.output-gradient");
+            LOADOPTIONALDATA(io_toml,is_3d);
+            LOADOPTIONALDATA(io_toml,output_gradient_addr);
+            bool thereis_grad = output_gradient_addr.first!="";
+            if (thereis_grad) {
+                std::vector<int> nn_grad{nn.first[0],nn.first[1]};
+                if (is_3d.first) {
+                    nn_grad.push_back(nn.first[2]);
+                }
+                Image<double> grad_real(nn_grad);
+                Image<double> grad_imag(nn_grad);
+                // GPlus
+                std::vector<std::complex<double> > grad(0);
+                EPTlibError grad_error = dynamic_cast<EPTGradient*>(ept.get())->GetGPlus(&grad);
+                if (grad_error==EPTlibError::Success) {
+                    for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
+                        grad_real[idx] = grad[idx].real();
+                        grad_imag[idx] = grad[idx].imag();
+                    }
+                    string real_addr = output_gradient_addr.first+"/gplus/real";
+                    string imag_addr = output_gradient_addr.first+"/gplus/imag";
+                    SAVEMAP(grad_real,real_addr);
+                    SAVEMAP(grad_imag,imag_addr);
+                }
+                // GZ
+                grad_error = dynamic_cast<EPTGradient*>(ept.get())->GetGZ(&grad);
+                if (grad_error==EPTlibError::Success) {
+                    for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
+                        grad_real[idx] = grad[idx].real();
+                        grad_imag[idx] = grad[idx].imag();
+                    }
+                    string real_addr = output_gradient_addr.first+"/gz/real";
+                    string imag_addr = output_gradient_addr.first+"/gz/imag";
+                    SAVEMAP(grad_real,real_addr);
+                    SAVEMAP(grad_imag,imag_addr);
                 }
             }
         }
