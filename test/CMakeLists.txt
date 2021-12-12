@@ -36,6 +36,8 @@ set(EPTlib_TEST_SRC
     test_finite_difference.cc
     test_io_hdf5.cc
     test_io_toml.cc
+    test_linalg_util.cc
+    test_linalg_householder.cc
     test_median_filter.cc
     test_shape.cc)
 

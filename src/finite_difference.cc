@@ -33,9 +33,12 @@
 #include "eptlib/finite_difference.h"
 
 #include <complex>
+#include <cstring>
 #include <iostream>
 
-#include <Eigen/Dense>
+#include "eptlib/linalg/linalg_util.h"
+#include "eptlib/linalg/linalg_qr.h"
+#include "eptlib/linalg/linalg_householder.h"
 
 using namespace eptlib;
 
@@ -56,10 +59,8 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     }
     // initialise the design matrix
     int n_row = shape_.GetVolume();
-    int n_col2 = 1 + NDIM;
-    int n_col1 = (NDIM*(NDIM+1))/2;
-    Eigen::MatrixXd F2(n_row,n_col2);
-    Eigen::MatrixXd F1(n_row,n_col1);
+    int n_col = 1 + NDIM + (NDIM*(NDIM+1))/2;
+    linalg::MatrixReal F(n_col,std::vector<real_t>(n_row));
     // fill the design matrix
     std::array<int,NDIM> ii;
     std::array<double,NDIM> di;
@@ -72,16 +73,16 @@ FDSavitzkyGolayFilter(const Shape &shape) :
                         di[d] = ii[d]-ii0[d];
                     }
                     // design matrix for even quantities
-                    F2(r,0) = 1.0;
+                    F[0][r] = 1.0;
                     for (int d = 0; d<NDIM; ++d) {
-                        F2(r,1+d) = di[d]*di[d];
+                        F[1+d][r] = di[d]*di[d];
                     }
                     // design matrix for odd quantities
                     int c = 0;
                     for (int d = 0; d<NDIM; ++d) {
-                        F1(r,d) = di[d];
+                        F[1+NDIM + d][r] = di[d];
                         for (int d2 = d+1; d2<NDIM; ++d2) {
-                            F1(r,NDIM+c) = di[d]*di[d2];
+                            F[1+2*NDIM + c][r] = di[d]*di[d2];
                             ++c;
                         }
                     }
@@ -91,36 +92,34 @@ FDSavitzkyGolayFilter(const Shape &shape) :
         }
     }
     // check that all lines are filled
-    Eigen::VectorXd v = F2.cwiseAbs().colwise().sum();
-    double ref = v.maxCoeff();
-    for (int d = 0; d<NDIM; ++d) {
+    std::vector<real_t> v(n_col);
+    for (int c = 0; c<n_col; ++c) {
+        v[c] = linalg::Norm2(F[c].data(),n_row);
+    }
+    real_t ref = linalg::MaxAbs(v.data(),n_col);
+    for (int d = 0; d<1+2*NDIM; ++d) {
         if (v[d]<toll*ref) {
             throw std::runtime_error("Impossible to set-up the Savitzky-Golay filter with the provided shape: no points along direction "+std::to_string(d)+".");
         }
     }
-    v = F1.cwiseAbs().colwise().sum();
-    ref = v.maxCoeff();
-    for (int d = 0; d<NDIM; ++d) {
-        if (v[d]<toll*ref) {
-            throw std::runtime_error("Impossible to set-up the Savitzky-Golay filter with the provided shape: no points along direction "+std::to_string(d)+".");
-        }
-    }
-    for (int c = NDIM; c<n_col1; ++c) {
+    for (int c = 1+2*NDIM; c<n_col; ++c) {
         if (v[c]<toll*ref) {
-            --n_col1;
-            F1.col(c).swap(F1.col(n_col1));
+            --n_col;
+            F[c].swap(F[n_col]);
             --c;
         }
     }
-    F1.conservativeResize(Eigen::NoChange, n_col1);
-    // solve the normal equations
-    Eigen::MatrixXd A;
-    if (shape_.IsSymmetric()) {
-        A = (F2.transpose()*F2).inverse()*F2.transpose();
-    } else {
-        Eigen::MatrixXd F(n_row,n_col2+n_col1);
-        F << F2,F1;
-        A = (F.transpose()*F).inverse()*F.transpose();
+    F.resize(n_col);
+    // compute the QR factorisation
+    linalg::HouseholderQR(&qr_,F,n_row,n_col);
+    // invert the matrix
+    linalg::MatrixReal A(n_row,std::vector<real_t>(n_col));
+    for (int k = 0; k<n_row; ++k) {
+        real_t *b = new real_t[n_row];
+        std::memset(b,0,n_row*sizeof(real_t));
+        b[k] = 1.0;
+        linalg::QRSolve(A[k].data(),qr_,b,n_row,n_col);
+        delete[] b;
     }
     // Compute the kernel for the laplacian
     for (int d = 0; d<NDIM; ++d) {
@@ -128,23 +127,18 @@ FDSavitzkyGolayFilter(const Shape &shape) :
         r = 0;
         for (int idx = 0; idx<m_vox_; ++idx) {
             if (shape_[idx]) {
-                lapl_kernel_[d][idx] = 2.0*A(1+d,r);
+                lapl_kernel_[d][idx] = 2.0*A[r][1+d];
                 ++r;
             }
         }
     }
     // Compute the kernel for the gradient
-    int c_base = 1+NDIM;
-    if (shape_.IsSymmetric()) {
-        A = (F1.transpose()*F1).inverse()*F1.transpose();
-        c_base = 0;
-    }
     for (int d = 0; d<NDIM; ++d) {
         grad_kernel_[d].resize(m_vox_,0.0);
         r = 0;
         for (int idx = 0; idx<m_vox_; ++idx) {
             if (shape_[idx]) {
-                grad_kernel_[d][idx] = A(c_base+d,r);
+                grad_kernel_[d][idx] = A[r][1+NDIM+d];
                 ++r;
             }
         }

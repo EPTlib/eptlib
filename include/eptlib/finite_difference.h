@@ -38,6 +38,7 @@
 
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
+#include "eptlib/linalg/linalg_util.h"
 
 namespace eptlib {
 
@@ -151,6 +152,8 @@ class FDSavitzkyGolayFilter {
         Shape shape_;
         /// Total number of voxels.
         int m_vox_;
+        /// QR decomposition of the design matrix.
+        linalg::MatrixReal qr_;
         /// Kernel for Laplacian approximation.
         std::array<std::vector<double>,NDIM> lapl_kernel_;
         /// Kernel for gradient approximation.
