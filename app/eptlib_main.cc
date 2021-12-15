@@ -295,9 +295,11 @@ int main(int argc, char **argv) {
             // declare the parameters
             cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
             cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
+            cfgdata<string> output_chi2_addr("","parameter.output-chi2");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
+            LOADOPTIONALDATA(io_toml,output_chi2_addr);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -314,6 +316,7 @@ int main(int argc, char **argv) {
             cout<<"  Savitzky-Golay filter:\n";
             cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
             cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
+            cout<<"  Output chi2 addr.: '"<<output_chi2_addr.first<<"'\n";
             cout<<endl;
             // combine the parameters
             Shape kernel;
@@ -331,6 +334,9 @@ int main(int argc, char **argv) {
             }
             // create the EPT method
             ept.reset(new EPTHelmholtz(freq.first,nn.first,dd.first,kernel));
+            if (output_chi2_addr.first!="") {
+                dynamic_cast<EPTHelmholtz*>(ept.get())->ToggleGetChi2();
+            }
             break;
         }
         case EPTMethod::CONVREACT: {
@@ -605,7 +611,19 @@ int main(int argc, char **argv) {
         return 1;
     }
     // report possible output parameters
-    if (ept_method==EPTMethod::CONVREACT) {
+    if (ept_method==EPTMethod::HELMHOLTZ) {
+        // Save the quality index chi2 distribution
+        cfgdata<string> output_chi2_addr("","parameter.output-chi2");
+        LOADOPTIONALDATA(io_toml,output_chi2_addr);
+        bool thereis_chi2 = output_chi2_addr.first!="";
+        if (thereis_chi2) {
+            Image<double> chi2(nn.first[0],nn.first[1],nn.first[2]);
+            EPTlibError chi2_error = dynamic_cast<EPTHelmholtz*>(ept.get())->GetChi2(&chi2);
+            if (chi2_error==EPTlibError::Success) {
+                SAVEMAP(chi2,output_chi2_addr.first);
+            }
+        }
+    } else if (ept_method==EPTMethod::CONVREACT) {
         cout<<"  Iterative solver parameters:\n";
         cout<<"    Iterations: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverIterations()<<"\n";
         cout<<"    Estimated error: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverResidual()<<std::endl;

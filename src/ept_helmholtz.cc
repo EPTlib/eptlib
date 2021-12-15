@@ -47,7 +47,7 @@ namespace {
 EPTHelmholtz::
 EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd), fd_lapl_(shape) {
+    EPTInterface(freq,nn,dd), fd_lapl_(shape), get_chi2_(false), chi2_() {
     return;
 }
 
@@ -68,6 +68,9 @@ Run() {
         thereis_sigma_ = true;
         sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
+    if (get_chi2_) {
+        chi2_ = Image<real_t>(nn_[0],nn_[1],nn_[2]);
+    }
     if (thereis_epsr_ && thereis_sigma_) {
         // ...complete Helmholtz-based
         CompleteEPTHelm();
@@ -84,6 +87,23 @@ Run() {
     return EPTlibError::Success;
 }
 
+// Set or unset the result quality flag
+bool EPTHelmholtz::
+ToggleGetChi2() {
+    get_chi2_ = !get_chi2_;
+    return get_chi2_;
+}
+
+// Get the result quality index
+EPTlibError EPTHelmholtz::
+GetChi2(Image<real_t> *chi2) {
+    if (!(get_chi2_&&(thereis_epsr_||thereis_sigma_))) {
+        return EPTlibError::MissingData;
+    }
+    *chi2 = chi2_;
+    return EPTlibError::Success;
+}
+
 // EPTHelmholtz private methods
 void EPTHelmholtz::
 CompleteEPTHelm() {
@@ -93,7 +113,11 @@ CompleteEPTHelm() {
         tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,epsc.data(),tx_sens_c.data(),nn_,dd_);
+    if (get_chi2_) {
+        fd_lapl_.ApplyChi2(diff_op,epsc.data(),chi2_.GetData().data(),tx_sens_c.data(),nn_,dd_);
+    } else {
+        fd_lapl_.Apply(diff_op,epsc.data(),tx_sens_c.data(),nn_,dd_);
+    }
     for (int idx = 0; idx<n_vox_; ++idx) {
         epsc[idx] /= -MU0*omega_*omega_*tx_sens_c[idx];
         epsr_[idx] = std::real(epsc[idx])/EPS0;
@@ -103,25 +127,35 @@ CompleteEPTHelm() {
 }
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
-    std::vector<double> epsr(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,epsr.data(),tx_sens_[0]->GetData().data(),nn_,dd_);
+    if (get_chi2_) {
+        fd_lapl_.ApplyChi2(diff_op,epsr_.GetData().data(),chi2_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    } else {
+        fd_lapl_.Apply(diff_op,epsr_.GetData().data(),tx_sens_[0]->GetData().data(),nn_,dd_);
+    }
     for (int idx = 0; idx<n_vox_; ++idx) {
-        epsr_[idx] = -epsr[idx]/(EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx]);
+        epsr_[idx] /= -EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx];
     }
     return;
 }
 void EPTHelmholtz::
 PhaseEPTHelm() {
-    std::vector<double> sigma(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
     if (PhaseIsWrapped()) {
-        WrappedPhaseDerivative(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
+        if (get_chi2_) {
+            WrappedPhaseDerivativeChi2(diff_op,sigma_.GetData().data(),chi2_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
+        } else {
+            WrappedPhaseDerivative(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
+        }
     } else {
-        fd_lapl_.Apply(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        if (get_chi2_) {
+            fd_lapl_.ApplyChi2(diff_op,sigma_.GetData().data(),chi2_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        } else {
+            fd_lapl_.Apply(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+        }
     }
     for (int idx = 0; idx<n_vox_; ++idx) {
-        sigma_[idx] = sigma[idx]/(2.0*MU0*omega_);
+        sigma_[idx] /= 2.0*MU0*omega_;
     }
     return;
 }

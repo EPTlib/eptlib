@@ -75,9 +75,27 @@ class EPTHelmholtz : public EPTInterface {
          * approximations are applied.
          */
         virtual EPTlibError Run() override;
+        /**
+         * @brief Set or unset the result quality flag.
+         * 
+         * @return the updated result quality flag.
+         */
+        bool ToggleGetChi2();
+        /**
+         * @brief Get the result quality index.
+         * 
+         * @param[out] chi2 pointer to the quality index destination.
+         * 
+         * @return a Success or MissingData error.
+         */
+        EPTlibError GetChi2(Image<real_t> *chi2);
     private:
         /// Filter for the Laplacian computation.
         FDSavitzkyGolayFilter fd_lapl_;
+        /// If true, compute the result quality.
+        bool get_chi2_;
+        /// Quality map.
+        Image<real_t> chi2_;
         /// Perform the complete Helmholtz-based EPT.
         void CompleteEPTHelm();
         /// Perform the phase approximated Helmholtz-based EPT.
