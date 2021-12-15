@@ -113,11 +113,11 @@ CompleteEPTHelm() {
         tx_sens_c[idx] = (*tx_sens_[0])[idx]*std::exp(std::complex<double>(0.0,0.5*(*trx_phase_[0])[idx]));
     }
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
+    double *chi2 = nullptr;
     if (get_chi2_) {
-        fd_lapl_.ApplyChi2(diff_op,epsc.data(),chi2_.GetData().data(),tx_sens_c.data(),nn_,dd_);
-    } else {
-        fd_lapl_.Apply(diff_op,epsc.data(),tx_sens_c.data(),nn_,dd_);
+        chi2 = chi2_.GetData().data();
     }
+    fd_lapl_.Apply(diff_op,epsc.data(),chi2,tx_sens_c.data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
         epsc[idx] /= -MU0*omega_*omega_*tx_sens_c[idx];
         epsr_[idx] = std::real(epsc[idx])/EPS0;
@@ -128,11 +128,11 @@ CompleteEPTHelm() {
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
+    double *chi2 = nullptr;
     if (get_chi2_) {
-        fd_lapl_.ApplyChi2(diff_op,epsr_.GetData().data(),chi2_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
-    } else {
-        fd_lapl_.Apply(diff_op,epsr_.GetData().data(),tx_sens_[0]->GetData().data(),nn_,dd_);
+        chi2 = chi2_.GetData().data();
     }
+    fd_lapl_.Apply(diff_op,epsr_.GetData().data(),chi2,trx_phase_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
         epsr_[idx] /= -EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx];
     }
@@ -141,18 +141,14 @@ MagnitudeEPTHelm() {
 void EPTHelmholtz::
 PhaseEPTHelm() {
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
+    double *chi2 = nullptr;
+    if (get_chi2_) {
+        chi2 = chi2_.GetData().data();
+    }
     if (PhaseIsWrapped()) {
-        if (get_chi2_) {
-            WrappedPhaseDerivativeChi2(diff_op,sigma_.GetData().data(),chi2_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
-        } else {
-            WrappedPhaseDerivative(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
-        }
+        fd_lapl_.ApplyWrappedPhase(diff_op,sigma_.GetData().data(),chi2,trx_phase_[0]->GetData().data(),nn_,dd_);
     } else {
-        if (get_chi2_) {
-            fd_lapl_.ApplyChi2(diff_op,sigma_.GetData().data(),chi2_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
-        } else {
-            fd_lapl_.Apply(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
-        }
+        fd_lapl_.Apply(diff_op,sigma_.GetData().data(),chi2,trx_phase_[0]->GetData().data(),nn_,dd_);
     }
     for (int idx = 0; idx<n_vox_; ++idx) {
         sigma_[idx] /= 2.0*MU0*omega_;

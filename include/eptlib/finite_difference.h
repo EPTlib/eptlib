@@ -43,11 +43,13 @@
 namespace eptlib {
 
 /**
- * Differential operators that can be approximated with Savitzky-Golay.
+ * Differential operators.
  */
 enum class DifferentialOperator {
+    /// Zero order derivative
+    Field,
     /// First order derivative along X
-    GradientX = 0,
+    GradientX,
     /// First order derivative along Y
     GradientY,
     /// First order derivative along z
@@ -88,9 +90,11 @@ class FDSavitzkyGolayFilter {
          * @param[in] dd size of voxels in each direction.
          * 
          * @return a Success or Unknown error.
+         * 
+         * If `chi2' is a null pointer, the fitting quality is not evaluated.
          */
         template <typename NumType>
-        EPTlibError ApplyChi2(const DifferentialOperator diff_op,NumType *dst,real_t *chi2,
+        EPTlibError Apply(const DifferentialOperator diff_op,NumType *dst,real_t *chi2,
             const NumType *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
         /**
          * Apply the FD filter to an input field.
@@ -104,10 +108,54 @@ class FDSavitzkyGolayFilter {
          * @param[in] dd size of voxels in each direction.
          * 
          * @return a Success or Unknown error.
+         * 
+         * @deprecated
          */
         template <typename NumType>
         EPTlibError Apply(const DifferentialOperator diff_op, NumType *dst,
             const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+        /**
+         * @brief Apply the FD filter to a wrapped phase input field and compute the fitting quality.
+         * 
+         * @param[in] diff_op differential operator type.
+         * @param[out] dst pointer to the output destination.
+         * @param[out] chi2 pointer to the output fitting quality.
+         * @param[in] src pointer to the input source.
+         * @param[in] nn number of voxels in each direction.
+         * @param[in] dd size of voxels in each direction.
+         * 
+         * @return a Success or Unknown error.
+         * 
+         * If `chi2' is a null pointer, the fitting quality is not evaluated.
+         */
+        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op,double *dst,real_t *chi2,
+            const double *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
+        /**
+         * @brief Apply the FD filter to a wrapped phase input field.
+         * 
+         * @param[in] diff_op differential operator type.
+         * @param[out] dst pointer to the output destination.
+         * @param[in] src pointer to the input source.
+         * @param[in] nn number of voxels in each direction.
+         * @param[in] dd size of voxels in each direction.
+         * 
+         * @return a Success or Unknown error.
+         * 
+         * @deprecated
+         */
+        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst,
+            const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+        /**
+         * Apply the kernel for zero order derivative.
+         * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param field_crop field values within the computation kernel.
+         * 
+         * @return the approximated field value.
+         */
+        template <typename NumType>
+        NumType ZeroOrder(const std::vector<NumType> &field_crop) const;
         /**
          * Apply the kernel for first order derivatives.
          * 
@@ -150,20 +198,10 @@ class FDSavitzkyGolayFilter {
          * Return a const reference to the kernel shape.
          * 
          * @return a const reference to the kernel shape.
+         * 
+         * @deprecated
          */
         const Shape& GetShape() const;
-        /**
-         * Return a const reference to the kernel for Laplacian.
-         * 
-         * @return a const reference to the kernel for Laplacian.
-         */
-        const std::array<std::vector<double>,NDIM>& GetLaplKernel() const;
-        /**
-         * Return a const reference to the kernel for gradient.
-         * 
-         * @return a const reference to the kernel for gradient.
-         */
-        const std::array<std::vector<double>,NDIM>& GetGradKernel() const;
     private:
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;
@@ -177,40 +215,9 @@ class FDSavitzkyGolayFilter {
         std::array<std::vector<double>,NDIM> lapl_kernel_;
         /// Kernel for gradient approximation.
         std::array<std::vector<double>,NDIM> grad_kernel_;
+        /// Kernel for field approximation.
+        std::vector<double> field_kernel_;
 };
-
-/**
- * Apply the FD filter to a wrapped phase input field.
- * 
- * @param[in] diff_op differential operator type.
- * @param[out] dst pointer to the output destination.
- * @param[in] src pointer to the input source.
- * @param[in] nn number of voxels in each direction.
- * @param[in] dd size of voxels in each direction.
- * @param[in] fd_filter filter that computes the derivatives.
- * 
- * @return a Success or Unknown error.
- */
-EPTlibError WrappedPhaseDerivative(const DifferentialOperator diff_op,
-    double *dst, const double *src, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const FDSavitzkyGolayFilter &fd_filter);
-
-/**
- * Apply the FD filter to a wrapped phase input field and compute the fitting quality.
- * 
- * @param[in] diff_op differential operator type.
- * @param[out] dst pointer to the output destination.
- * @param[out] chi2 pointer to the output fitting quality.
- * @param[in] src pointer to the input source.
- * @param[in] nn number of voxels in each direction.
- * @param[in] dd size of voxels in each direction.
- * @param[in] fd_filter filter that computes the derivatives.
- * 
- * @return a Success or Unknown error.
- */
-EPTlibError WrappedPhaseDerivativeChi2(const DifferentialOperator diff_op,
-    double *dst, real_t *chi2, const double *src, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const FDSavitzkyGolayFilter &fd_filter);
 
 }  // namespace eptlib
 
