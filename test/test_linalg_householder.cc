@@ -36,6 +36,7 @@
 #include "eptlib/linalg/linalg_qr.h"
 
 #include <cmath>
+#include <complex>
 #include <vector>
 
 #include "eptlib/util.h"
@@ -68,13 +69,16 @@ TEST(LinalgHouseholderGTest,HouseholderLeft) {
     const int n = 10;
     std::vector<real_t> u(n+1);
     std::vector<real_t> x(n);
+    std::vector<std::complex<double> > x_c(n);
     for (int i = 0; i<n; ++i) {
         u[i] = i+1;
         x[i] = i+1;
+        x_c[i] = i+1;
     }
     //
     HouseholderReflector(u.data(),n);
     HouseholderLeft(x.data(),u.data(),n);
+    HouseholderLeft(x_c.data(),u.data(),n);
     //
     std::vector<real_t> x_ref(n);
     x_ref[0] = -std::sqrt(385.0);
@@ -84,6 +88,8 @@ TEST(LinalgHouseholderGTest,HouseholderLeft) {
     //
     for (int i = 0; i<n+1; ++i) {
         ASSERT_NEAR(x[i],x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].real(),x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].imag(),0.0,1e-12);
     }
 }
 
@@ -107,13 +113,21 @@ TEST(LinalgQRGTest,QRSolve) {
             b[i] += A[j][i]*x_ref[j];
         }
     }
+    std::vector<std::complex<double> > b_c(n);
+    for (int i = 0; i<n; ++i) {
+        b_c[i] = b[i];
+    }
     //
     std::vector<real_t> x(n);
+    std::vector<std::complex<double> > x_c(n);
     MatrixReal qr;
     HouseholderQR(&qr,A,n,n);
     QRSolve(x.data(),qr,b.data(),n,n);
+    QRSolve(x_c.data(),qr,b_c.data(),n,n);
     //
     for (int i = 0; i<n; ++i) {
         ASSERT_NEAR(x[i],x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].real(),x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].imag(),0.0,1e-12);
     }
 }

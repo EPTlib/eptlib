@@ -35,6 +35,7 @@
 #include "eptlib/linalg/linalg_util.h"
 
 #include <cmath>
+#include <complex>
 #include <vector>
 
 #include "eptlib/util.h"
@@ -57,14 +58,19 @@ TEST(LinalgUtilGTest,Norm2) {
 TEST(LinalgUtilGTest,Dot) {
     const int n = 10;
     std::vector<real_t> x(n);
+    std::vector<std::complex<double> > y(n);
     for (int i = 0; i<n; ++i) {
         x[i] = i+1;
+        y[i] = i+1.0;
     }
     //
     real_t dot = Dot(x.data(),x.data(),n);
+    std::complex<double> dot_c = Dot(y.data(),x.data(),n);
     //
     real_t ref = 385.0;
     ASSERT_NEAR(dot,ref,1e-12);
+    ASSERT_NEAR(dot_c.real(),ref,1e-12);
+    ASSERT_NEAR(dot_c.imag(),0.0,1e-12);
 }
 TEST(LinalgUtilGTest,MaxAbs) {
     const int n = 10;
@@ -93,12 +99,20 @@ TEST(LinalgUtilGTest,SolveDiag) {
     for (int i = 0; i<n; ++i) {
         b[i] = A[i][i]*x_ref[i];
     }
+    std::vector<std::complex<double> > b_c(n);
+    for (int i = 0; i<n; ++i) {
+        b_c[i] = b[i];
+    }
     //
     std::vector<real_t> x(n);
     SolveDiag(x.data(),A,b.data(),n);
+    std::vector<std::complex<double> > x_c(n);
+    SolveDiag(x_c.data(),A,b_c.data(),n);
     //
     for (int i = 0; i<n; ++i) {
         ASSERT_NEAR(x[i],x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].real(),x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].imag(),0.0,1e-12);
     }
 }
 TEST(LinalgUtilGTest,SolveTriU) {
@@ -119,12 +133,20 @@ TEST(LinalgUtilGTest,SolveTriU) {
             b[i] += A[j][i]*x_ref[j];
         }
     }
+    std::vector<std::complex<double> > b_c(n);
+    for (int i = 0; i<n; ++i) {
+        b_c[i] = b[i];
+    }
     //
     std::vector<real_t> x(n);
     SolveTriU(x.data(),A,b.data(),n);
+    std::vector<std::complex<double> > x_c(n);
+    SolveTriU(x_c.data(),A,b_c.data(),n);
     //
     for (int i = 0; i<n; ++i) {
         ASSERT_NEAR(x[i],x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].real(),x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].imag(),0.0,1e-12);
     }
 }
 TEST(LinalgUtilGTest,SolveTriL) {
@@ -145,11 +167,19 @@ TEST(LinalgUtilGTest,SolveTriL) {
             b[i] += A[j][i]*x_ref[j];
         }
     }
+    std::vector<std::complex<double> > b_c(n);
+    for (int i = 0; i<n; ++i) {
+        b_c[i] = b[i];
+    }
     //
     std::vector<real_t> x(n);
     SolveTriL(x.data(),A,b.data(),n);
+    std::vector<std::complex<double> > x_c(n);
+    SolveTriL(x_c.data(),A,b_c.data(),n);
     //
     for (int i = 0; i<n; ++i) {
         ASSERT_NEAR(x[i],x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].real(),x_ref[i],1e-12);
+        ASSERT_NEAR(x_c[i].imag(),0.0,1e-12);
     }
 }

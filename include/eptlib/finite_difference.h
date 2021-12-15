@@ -76,6 +76,23 @@ class FDSavitzkyGolayFilter {
          */
         FDSavitzkyGolayFilter(const Shape &shape);
         /**
+         * @brief Apply the FD filter to an input field and compute the fitting quality.
+         * 
+         * @tparam NumType numeric typename.
+         * 
+         * @param[in] diff_op differential operator type.
+         * @param[out] dst pointer to the output destination.
+         * @param[out] chi2 pointer to the output fitting quality.
+         * @param[in] src pointer to the input source.
+         * @param[in] nn number of voxels in each direction.
+         * @param[in] dd size of voxels in each direction.
+         * 
+         * @return a Success or Unknown error.
+         */
+        template <typename NumType>
+        EPTlibError ApplyChi2(const DifferentialOperator diff_op,NumType *dst,real_t *chi2,
+            const NumType *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
+        /**
          * Apply the FD filter to an input field.
          * 
          * @tparam NumType numeric typename.
@@ -152,6 +169,8 @@ class FDSavitzkyGolayFilter {
         Shape shape_;
         /// Total number of voxels.
         int m_vox_;
+        /// Number of fitting unknowns.
+        int n_unk_;
         /// QR decomposition of the design matrix.
         linalg::MatrixReal qr_;
         /// Kernel for Laplacian approximation.
@@ -161,7 +180,7 @@ class FDSavitzkyGolayFilter {
 };
 
 /**
- * Apply the FD filter to an wrapped phase input field.
+ * Apply the FD filter to a wrapped phase input field.
  * 
  * @param[in] diff_op differential operator type.
  * @param[out] dst pointer to the output destination.
@@ -174,6 +193,23 @@ class FDSavitzkyGolayFilter {
  */
 EPTlibError WrappedPhaseDerivative(const DifferentialOperator diff_op,
     double *dst, const double *src, const std::array<int,NDIM> &nn,
+    const std::array<double,NDIM> &dd, const FDSavitzkyGolayFilter &fd_filter);
+
+/**
+ * Apply the FD filter to a wrapped phase input field and compute the fitting quality.
+ * 
+ * @param[in] diff_op differential operator type.
+ * @param[out] dst pointer to the output destination.
+ * @param[out] chi2 pointer to the output fitting quality.
+ * @param[in] src pointer to the input source.
+ * @param[in] nn number of voxels in each direction.
+ * @param[in] dd size of voxels in each direction.
+ * @param[in] fd_filter filter that computes the derivatives.
+ * 
+ * @return a Success or Unknown error.
+ */
+EPTlibError WrappedPhaseDerivativeChi2(const DifferentialOperator diff_op,
+    double *dst, real_t *chi2, const double *src, const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd, const FDSavitzkyGolayFilter &fd_filter);
 
 }  // namespace eptlib

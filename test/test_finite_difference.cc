@@ -75,9 +75,19 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
     fd_lapl.Apply(diff_op,l_lapl.data(),l_field.data(),nn,dd);
     fd_lapl.Apply(diff_op,q_lapl.data(),q_field.data(),nn,dd);
     //
+    std::vector<double> c_lapl_chi2(n_vox);
+    std::vector<double> l_lapl_chi2(n_vox);
+    std::vector<double> q_lapl_chi2(n_vox);
+    std::vector<double> chi2(n_vox);
+    fd_lapl.ApplyChi2(diff_op,c_lapl_chi2.data(),chi2.data(),c_field.data(),nn,dd);
+    fd_lapl.ApplyChi2(diff_op,l_lapl_chi2.data(),chi2.data(),l_field.data(),nn,dd);
+    fd_lapl.ApplyChi2(diff_op,q_lapl_chi2.data(),chi2.data(),q_field.data(),nn,dd);
+    //
     for (int idx = 0; idx<n_vox; ++idx) {
         ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
         ASSERT_NEAR(l_lapl[idx],0.0,1e-13);
+        ASSERT_NEAR(c_lapl_chi2[idx],0.0,1e-14);
+        ASSERT_NEAR(l_lapl_chi2[idx],0.0,1e-13);
         IdxToMultiIdx(ii,idx,nn);
         bool kernel_in_domain = true;
         for (int d = 0; d<NDIM; ++d) {
@@ -88,8 +98,10 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
         }
         if (kernel_in_domain) {
             ASSERT_NEAR(q_lapl[idx],2.0*NDIM,1e-12);
+            ASSERT_NEAR(q_lapl_chi2[idx],2.0*NDIM,1e-12);
         } else {
             ASSERT_NEAR(q_lapl[idx],0.0,1e-12);
+            ASSERT_NEAR(q_lapl_chi2[idx],0.0,1e-12);
         }
     }
 }
@@ -134,9 +146,24 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
         fd_grad.Apply(diff_op,q_grad[d].data(),q_field.data(),nn,dd);
     }
     //
+    std::array<std::vector<double>,NDIM> c_grad_chi2;
+    std::array<std::vector<double>,NDIM> l_grad_chi2;
+    std::array<std::vector<double>,NDIM> q_grad_chi2;
+    std::vector<double> chi2(n_vox);
+    for (int d = 0; d<NDIM; ++d) {
+        c_grad_chi2[d].resize(n_vox);
+        l_grad_chi2[d].resize(n_vox);
+        q_grad_chi2[d].resize(n_vox);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+        fd_grad.ApplyChi2(diff_op,c_grad_chi2[d].data(),chi2.data(),c_field.data(),nn,dd);
+        fd_grad.ApplyChi2(diff_op,l_grad_chi2[d].data(),chi2.data(),l_field.data(),nn,dd);
+        fd_grad.ApplyChi2(diff_op,q_grad_chi2[d].data(),chi2.data(),q_field.data(),nn,dd);
+    }
+    //
     for (int d = 0; d<NDIM; ++d) {
         for (int idx = 0; idx<n_vox; ++idx) {
             ASSERT_NEAR(c_grad[d][idx],0.0,1e-14);
+            ASSERT_NEAR(c_grad_chi2[d][idx],0.0,1e-14);
             IdxToMultiIdx(ii,idx,nn);
             bool kernel_in_domain = true;
             for (int d = 0; d<NDIM; ++d) {
@@ -147,10 +174,14 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
             }
             if (kernel_in_domain) {
                 ASSERT_NEAR(l_grad[d][idx],1.0,1e-13);
+                ASSERT_NEAR(l_grad_chi2[d][idx],1.0,1e-13);
                 ASSERT_NEAR(q_grad[d][idx],2.0*ii[d]*dd[d],1e-12);
+                ASSERT_NEAR(q_grad_chi2[d][idx],2.0*ii[d]*dd[d],1e-12);
             } else {
                 ASSERT_NEAR(l_grad[d][idx],0.0,1e-13);
+                ASSERT_NEAR(l_grad_chi2[d][idx],0.0,1e-13);
                 ASSERT_NEAR(q_grad[d][idx],0.0,1e-12);
+                ASSERT_NEAR(q_grad_chi2[d][idx],0.0,1e-12);
             }
         }
     }
