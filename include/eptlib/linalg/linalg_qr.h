@@ -57,6 +57,8 @@ namespace linalg {
     /**
      * @brief Solve a linear system using the QR decomposition.
      * 
+     * @tparam NumType numeric typename.
+     * 
      * @param x vector of the system solution.
      * @param qr compact form of the QR decomposition (output of HouseholderQR).
      * @param b vector of the forcing term.
@@ -64,7 +66,8 @@ namespace linalg {
      * @param n numer of columns in the matrix.
      * @return square of quadratic norm of the residual.
      */
-    real_t QRSolve(real_t *x,const MatrixReal &qr,const real_t *b,const size_t m,const size_t n);
+    template <typename NumType>
+    real_t QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n);
 
 }  // namespace linalg
 

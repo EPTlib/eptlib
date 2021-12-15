@@ -55,14 +55,17 @@ namespace linalg {
     real_t Norm2(const real_t *x,const size_t n);
 
     /**
-     * @brief Compute the inner product between two vectors.
+     * @brief Compute the dot product between two vectors.
+     * 
+     * @tparam NumType numeric typename.
      * 
      * @param x vector 1.
      * @param y vector 2.
      * @param n vector size.
-     * @return the inner product between `x' and `y'.
+     * @return the dot product between `x' and `y'.
      */
-    real_t Dot(const real_t *x,const real_t *y,const size_t n);
+    template <typename NumType>
+    NumType Dot(const NumType *x,const real_t *y,const size_t n);
 
     /**
      * @brief Get the maximum absolute value of a vector.
@@ -76,32 +79,41 @@ namespace linalg {
     /**
      * @brief Solve a square diagonal system.
      * 
+     * @tparam NumType numeric typename.
+     * 
      * @param x vector of the unknowns.
      * @param A square diagonal matrix of the coefficients.
      * @param b vector of the forcing terms.
      * @param n vector size.
      */
-    void SolveDiag(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+    template <typename NumType>
+    void SolveDiag(NumType *x,const MatrixReal &A,const NumType *b,const size_t n);
 
     /**
      * @brief Solve a square upper triangular system.
+     * 
+     * @tparam NumType numeric typename.
      * 
      * @param x vector of the unknowns.
      * @param A square upper triangular matrix of the coefficients.
      * @param b vector of the forcing terms.
      * @param n vector size.
      */
-    void SolveTriU(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+    template <typename NumType>
+    void SolveTriU(NumType *x,const MatrixReal &A,const NumType *b,const size_t n);
     
     /**
      * @brief Solve a square lower triangular system.
+     * 
+     * @tparam NumType numeric typename.
      * 
      * @param x vector of the unknowns.
      * @param A square lower triangular matrix of the coefficients.
      * @param b vector of the forcing terms.
      * @param n vector size.
      */
-    void SolveTriL(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+    template <typename NumType>
+    void SolveTriL(NumType *x,const MatrixReal &A,const NumType *b,const size_t n);
 
 }  // namespace linalg
 

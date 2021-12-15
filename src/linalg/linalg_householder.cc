@@ -33,6 +33,7 @@
 #include "eptlib/linalg/linalg_householder.h"
 
 #include <cmath>
+#include <complex>
 #include <limits>
 
 #include "eptlib/linalg/linalg_util.h"
@@ -51,10 +52,14 @@ void eptlib::linalg::HouseholderReflector(real_t *x,const size_t n) {
 }
 
 // Compute the product of the elementary reflector with a vector
-void eptlib::linalg::HouseholderLeft(real_t *x,const real_t *u,const size_t n) {
-    real_t tau = Dot(x,u,n)/u[n];
+template <typename NumType>
+void eptlib::linalg::HouseholderLeft(NumType *x,const real_t *u,const size_t n) {
+    NumType tau = Dot(x,u,n)/u[n];
     for (int i = 0; i<n; ++i) {
         x[i] -= tau*u[i];
     }
     return;
 }
+
+template void eptlib::linalg::HouseholderLeft<real_t>(real_t *x,const real_t *u,const size_t n);
+template void eptlib::linalg::HouseholderLeft<std::complex<real_t> >(std::complex<real_t> *x,const real_t *u,const size_t n);

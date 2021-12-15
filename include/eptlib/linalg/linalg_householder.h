@@ -53,13 +53,16 @@ namespace linalg {
     /**
      * @brief Compute the product of the elementary reflector with a vector.
      * 
+     * @tparam NumType numeric typename.
+     * 
      * @param x vector to which the reflector is applied.
      * @param u elementary reflector.
      * @param n vector size.
      * 
      * The result of the application is stored in place of `x'.
      */
-    void HouseholderLeft(real_t *x,const real_t *u,const size_t n);
+    template <typename NumType>
+    void HouseholderLeft(NumType *x,const real_t *u,const size_t n);
 
 }  // namespace linalg
 

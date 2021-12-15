@@ -33,6 +33,7 @@
 #include "eptlib/linalg/linalg_util.h"
 
 #include <cmath>
+#include <complex>
 #include <limits>
 
 using namespace eptlib;
@@ -57,9 +58,10 @@ real_t eptlib::linalg::Norm2(const real_t *x,const size_t n) {
     return sigma;
 }
 
-// Compute the inner product between two vectors
-real_t eptlib::linalg::Dot(const real_t *x,const real_t *y,const size_t n) {
-    real_t tau = 0.0;
+// Compute the dot product between two vectors
+template <typename NumType>
+NumType eptlib::linalg::Dot(const NumType *x,const real_t *y,const size_t n) {
+    NumType tau = 0.0;
     for (int i = 0; i<n; ++i) {
         tau += x[i]*y[i];
     }
@@ -78,7 +80,8 @@ real_t eptlib::linalg::MaxAbs(const real_t *x,const size_t n) {
 }
 
 // Solve a square diagonal system
-void eptlib::linalg::SolveDiag(real_t *x,const MatrixReal &A,const real_t *b,const size_t n) {
+template <typename NumType>
+void eptlib::linalg::SolveDiag(NumType *x,const MatrixReal &A,const NumType *b,const size_t n) {
     for (int i = 0; i<n; ++i) {
         x[i] = b[i]/A[i][i];
     }
@@ -86,10 +89,11 @@ void eptlib::linalg::SolveDiag(real_t *x,const MatrixReal &A,const real_t *b,con
 }
 
 // Solve a square upper triangular system
-void eptlib::linalg::SolveTriU(real_t *x,const MatrixReal &A,const real_t *b,const size_t n) {
+template <typename NumType>
+void eptlib::linalg::SolveTriU(NumType *x,const MatrixReal &A,const NumType *b,const size_t n) {
     x[n-1] = b[n-1]/A[n-1][n-1];
     for (int i = n-2; i>=0; --i) {
-        real_t s = 0;
+        NumType s = 0;
         for (int j = i+1; j<n; ++j) {
             s += x[j]*A[j][i];
         }
@@ -99,10 +103,11 @@ void eptlib::linalg::SolveTriU(real_t *x,const MatrixReal &A,const real_t *b,con
 }
 
 // Solve a square lower triangular system
-void eptlib::linalg::SolveTriL(real_t *x,const MatrixReal &A,const real_t *b,const size_t n) {
+template <typename NumType>
+void eptlib::linalg::SolveTriL(NumType *x,const MatrixReal &A,const NumType *b,const size_t n) {
     x[0] = b[0]/A[0][0];
     for (int i = 1; i<n; ++i) {
-        real_t s = 0;
+        NumType s = 0;
         for (int j = 0; j<i; ++j) {
             s += x[j]*A[j][i];
         }
@@ -110,3 +115,13 @@ void eptlib::linalg::SolveTriL(real_t *x,const MatrixReal &A,const real_t *b,con
     }
     return;
 }
+
+template real_t eptlib::linalg::Dot<real_t>(const real_t *x,const real_t *y,const size_t n);
+template void eptlib::linalg::SolveDiag<real_t>(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+template void eptlib::linalg::SolveTriU<real_t>(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+template void eptlib::linalg::SolveTriL<real_t>(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+
+template std::complex<real_t> eptlib::linalg::Dot<std::complex<real_t> >(const std::complex<real_t> *x,const real_t *y,const size_t n);
+template void eptlib::linalg::SolveDiag<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &A,const std::complex<real_t> *b,const size_t n);
+template void eptlib::linalg::SolveTriU<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &A,const std::complex<real_t> *b,const size_t n);
+template void eptlib::linalg::SolveTriL<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &A,const std::complex<real_t> *b,const size_t n);

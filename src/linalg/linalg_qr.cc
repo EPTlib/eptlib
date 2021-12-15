@@ -32,6 +32,7 @@
 
 #include "eptlib/linalg/linalg_qr.h"
 
+#include <complex>
 #include <cstring>
 
 #include "eptlib/linalg/linalg_householder.h"
@@ -65,10 +66,11 @@ void eptlib::linalg::HouseholderQR(MatrixReal *qr,const MatrixReal &A,const size
 }
 
 // Solve a linear system using the QR decomposition.
-real_t eptlib::linalg::QRSolve(real_t *x,const MatrixReal &qr,const real_t *b,const size_t m,const size_t n) {
+template <typename NumType>
+real_t eptlib::linalg::QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n) {
     // rotate the forcing term
-    real_t *c = new real_t[m];
-    std::memcpy(c,b,m*sizeof(real_t));
+    NumType *c = new NumType[m];
+    std::memcpy(c,b,m*sizeof(NumType));
     for (int j = 0; j<n; ++j) {
         HouseholderLeft(c+j,qr[j].data()+1+j,m-j);
     }
@@ -77,9 +79,13 @@ real_t eptlib::linalg::QRSolve(real_t *x,const MatrixReal &qr,const real_t *b,co
     // compute the residual
     real_t chi2 = 0.0;
     for (int i = n; i<m; ++i) {
-        chi2 += c[i]*c[i];
+        chi2 += std::abs(c[i])*std::abs(c[i]);
     }
+    chi2 /= static_cast<double>(m-n);
     // deallocate
     delete[] c;
     return chi2;
 }
+
+template real_t eptlib::linalg::QRSolve<real_t>(real_t *x,const MatrixReal &qr,const real_t *b,const size_t m,const size_t n);
+template real_t eptlib::linalg::QRSolve<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &qr,const std::complex<real_t> *b,const size_t m,const size_t n);
