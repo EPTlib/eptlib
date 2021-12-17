@@ -88,14 +88,14 @@ class EPTHelmholtz : public EPTInterface {
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError GetChi2(Image<real_t> *chi2);
+        EPTlibError GetChi2(Image<double> *chi2);
     private:
         /// Filter for the Laplacian computation.
         FDSavitzkyGolayFilter fd_lapl_;
         /// If true, compute the result quality.
         bool get_chi2_;
         /// Quality map.
-        Image<real_t> chi2_;
+        Image<double> chi2_;
         /// Perform the complete Helmholtz-based EPT.
         void CompleteEPTHelm();
         /// Perform the phase approximated Helmholtz-based EPT.

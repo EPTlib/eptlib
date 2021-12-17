@@ -41,7 +41,7 @@ namespace eptlib {
 
 namespace linalg {
 
-    using MatrixReal = std::vector<std::vector<real_t> >;
+    using MatrixReal = std::vector<std::vector<double> >;
 
     /**
      * @brief Compute the quadratic norm of a vector.
@@ -52,7 +52,7 @@ namespace linalg {
      * 
      * The function is robust with respect to possible overflow.
      */
-    real_t Norm2(const real_t *x,const size_t n);
+    double Norm2(const double *x,const size_t n);
 
     /**
      * @brief Compute the dot product between two vectors.
@@ -65,7 +65,7 @@ namespace linalg {
      * @return the dot product between `x' and `y'.
      */
     template <typename NumType>
-    NumType Dot(const NumType *x,const real_t *y,const size_t n);
+    NumType Dot(const NumType *x,const double *y,const size_t n);
 
     /**
      * @brief Get the maximum absolute value of a vector.
@@ -74,7 +74,7 @@ namespace linalg {
      * @param n vector size.
      * @return the maximum absolute value of vector `x'.
      */
-    real_t MaxAbs(const real_t *x,const size_t n);
+    double MaxAbs(const double *x,const size_t n);
 
     /**
      * @brief Solve a square diagonal system.

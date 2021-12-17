@@ -37,11 +37,6 @@
 #include <numeric>
 #include <string>
 
-/**
- * @deprecated
- */
-using real_t = double;
-
 /// Number of spatial dimensions.
 constexpr int NDIM = 3;
 /// Pi.

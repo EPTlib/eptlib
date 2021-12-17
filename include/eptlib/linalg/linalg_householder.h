@@ -48,7 +48,7 @@ namespace linalg {
      * The elementary reflector u is stored in place of `x', which should be
      * larger than `n' to allow storing the factor pi.
      */
-    void HouseholderReflector(real_t *x,const size_t n);
+    void HouseholderReflector(double *x,const size_t n);
 
     /**
      * @brief Compute the product of the elementary reflector with a vector.
@@ -62,7 +62,7 @@ namespace linalg {
      * The result of the application is stored in place of `x'.
      */
     template <typename NumType>
-    void HouseholderLeft(NumType *x,const real_t *u,const size_t n);
+    void HouseholderLeft(NumType *x,const double *u,const size_t n);
 
 }  // namespace linalg
 

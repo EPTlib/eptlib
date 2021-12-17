@@ -50,7 +50,7 @@ void eptlib::linalg::HouseholderQR(MatrixReal *qr,const MatrixReal &A,const size
     }
     // perform the decomposition
     for (int j = 0; j<n; ++j) {
-        real_t *u = qr->at(j).data()+1+j;
+        double *u = qr->at(j).data()+1+j;
         int sub_m = m-j;
         HouseholderReflector(u,sub_m);
         for (int i = 0; i<j; ++i) {
@@ -58,7 +58,7 @@ void eptlib::linalg::HouseholderQR(MatrixReal *qr,const MatrixReal &A,const size
         }
         qr->at(j)[j] = -u[sub_m]/u[0];
         for (int j2 = j+1; j2<n; ++j2) {
-            real_t *x = qr->at(j2).data()+1+j;
+            double *x = qr->at(j2).data()+1+j;
             HouseholderLeft(x,u,sub_m);
         }
     }
@@ -67,7 +67,7 @@ void eptlib::linalg::HouseholderQR(MatrixReal *qr,const MatrixReal &A,const size
 
 // Solve a linear system using the QR decomposition.
 template <typename NumType>
-real_t eptlib::linalg::QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n) {
+double eptlib::linalg::QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n) {
     // rotate the forcing term
     NumType *c = new NumType[m];
     std::memcpy(c,b,m*sizeof(NumType));
@@ -77,7 +77,7 @@ real_t eptlib::linalg::QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,
     // solve the system
     SolveTriU(x,qr,c,n);
     // compute the residual
-    real_t chi2 = 0.0;
+    double chi2 = 0.0;
     for (int i = n; i<m; ++i) {
         chi2 += std::abs(c[i])*std::abs(c[i]);
     }
@@ -87,5 +87,5 @@ real_t eptlib::linalg::QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,
     return chi2;
 }
 
-template real_t eptlib::linalg::QRSolve<real_t>(real_t *x,const MatrixReal &qr,const real_t *b,const size_t m,const size_t n);
-template real_t eptlib::linalg::QRSolve<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &qr,const std::complex<real_t> *b,const size_t m,const size_t n);
+template double eptlib::linalg::QRSolve<double>(double *x,const MatrixReal &qr,const double *b,const size_t m,const size_t n);
+template double eptlib::linalg::QRSolve<std::complex<double> >(std::complex<double> *x,const MatrixReal &qr,const std::complex<double> *b,const size_t m,const size_t n);

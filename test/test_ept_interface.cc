@@ -100,12 +100,12 @@ TEST(EPTInterfaceGTest,SettersGetters) {
     //
     ierr = epti.GetElectricConductivity(&sigma);
     ASSERT_EQ(ierr,EPTlibError::Success);
-    real_t err_s = std::inner_product(tx_sens.GetData().begin(),tx_sens.GetData().end(),sigma.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
+    double err_s = std::inner_product(tx_sens.GetData().begin(),tx_sens.GetData().end(),sigma.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
     ASSERT_DOUBLE_EQ(err_s,0.0);
     //
     ierr = epti.GetRelativePermittivity(&epsr);
     ASSERT_EQ(ierr,EPTlibError::Success);
-    real_t err_e = std::inner_product(trx_phase.GetData().begin(),trx_phase.GetData().end(),epsr.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
+    double err_e = std::inner_product(trx_phase.GetData().begin(),trx_phase.GetData().end(),epsr.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
     ASSERT_DOUBLE_EQ(err_e,0.0);
     //
     return;

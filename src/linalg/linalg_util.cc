@@ -40,15 +40,15 @@ using namespace eptlib;
 using namespace eptlib::linalg;
 
 // Compute the quadratic norm of a vector
-real_t eptlib::linalg::Norm2(const real_t *x,const size_t n) {
-    real_t eta = MaxAbs(x,n);
+double eptlib::linalg::Norm2(const double *x,const size_t n) {
+    double eta = MaxAbs(x,n);
     if (eta==0.0) {
         return 0.0;
     }
-    real_t sigma = 0;
+    double sigma = 0;
     for (int i = 0; i<n; ++i) {
         // check to avoid summing values in the underflow region
-        if (std::abs(x[i])>=std::sqrt(std::numeric_limits<real_t>::epsilon())*eta) {
+        if (std::abs(x[i])>=std::sqrt(std::numeric_limits<double>::epsilon())*eta) {
             // normalise the vector components to avoid overflow
             sigma += (x[i]/eta)*(x[i]/eta);
         }
@@ -60,7 +60,7 @@ real_t eptlib::linalg::Norm2(const real_t *x,const size_t n) {
 
 // Compute the dot product between two vectors
 template <typename NumType>
-NumType eptlib::linalg::Dot(const NumType *x,const real_t *y,const size_t n) {
+NumType eptlib::linalg::Dot(const NumType *x,const double *y,const size_t n) {
     NumType tau = 0.0;
     for (int i = 0; i<n; ++i) {
         tau += x[i]*y[i];
@@ -69,8 +69,8 @@ NumType eptlib::linalg::Dot(const NumType *x,const real_t *y,const size_t n) {
 }
 
 // Get the maximum absolute value of a vector
-real_t eptlib::linalg::MaxAbs(const real_t *x,const size_t n) {
-    real_t eta = 0;
+double eptlib::linalg::MaxAbs(const double *x,const size_t n) {
+    double eta = 0;
     for (int i = 0; i<n; ++i) {
         if (std::abs(x[i])>eta) {
             eta = std::abs(x[i]);
@@ -116,12 +116,12 @@ void eptlib::linalg::SolveTriL(NumType *x,const MatrixReal &A,const NumType *b,c
     return;
 }
 
-template real_t eptlib::linalg::Dot<real_t>(const real_t *x,const real_t *y,const size_t n);
-template void eptlib::linalg::SolveDiag<real_t>(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
-template void eptlib::linalg::SolveTriU<real_t>(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
-template void eptlib::linalg::SolveTriL<real_t>(real_t *x,const MatrixReal &A,const real_t *b,const size_t n);
+template double eptlib::linalg::Dot<double>(const double *x,const double *y,const size_t n);
+template void eptlib::linalg::SolveDiag<double>(double *x,const MatrixReal &A,const double *b,const size_t n);
+template void eptlib::linalg::SolveTriU<double>(double *x,const MatrixReal &A,const double *b,const size_t n);
+template void eptlib::linalg::SolveTriL<double>(double *x,const MatrixReal &A,const double *b,const size_t n);
 
-template std::complex<real_t> eptlib::linalg::Dot<std::complex<real_t> >(const std::complex<real_t> *x,const real_t *y,const size_t n);
-template void eptlib::linalg::SolveDiag<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &A,const std::complex<real_t> *b,const size_t n);
-template void eptlib::linalg::SolveTriU<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &A,const std::complex<real_t> *b,const size_t n);
-template void eptlib::linalg::SolveTriL<std::complex<real_t> >(std::complex<real_t> *x,const MatrixReal &A,const std::complex<real_t> *b,const size_t n);
+template std::complex<double> eptlib::linalg::Dot<std::complex<double> >(const std::complex<double> *x,const double *y,const size_t n);
+template void eptlib::linalg::SolveDiag<std::complex<double> >(std::complex<double> *x,const MatrixReal &A,const std::complex<double> *b,const size_t n);
+template void eptlib::linalg::SolveTriU<std::complex<double> >(std::complex<double> *x,const MatrixReal &A,const std::complex<double> *b,const size_t n);
+template void eptlib::linalg::SolveTriL<std::complex<double> >(std::complex<double> *x,const MatrixReal &A,const std::complex<double> *b,const size_t n);

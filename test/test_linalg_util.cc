@@ -45,49 +45,49 @@ using namespace eptlib::linalg;
 
 TEST(LinalgUtilGTest,Norm2) {
     const int n = 10;
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     for (int i = 0; i<n; ++i) {
         x[i] = i+1;
     }
     //
-    real_t norm = Norm2(x.data(),n);
+    double norm = Norm2(x.data(),n);
     //
-    real_t ref = std::sqrt(385.0);
+    double ref = std::sqrt(385.0);
     ASSERT_NEAR(norm,ref,1e-12);
 }
 TEST(LinalgUtilGTest,Dot) {
     const int n = 10;
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     std::vector<std::complex<double> > y(n);
     for (int i = 0; i<n; ++i) {
         x[i] = i+1;
         y[i] = i+1.0;
     }
     //
-    real_t dot = Dot(x.data(),x.data(),n);
+    double dot = Dot(x.data(),x.data(),n);
     std::complex<double> dot_c = Dot(y.data(),x.data(),n);
     //
-    real_t ref = 385.0;
+    double ref = 385.0;
     ASSERT_NEAR(dot,ref,1e-12);
     ASSERT_NEAR(dot_c.real(),ref,1e-12);
     ASSERT_NEAR(dot_c.imag(),0.0,1e-12);
 }
 TEST(LinalgUtilGTest,MaxAbs) {
     const int n = 10;
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     for (int i = 0; i<n; ++i) {
         x[i] = -(i+1);
     }
     //
-    real_t maxabs = MaxAbs(x.data(),n);
+    double maxabs = MaxAbs(x.data(),n);
     //
-    real_t ref = 10.0;
+    double ref = 10.0;
     ASSERT_NEAR(maxabs,ref,1e-12);
 }
 TEST(LinalgUtilGTest,SolveDiag) {
     const int n = 10;
-    MatrixReal A(n,std::vector<real_t>(n));
-    std::vector<real_t> x_ref(n);
+    MatrixReal A(n,std::vector<double>(n));
+    std::vector<double> x_ref(n);
     for (int j = 0; j<n; ++j) {
         for (int i = 0; i<n; ++i) {
             A[j][i] = j+n*i+1;
@@ -95,7 +95,7 @@ TEST(LinalgUtilGTest,SolveDiag) {
         x_ref[j] = j+1;
     }
     //
-    std::vector<real_t> b(n);
+    std::vector<double> b(n);
     for (int i = 0; i<n; ++i) {
         b[i] = A[i][i]*x_ref[i];
     }
@@ -104,7 +104,7 @@ TEST(LinalgUtilGTest,SolveDiag) {
         b_c[i] = b[i];
     }
     //
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     SolveDiag(x.data(),A,b.data(),n);
     std::vector<std::complex<double> > x_c(n);
     SolveDiag(x_c.data(),A,b_c.data(),n);
@@ -117,8 +117,8 @@ TEST(LinalgUtilGTest,SolveDiag) {
 }
 TEST(LinalgUtilGTest,SolveTriU) {
     const int n = 10;
-    MatrixReal A(n,std::vector<real_t>(n));
-    std::vector<real_t> x_ref(n);
+    MatrixReal A(n,std::vector<double>(n));
+    std::vector<double> x_ref(n);
     for (int j = 0; j<n; ++j) {
         for (int i = 0; i<n; ++i) {
             A[j][i] = j+n*i+1;
@@ -126,7 +126,7 @@ TEST(LinalgUtilGTest,SolveTriU) {
         x_ref[j] = j+1;
     }
     //
-    std::vector<real_t> b(n);
+    std::vector<double> b(n);
     for (int i = 0; i<n; ++i) {
         b[i] = 0.0;
         for (int j = i; j<n; ++j) {
@@ -138,7 +138,7 @@ TEST(LinalgUtilGTest,SolveTriU) {
         b_c[i] = b[i];
     }
     //
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     SolveTriU(x.data(),A,b.data(),n);
     std::vector<std::complex<double> > x_c(n);
     SolveTriU(x_c.data(),A,b_c.data(),n);
@@ -151,8 +151,8 @@ TEST(LinalgUtilGTest,SolveTriU) {
 }
 TEST(LinalgUtilGTest,SolveTriL) {
     const int n = 10;
-    MatrixReal A(n,std::vector<real_t>(n));
-    std::vector<real_t> x_ref(n);
+    MatrixReal A(n,std::vector<double>(n));
+    std::vector<double> x_ref(n);
     for (int j = 0; j<n; ++j) {
         for (int i = 0; i<n; ++i) {
             A[j][i] = j+n*i+1;
@@ -160,7 +160,7 @@ TEST(LinalgUtilGTest,SolveTriL) {
         x_ref[j] = j+1;
     }
     //
-    std::vector<real_t> b(n);
+    std::vector<double> b(n);
     for (int i = 0; i<n; ++i) {
         b[i] = 0.0;
         for (int j = 0; j<=i; ++j) {
@@ -172,7 +172,7 @@ TEST(LinalgUtilGTest,SolveTriL) {
         b_c[i] = b[i];
     }
     //
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     SolveTriL(x.data(),A,b.data(),n);
     std::vector<std::complex<double> > x_c(n);
     SolveTriL(x_c.data(),A,b_c.data(),n);

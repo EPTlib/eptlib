@@ -69,7 +69,7 @@ Run() {
         sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
     if (get_chi2_) {
-        chi2_ = Image<real_t>(nn_[0],nn_[1],nn_[2]);
+        chi2_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
     if (thereis_epsr_ && thereis_sigma_) {
         // ...complete Helmholtz-based
@@ -96,7 +96,7 @@ ToggleGetChi2() {
 
 // Get the result quality index
 EPTlibError EPTHelmholtz::
-GetChi2(Image<real_t> *chi2) {
+GetChi2(Image<double> *chi2) {
     if (!(get_chi2_&&(thereis_epsr_||thereis_sigma_))) {
         return EPTlibError::MissingData;
     }

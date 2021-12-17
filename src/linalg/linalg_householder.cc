@@ -42,8 +42,8 @@ using namespace eptlib;
 using namespace eptlib::linalg;
 
 // Compute the elementary reflector
-void eptlib::linalg::HouseholderReflector(real_t *x,const size_t n) {
-    real_t sigma = std::copysign(Norm2(x,n),x[0]);
+void eptlib::linalg::HouseholderReflector(double *x,const size_t n) {
+    double sigma = std::copysign(Norm2(x,n),x[0]);
     // sum avoiding loss of significance
     x[0] += sigma;
     // store the factor pi
@@ -53,7 +53,7 @@ void eptlib::linalg::HouseholderReflector(real_t *x,const size_t n) {
 
 // Compute the product of the elementary reflector with a vector
 template <typename NumType>
-void eptlib::linalg::HouseholderLeft(NumType *x,const real_t *u,const size_t n) {
+void eptlib::linalg::HouseholderLeft(NumType *x,const double *u,const size_t n) {
     NumType tau = Dot(x,u,n)/u[n];
     for (int i = 0; i<n; ++i) {
         x[i] -= tau*u[i];
@@ -61,5 +61,5 @@ void eptlib::linalg::HouseholderLeft(NumType *x,const real_t *u,const size_t n) 
     return;
 }
 
-template void eptlib::linalg::HouseholderLeft<real_t>(real_t *x,const real_t *u,const size_t n);
-template void eptlib::linalg::HouseholderLeft<std::complex<real_t> >(std::complex<real_t> *x,const real_t *u,const size_t n);
+template void eptlib::linalg::HouseholderLeft<double>(double *x,const double *u,const size_t n);
+template void eptlib::linalg::HouseholderLeft<std::complex<double> >(std::complex<double> *x,const double *u,const size_t n);

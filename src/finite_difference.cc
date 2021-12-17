@@ -60,7 +60,7 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     // initialise the design matrix
     int n_row = shape_.GetVolume();
     int n_col = 1 + NDIM + (NDIM*(NDIM+1))/2;
-    linalg::MatrixReal F(n_col,std::vector<real_t>(n_row));
+    linalg::MatrixReal F(n_col,std::vector<double>(n_row));
     // fill the design matrix
     std::array<int,NDIM> ii;
     std::array<double,NDIM> di;
@@ -92,11 +92,11 @@ FDSavitzkyGolayFilter(const Shape &shape) :
         }
     }
     // check that all lines are filled
-    std::vector<real_t> v(n_col);
+    std::vector<double> v(n_col);
     for (int c = 0; c<n_col; ++c) {
         v[c] = linalg::Norm2(F[c].data(),n_row);
     }
-    real_t ref = linalg::MaxAbs(v.data(),n_col);
+    double ref = linalg::MaxAbs(v.data(),n_col);
     for (int d = 0; d<1+2*NDIM; ++d) {
         if (v[d]<toll*ref) {
             throw std::runtime_error("Impossible to set-up the Savitzky-Golay filter with the provided shape: no points along direction "+std::to_string(d)+".");
@@ -114,10 +114,10 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     // compute the QR factorisation
     linalg::HouseholderQR(&qr_,F,n_row,n_col);
     // invert the matrix
-    linalg::MatrixReal A(n_row,std::vector<real_t>(n_col));
+    linalg::MatrixReal A(n_row,std::vector<double>(n_col));
     for (int k = 0; k<n_row; ++k) {
-        real_t *b = new real_t[n_row];
-        std::memset(b,0,n_row*sizeof(real_t));
+        double *b = new double[n_row];
+        std::memset(b,0,n_row*sizeof(double));
         b[k] = 1.0;
         linalg::QRSolve(A[k].data(),qr_,b,n_row,n_col);
         delete[] b;
@@ -141,7 +141,7 @@ FDSavitzkyGolayFilter(const Shape &shape) :
 // FDSavitzkyGolayFilter apply and compute the fitting quality
 template <typename NumType>
 EPTlibError FDSavitzkyGolayFilter::
-Apply(const DifferentialOperator diff_op, NumType *dst, real_t *chi2, const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
+Apply(const DifferentialOperator diff_op, NumType *dst, double *chi2, const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
     bool get_chi2 = chi2!=nullptr;
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;
@@ -242,7 +242,7 @@ Apply(const DifferentialOperator diff_op, NumType *dst, const NumType *src, cons
 
 // FDSavitzkyGolayFilter apply and compute the fitting quality
 EPTlibError FDSavitzkyGolayFilter::
-ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst, real_t *chi2, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
+ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst, double *chi2, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
     bool get_chi2 = chi2!=nullptr;
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;

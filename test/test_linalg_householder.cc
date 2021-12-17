@@ -47,14 +47,14 @@ using namespace eptlib::linalg;
 
 TEST(LinalgHouseholderGTest,HouseholderReflector) {
     const int n = 10;
-    std::vector<real_t> x(n+1);
+    std::vector<double> x(n+1);
     for (int i = 0; i<n; ++i) {
         x[i] = i+1;
     }
     //
     HouseholderReflector(x.data(),n);
     //
-    std::vector<real_t> x_ref(n+1);
+    std::vector<double> x_ref(n+1);
     x_ref[0] = 1+std::sqrt(385.0);
     for (int i = 1; i<n; ++i) {
         x_ref[i] = i+1;
@@ -67,8 +67,8 @@ TEST(LinalgHouseholderGTest,HouseholderReflector) {
 }
 TEST(LinalgHouseholderGTest,HouseholderLeft) {
     const int n = 10;
-    std::vector<real_t> u(n+1);
-    std::vector<real_t> x(n);
+    std::vector<double> u(n+1);
+    std::vector<double> x(n);
     std::vector<std::complex<double> > x_c(n);
     for (int i = 0; i<n; ++i) {
         u[i] = i+1;
@@ -80,7 +80,7 @@ TEST(LinalgHouseholderGTest,HouseholderLeft) {
     HouseholderLeft(x.data(),u.data(),n);
     HouseholderLeft(x_c.data(),u.data(),n);
     //
-    std::vector<real_t> x_ref(n);
+    std::vector<double> x_ref(n);
     x_ref[0] = -std::sqrt(385.0);
     for (int i = 1; i<n; ++i) {
         x_ref[i] = 0.0;
@@ -95,8 +95,8 @@ TEST(LinalgHouseholderGTest,HouseholderLeft) {
 
 TEST(LinalgQRGTest,QRSolve) {
     const int n = 5;
-    MatrixReal A(n,std::vector<real_t>(n));
-    std::vector<real_t> x_ref(n);
+    MatrixReal A(n,std::vector<double>(n));
+    std::vector<double> x_ref(n);
     for (int j = 0; j<n; ++j) {
         x_ref[j] = j+1;
     }
@@ -106,7 +106,7 @@ TEST(LinalgQRGTest,QRSolve) {
     A[3][0] = 15; A[3][1] = 43; A[3][2] = 92; A[3][3] = 80; A[3][4] = 96;
     A[4][0] = 66; A[4][1] = 4;  A[4][2] = 85; A[4][3] = 94; A[4][4] = 68;
     //
-    std::vector<real_t> b(n);
+    std::vector<double> b(n);
     for (int i = 0; i<n; ++i) {
         b[i] = 0.0;
         for (int j = 0; j<n; ++j) {
@@ -118,7 +118,7 @@ TEST(LinalgQRGTest,QRSolve) {
         b_c[i] = b[i];
     }
     //
-    std::vector<real_t> x(n);
+    std::vector<double> x(n);
     std::vector<std::complex<double> > x_c(n);
     MatrixReal qr;
     HouseholderQR(&qr,A,n,n);

@@ -67,7 +67,7 @@ namespace linalg {
      * @return square of quadratic norm of the residual.
      */
     template <typename NumType>
-    real_t QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n);
+    double QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n);
 
 }  // namespace linalg
 

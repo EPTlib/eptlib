@@ -94,7 +94,7 @@ class FDSavitzkyGolayFilter {
          * If `chi2' is a null pointer, the fitting quality is not evaluated.
          */
         template <typename NumType>
-        EPTlibError Apply(const DifferentialOperator diff_op,NumType *dst,real_t *chi2,
+        EPTlibError Apply(const DifferentialOperator diff_op,NumType *dst,double *chi2,
             const NumType *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
         /**
          * Apply the FD filter to an input field.
@@ -128,7 +128,7 @@ class FDSavitzkyGolayFilter {
          * 
          * If `chi2' is a null pointer, the fitting quality is not evaluated.
          */
-        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op,double *dst,real_t *chi2,
+        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op,double *dst,double *chi2,
             const double *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
         /**
          * @brief Apply the FD filter to a wrapped phase input field.
