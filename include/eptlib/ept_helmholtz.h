@@ -43,10 +43,13 @@
 
 namespace eptlib {
 
+class EPTHelmholtzChi2;
+
 /**
  * Implementation of the Helmholtz-based EPT method.
  */
 class EPTHelmholtz : public EPTInterface {
+    friend EPTHelmholtzChi2;
     public:
         /**
          * Constructor.
@@ -76,26 +79,28 @@ class EPTHelmholtz : public EPTInterface {
          */
         virtual EPTlibError Run() override;
         /**
-         * @brief Set or unset the result quality flag.
+         * @brief Set or unset the result variance.
          * 
-         * @return the updated result quality flag.
+         * @return the updated result variance flag.
          */
-        bool ToggleGetChi2();
+        bool ToggleGetVar();
         /**
-         * @brief Get the result quality index.
+         * @brief Get the result variance.
          * 
-         * @param[out] chi2 pointer to the quality index destination.
+         * @param[out] var pointer to the variance destination.
          * 
          * @return a Success or MissingData error.
          */
-        EPTlibError GetChi2(Image<double> *chi2);
+        EPTlibError GetVar(Image<double> *var);
     private:
         /// Filter for the Laplacian computation.
         FDSavitzkyGolayFilter fd_lapl_;
-        /// If true, compute the result quality.
-        bool get_chi2_;
+        /// If true, compute the result variance.
+        bool get_var_;
+        /// If true, the quality map is available.
+        bool thereis_var_;
         /// Quality map.
-        Image<double> chi2_;
+        Image<double> var_;
         /// Perform the complete Helmholtz-based EPT.
         void CompleteEPTHelm();
         /// Perform the phase approximated Helmholtz-based EPT.

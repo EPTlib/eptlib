@@ -132,6 +132,39 @@ EPTlibError TOMLGetSeedPoints(std::vector<SeedPoint> &seed_points,
     return EPTlibError::Success;
 }
 
+EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
+    std::vector<std::array<int,NDIM> > &sizes, const io::IOtoml &io_toml,
+    const std::string &uri) {
+    EPTlibError error;
+    toml::Array toml_shapes;
+    toml::Array toml_sizes;
+    error = io_toml.GetValue<toml::Array>(toml_shapes,uri+".shapes");
+    if (error!=EPTlibError::Success) {
+        return error;
+    }
+    error = io_toml.GetValue<toml::Array>(toml_sizes,uri+".sizes");
+    if (error!=EPTlibError::Success) {
+        return error;
+    }
+    int num_sg = toml_shapes.size();
+    if (toml_sizes.size()!=num_sg) {
+        return EPTlibError::WrongDataFormat;
+    }
+    shapes.resize(num_sg);
+    sizes.resize(num_sg);
+    for (int idx = 0; idx<num_sg; ++idx) {
+        shapes[idx] = toml_shapes[idx].as<int>();
+        const toml::Array &tmp = toml_sizes[idx].as<toml::Array>();
+        if (!tmp[0].is<int>()) {
+            return EPTlibError::WrongDataFormat;
+        }
+        for (int d = 0; d<NDIM; ++d) {
+            sizes[idx][d] = tmp[d].as<int>();
+        }
+    }
+    return EPTlibError::Success;
+}
+
 int main(int argc, char **argv) {
     auto start = std::chrono::system_clock::now();
     // opening boilerplate
@@ -295,11 +328,11 @@ int main(int argc, char **argv) {
             // declare the parameters
             cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
             cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
-            cfgdata<string> output_chi2_addr("","parameter.output-chi2");
+            cfgdata<string> output_var_addr("","parameter.output-variance");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
-            LOADOPTIONALDATA(io_toml,output_chi2_addr);
+            LOADOPTIONALDATA(io_toml,output_var_addr);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -311,12 +344,19 @@ int main(int argc, char **argv) {
                 cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                 return 1;
             }
+            if (output_var_addr.first!="" && thereis_txsens) {
+                cout<<"WARNING: Variance cannot be evaluated when computing the relative permittivity. Relative permittivity computation will be favoured."<<endl;
+            }
+            if (output_var_addr.first!="" && wrapped_phase.first) {
+                cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
+            }
+            cout<<endl;
             // report the parameters
             cout<<"Parameters:\n";
             cout<<"  Savitzky-Golay filter:\n";
             cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
             cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
-            cout<<"  Output chi2 addr.: '"<<output_chi2_addr.first<<"'\n";
+            cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
             cout<<endl;
             // combine the parameters
             Shape kernel;
@@ -334,8 +374,8 @@ int main(int argc, char **argv) {
             }
             // create the EPT method
             ept.reset(new EPTHelmholtz(freq.first,nn.first,dd.first,kernel));
-            if (output_chi2_addr.first!="") {
-                dynamic_cast<EPTHelmholtz*>(ept.get())->ToggleGetChi2();
+            if (output_var_addr.first!="") {
+                dynamic_cast<EPTHelmholtz*>(ept.get())->ToggleGetVar();
             }
             break;
         }
@@ -581,6 +621,82 @@ int main(int argc, char **argv) {
             }
             break;
         }
+        case EPTMethod::HELMHOLTZ_CHI2: {
+            // declare the parameters
+            string savitzky_golay_url = "parameter.savitzky-golay";
+            cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
+            cfgdata<string> output_var_addr("","parameter.output-variance");
+            // load the parameters
+            LOADMANDATORYDATA(io_toml,output_sg_index_addr);
+            LOADMANDATORYDATA(io_toml,output_var_addr);
+            cout<<endl;
+            std::vector<int> shapes(0);
+            std::vector<std::array<int,NDIM> > sizes(0);
+            EPTlibError error = TOMLGetMultipleSGShapes(shapes,sizes,*io_toml,savitzky_golay_url);
+            if (error!=EPTlibError::Success) {
+                cout<<"FATAL ERROR in config file: '"<<savitzky_golay_url<<"'"<<endl;
+                return 1;
+            }
+            // check the parameters
+            std::vector<KernelShape> kernel_shapes(shapes.size());
+            for (int idx = 0; idx<shapes.size(); ++idx) {
+                kernel_shapes[idx] = static_cast<KernelShape>(shapes[idx]);
+                if (shapes[idx]<0||kernel_shapes[idx]>=KernelShape::END) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<savitzky_golay_url<<"'"<<endl;
+                    return 1;
+                }
+            }
+            if (n_txch.first>1||n_rxch.first>1) {
+                cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
+                return 1;
+            }
+            if (!thereis_trxphase) {
+                cout<<"FATAL ERROR in config file: The transceive phase address is needed by "<<ToString(ept_method)<<endl;
+            }
+            if (thereis_txsens) {
+                cout<<"WARNING: This method works only with the phase-based approximation. Relative permittivity will not be computed and the Tx sensitivity will not be used."<<endl;
+            }
+            if (wrapped_phase.first) {
+                cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
+            }
+            cout<<endl;
+            // report the parameters
+            cout<<"Parameters:\n";
+            cout<<"  Savitzky-Golay filter:\n";
+            cout<<"    Kernel shapes: ["<<shapes[0];
+            for (int idx = 1; idx<shapes.size(); ++idx) {
+                cout<<", "<<shapes[idx];
+            }
+            cout<<"]\n";
+            cout<<"    Kernel sizes: [";
+            cout<<"["<<sizes[0][0]<<", "<<sizes[0][1]<<", "<<sizes[0][2]<<"]";
+            for (int idx = 1; idx<sizes.size(); ++idx) {
+                cout<<", "<<"["<<sizes[idx][0]<<", "<<sizes[idx][1]<<", "<<sizes[idx][2]<<"]";
+            }
+            cout<<"]\n";
+            cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
+            cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
+            cout<<endl;
+            // combine the parameters
+            std::vector<Shape> kernels(shapes.size());
+            for (int idx = 0; idx<kernels.size(); ++idx) {
+                switch (kernel_shapes[idx]) {
+                    case KernelShape::CROSS:
+                        kernels[idx] = shapes::Cross(sizes[idx]);
+                        break;
+                    case KernelShape::ELLIPSOID:
+                        kernels[idx] = shapes::Ellipsoid(sizes[idx]);
+                        break;
+                    case KernelShape::CUBOID: {
+                        kernels[idx] = shapes::CuboidR(sizes[idx]);
+                        break;
+                    }
+                }
+            }
+            // create the EPT method
+            ept.reset(new EPTHelmholtzChi2(freq.first,nn.first,dd.first,kernels));
+            break;
+        }
     }
     // set-up the common parameters of the method
     if (thereis_txsens) {
@@ -613,14 +729,14 @@ int main(int argc, char **argv) {
     // report possible output parameters
     if (ept_method==EPTMethod::HELMHOLTZ) {
         // Save the quality index chi2 distribution
-        cfgdata<string> output_chi2_addr("","parameter.output-chi2");
-        LOADOPTIONALDATA(io_toml,output_chi2_addr);
-        bool thereis_chi2 = output_chi2_addr.first!="";
-        if (thereis_chi2) {
-            Image<double> chi2(nn.first[0],nn.first[1],nn.first[2]);
-            EPTlibError chi2_error = dynamic_cast<EPTHelmholtz*>(ept.get())->GetChi2(&chi2);
-            if (chi2_error==EPTlibError::Success) {
-                SAVEMAP(chi2,output_chi2_addr.first);
+        cfgdata<string> output_var_addr("","parameter.output-variance");
+        LOADOPTIONALDATA(io_toml,output_var_addr);
+        bool thereis_var = output_var_addr.first!="" && !thereis_txsens;
+        if (thereis_var) {
+            Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
+            EPTlibError var_error = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVar(&var);
+            if (var_error==EPTlibError::Success) {
+                SAVEMAP(var,output_var_addr.first);
             }
         }
     } else if (ept_method==EPTMethod::CONVREACT) {
@@ -696,6 +812,26 @@ int main(int argc, char **argv) {
                     SAVEMAP(grad_real,real_addr);
                     SAVEMAP(grad_imag,imag_addr);
                 }
+            }
+        }
+    } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
+        // Save the quality index chi2 distribution
+        cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
+        cfgdata<string> output_var_addr("","parameter.output-variance");
+        LOADOPTIONALDATA(io_toml,output_sg_index_addr);
+        LOADOPTIONALDATA(io_toml,output_var_addr);
+        {
+            Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
+            EPTlibError var_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVar(&var);
+            if (var_error==EPTlibError::Success) {
+                SAVEMAP(var,output_var_addr.first);
+            }
+        }
+        {
+            Image<int> index(nn.first[0],nn.first[1],nn.first[2]);
+            EPTlibError index_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetShapeIndex(&index);
+            if (index_error==EPTlibError::Success) {
+                SAVEMAP(index,output_sg_index_addr.first);
             }
         }
     }

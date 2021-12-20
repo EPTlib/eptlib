@@ -251,7 +251,9 @@ namespace shapes {
                 for (xx[0] = -rr[0]; xx[0]<=rr[0]; ++xx[0]) {
                     double rho = 0.0;
                     for (int d = 0; d<NDIM; ++d) {
-                        rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
+                        if (rr[d]>0) {
+                            rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
+                        }
                     }
                     if (rho<=1.0) {
                         ellipsoid.GetShape().set(idx);

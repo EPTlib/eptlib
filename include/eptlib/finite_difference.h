@@ -62,6 +62,8 @@ enum class DifferentialOperator {
     GradientZZ,
     /// Laplacian
     Laplacian,
+    /// Fictitious DifferentialOperator
+    END,
 };
 
 /**
@@ -78,23 +80,23 @@ class FDSavitzkyGolayFilter {
          */
         FDSavitzkyGolayFilter(const Shape &shape);
         /**
-         * @brief Apply the FD filter to an input field and compute the fitting quality.
+         * @brief Apply the FD filter to an input field and compute the variance.
          * 
          * @tparam NumType numeric typename.
          * 
          * @param[in] diff_op differential operator type.
          * @param[out] dst pointer to the output destination.
-         * @param[out] chi2 pointer to the output fitting quality.
+         * @param[out] var pointer to the output variance.
          * @param[in] src pointer to the input source.
          * @param[in] nn number of voxels in each direction.
          * @param[in] dd size of voxels in each direction.
          * 
          * @return a Success or Unknown error.
          * 
-         * If `chi2' is a null pointer, the fitting quality is not evaluated.
+         * If `var' is a null pointer, the variance is not evaluated.
          */
         template <typename NumType>
-        EPTlibError Apply(const DifferentialOperator diff_op,NumType *dst,double *chi2,
+        EPTlibError Apply(const DifferentialOperator diff_op,NumType *dst,double *var,
             const NumType *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
         /**
          * Apply the FD filter to an input field.
@@ -115,22 +117,6 @@ class FDSavitzkyGolayFilter {
         EPTlibError Apply(const DifferentialOperator diff_op, NumType *dst,
             const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
         /**
-         * @brief Apply the FD filter to a wrapped phase input field and compute the fitting quality.
-         * 
-         * @param[in] diff_op differential operator type.
-         * @param[out] dst pointer to the output destination.
-         * @param[out] chi2 pointer to the output fitting quality.
-         * @param[in] src pointer to the input source.
-         * @param[in] nn number of voxels in each direction.
-         * @param[in] dd size of voxels in each direction.
-         * 
-         * @return a Success or Unknown error.
-         * 
-         * If `chi2' is a null pointer, the fitting quality is not evaluated.
-         */
-        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op,double *dst,double *chi2,
-            const double *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
-        /**
          * @brief Apply the FD filter to a wrapped phase input field.
          * 
          * @param[in] diff_op differential operator type.
@@ -141,10 +127,11 @@ class FDSavitzkyGolayFilter {
          * 
          * @return a Success or Unknown error.
          * 
-         * @deprecated
+         * The non-linearity of this technique does not allow the analytical
+         * propagation of the uncertainty.
          */
-        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst,
-            const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+        EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op,double *dst,
+            const double *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
         /**
          * Apply the kernel for zero order derivative.
          * 
@@ -202,6 +189,17 @@ class FDSavitzkyGolayFilter {
          * @deprecated
          */
         const Shape& GetShape() const;
+        /**
+         * @brief Evaluate the variance of a certain combination of the
+         * fitting parameters.
+         * 
+         * @param u vector defininig how the parameters are combined.
+         * @return the evaluated variance.
+         * 
+         * The result must be multiplied by the normalised chi-square
+         * coefficient to provide the actual variance.
+         */
+        double EvaluateVariance(const std::vector<double> &u) const;
     private:
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;
@@ -217,6 +215,8 @@ class FDSavitzkyGolayFilter {
         std::array<std::vector<double>,NDIM> grad_kernel_;
         /// Kernel for field approximation.
         std::vector<double> field_kernel_;
+        /// Index of the derivative in the design matrix
+        std::array<int,static_cast<int>(DifferentialOperator::END)> der_idx_;
 };
 
 }  // namespace eptlib

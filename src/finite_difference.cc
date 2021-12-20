@@ -59,8 +59,21 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     }
     // initialise the design matrix
     int n_row = shape_.GetVolume();
-    int n_col = 1 + NDIM + (NDIM*(NDIM+1))/2;
+    constexpr int n_col_start = 1 + NDIM + (NDIM*(NDIM+1))/2;
+    int n_col = n_col_start;
     linalg::MatrixReal F(n_col,std::vector<double>(n_row));
+    // initialise the derivative indexes
+    std::array<DifferentialOperator,n_col_start> der_idx_inv;
+    der_idx_inv[0] = DifferentialOperator::Field;
+    der_idx_inv[1] = DifferentialOperator::GradientXX;
+    der_idx_inv[2] = DifferentialOperator::GradientYY;
+    der_idx_inv[3] = DifferentialOperator::GradientZZ;
+    der_idx_inv[4] = DifferentialOperator::GradientX;
+    der_idx_inv[5] = DifferentialOperator::GradientY;
+    der_idx_inv[6] = DifferentialOperator::GradientZ;
+    for (int c = 7; c<n_col_start; ++c) {
+        der_idx_inv[c] = DifferentialOperator::END;
+    }
     // fill the design matrix
     std::array<int,NDIM> ii;
     std::array<double,NDIM> di;
@@ -75,7 +88,7 @@ FDSavitzkyGolayFilter(const Shape &shape) :
                     // design matrix for even quantities
                     F[0][r] = 1.0;
                     for (int d = 0; d<NDIM; ++d) {
-                        F[1+d][r] = di[d]*di[d];
+                        F[1+d][r] = di[d]*di[d]/2.0;
                     }
                     // design matrix for odd quantities
                     int c = 0;
@@ -97,20 +110,26 @@ FDSavitzkyGolayFilter(const Shape &shape) :
         v[c] = linalg::Norm2(F[c].data(),n_row);
     }
     double ref = linalg::MaxAbs(v.data(),n_col);
-    for (int d = 0; d<1+2*NDIM; ++d) {
-        if (v[d]<toll*ref) {
-            throw std::runtime_error("Impossible to set-up the Savitzky-Golay filter with the provided shape: no points along direction "+std::to_string(d)+".");
-        }
-    }
-    for (int c = 1+2*NDIM; c<n_col; ++c) {
+    for (int c = 0; c<n_col; ++c) {
         if (v[c]<toll*ref) {
             --n_col;
             F[c].swap(F[n_col]);
+            std::swap(v[c],v[n_col]);
+            std::swap(der_idx_inv[c],der_idx_inv[n_col]);
             --c;
         }
     }
     F.resize(n_col);
     n_unk_ = n_col;
+    // identify derivative indexes in the design matrix
+    for (int d = 0; d<der_idx_.size(); ++d) {
+        der_idx_[d] = -1;
+    }
+    for (int c = 0; c<n_col; ++c) {
+        if (der_idx_inv[c]!=DifferentialOperator::END) {
+            der_idx_[static_cast<int>(der_idx_inv[c])] = c;
+        }
+    }
     // compute the QR factorisation
     linalg::HouseholderQR(&qr_,F,n_row,n_col);
     // invert the matrix
@@ -124,16 +143,27 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     }
     // Compute the kernels
     for (int d = 0; d<NDIM; ++d) {
-        grad_kernel_[d].resize(n_row,0.0);
-        lapl_kernel_[d].resize(n_row,0.0);
-        for (int idx = 0; idx<n_row; ++idx) {
-            grad_kernel_[d][idx] = A[idx][1+NDIM+d];
-            lapl_kernel_[d][idx] = 2.0*A[idx][1+d];
+        int grad = static_cast<int>(DifferentialOperator::GradientX)+d;
+        int lapl = static_cast<int>(DifferentialOperator::GradientXX)+d;
+        if (der_idx_[grad]!=-1) {
+            grad_kernel_[d].resize(n_row,0.0);
+            for (int idx = 0; idx<n_row; ++idx) {
+                grad_kernel_[d][idx] = A[idx][der_idx_[grad]];
+            }
+        }
+        if (der_idx_[lapl]!=-1) {
+            lapl_kernel_[d].resize(n_row,0.0);
+            for (int idx = 0; idx<n_row; ++idx) {
+                lapl_kernel_[d][idx] = A[idx][der_idx_[lapl]];
+            }
         }
     }
-    field_kernel_.resize(n_row,0.0);
-    for (int idx = 0; idx<n_row; ++idx) {
-        field_kernel_[idx] = A[idx][0];
+    int field = static_cast<int>(DifferentialOperator::Field);
+    if (der_idx_[field]) {
+        field_kernel_.resize(n_row,0.0);
+        for (int idx = 0; idx<n_row; ++idx) {
+            field_kernel_[idx] = A[idx][der_idx_[field]];
+        }
     }
     return;
 }
@@ -141,8 +171,24 @@ FDSavitzkyGolayFilter(const Shape &shape) :
 // FDSavitzkyGolayFilter apply and compute the fitting quality
 template <typename NumType>
 EPTlibError FDSavitzkyGolayFilter::
-Apply(const DifferentialOperator diff_op, NumType *dst, double *chi2, const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
-    bool get_chi2 = chi2!=nullptr;
+Apply(const DifferentialOperator diff_op, NumType *dst, double *var, const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
+    if (diff_op!=DifferentialOperator::Laplacian) {
+        if (der_idx_[static_cast<int>(diff_op)]==-1) {
+            return EPTlibError::MissingData;
+        }
+    } else {
+        bool can_compute_lapl = false;
+        for (int d = 0; d<NDIM; ++d) {
+            int lapl = static_cast<int>(DifferentialOperator::GradientXX)+d;
+            if (der_idx_[lapl]!=-1) {
+                can_compute_lapl = true;
+            }
+        }
+        if (!can_compute_lapl) {
+            return EPTlibError::MissingData;
+        }
+    }
+    bool get_var = var!=nullptr;
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;
     std::array<int,NDIM> inc;
@@ -152,6 +198,39 @@ Apply(const DifferentialOperator diff_op, NumType *dst, double *chi2, const NumT
     inc[0] = 1;
     inc[1] = nn[0]-shape_.GetSize()[0];
     inc[2] = nn[0]*(nn[1]-shape_.GetSize()[1]);
+    // get the variance coefficient
+    double var_coeff = 0.0;
+    if (get_var) {
+        std::vector<double> u(n_unk_,0.0);
+        if (diff_op==DifferentialOperator::Field) {
+            // zero order
+            u[der_idx_[static_cast<int>(diff_op)]] = 1.0;
+            var_coeff = EvaluateVariance(u);
+        } else if (diff_op==DifferentialOperator::GradientX||
+            diff_op==DifferentialOperator::GradientY||
+            diff_op==DifferentialOperator::GradientZ) {
+            // first order
+            int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientX);
+            u[der_idx_[static_cast<int>(diff_op)]] = 1.0/dd[d];
+            var_coeff = EvaluateVariance(u);
+        } else if (diff_op==DifferentialOperator::GradientXX||
+            diff_op==DifferentialOperator::GradientYY||
+            diff_op==DifferentialOperator::GradientZZ) {
+            // second order
+            int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientXX);
+            u[der_idx_[static_cast<int>(diff_op)]] = 1.0/dd[d]/dd[d];
+            var_coeff = EvaluateVariance(u);
+        } else if (diff_op==DifferentialOperator::Laplacian) {
+            // laplacian
+            for (int d = 0; d<NDIM; ++d) {
+                int lapl = static_cast<int>(DifferentialOperator::GradientXX)+d;
+                if (der_idx_[lapl]!=-1) {
+                    u[der_idx_[lapl]] = 1.0/dd[d]/dd[d];
+                }
+            }
+            var_coeff = EvaluateVariance(u);
+        }
+    }
     // loop over field voxels
     for (ii[2] = rr[2]; ii[2]<nn[2]-rr[2]; ++ii[2]) {
         for (ii[1] = rr[1]; ii[1]<nn[1]-rr[1]; ++ii[1]) {
@@ -179,30 +258,33 @@ Apply(const DifferentialOperator diff_op, NumType *dst, double *chi2, const NumT
                 }
                 // compute the derivative...
                 int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
-                if (get_chi2) {
+                if (get_var) {
                     // ...getting the quality index
                     std::vector<NumType> a(n_unk_);
-                    chi2[idx] = linalg::QRSolve(a.data(),qr_,field_crop.data(),field_crop.size(),n_unk_);
+                    var[idx] = var_coeff*linalg::QRSolve(a.data(),qr_,field_crop.data(),field_crop.size(),n_unk_);
                     if (diff_op==DifferentialOperator::Field) {
                         // zero order
-                        dst[idx] = a[0];
+                        dst[idx] = a[der_idx_[static_cast<int>(diff_op)]];
                     } else if (diff_op==DifferentialOperator::GradientX||
                         diff_op==DifferentialOperator::GradientY||
                         diff_op==DifferentialOperator::GradientZ) {
                         // first order
                         int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientX);
-                        dst[idx] = a[1+NDIM+d]/dd[d];
+                        dst[idx] = a[der_idx_[static_cast<int>(diff_op)]]/dd[d];
                     } else if (diff_op==DifferentialOperator::GradientXX||
-                        // second order
                         diff_op==DifferentialOperator::GradientYY||
                         diff_op==DifferentialOperator::GradientZZ) {
+                        // second order
                         int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientXX);
-                        dst[idx] = 2.0*a[1+d]/dd[d]/dd[d];
+                        dst[idx] = a[der_idx_[static_cast<int>(diff_op)]]/dd[d]/dd[d];
                     } else if (diff_op==DifferentialOperator::Laplacian) {
                         // laplacian
                         dst[idx] = 0.0;
                         for (int d = 0; d<NDIM; ++d) {
-                            dst[idx] += 2.0*a[1+d]/dd[d]/dd[d];
+                            int lapl = static_cast<int>(DifferentialOperator::GradientXX)+d;
+                            if (der_idx_[lapl]!=-1) {
+                                dst[idx] += a[der_idx_[lapl]]/dd[d]/dd[d];
+                            }
                         }
                     }
                 } else {
@@ -240,10 +322,25 @@ Apply(const DifferentialOperator diff_op, NumType *dst, const NumType *src, cons
     return Apply(diff_op,dst,nullptr,src,nn,dd);
 }
 
-// FDSavitzkyGolayFilter apply and compute the fitting quality
+// FDSavitzkyGolayFilter apply
 EPTlibError FDSavitzkyGolayFilter::
-ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst, double *chi2, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
-    bool get_chi2 = chi2!=nullptr;
+ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
+    if (diff_op!=DifferentialOperator::Laplacian) {
+        if (der_idx_[static_cast<int>(diff_op)]==-1) {
+            return EPTlibError::MissingData;
+        }
+    } else {
+        bool can_compute_lapl = false;
+        for (int d = 0; d<NDIM; ++d) {
+            int lapl = static_cast<int>(DifferentialOperator::GradientXX)+d;
+            if (der_idx_[lapl]!=-1) {
+                can_compute_lapl = true;
+            }
+        }
+        if (!can_compute_lapl) {
+            return EPTlibError::MissingData;
+        }
+    }
     std::array<int,NDIM> ii;
     std::array<int,NDIM> rr;
     std::array<int,NDIM> inc;
@@ -280,80 +377,42 @@ ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst, double *chi2,
                 }
                 // compute the derivative...
                 int idx = ii[0] + nn[0]*(ii[1] + nn[1]*ii[2]);
-                if (get_chi2) {
-                    // ...getting the quality index
-                    std::vector<std::complex<double> > a(n_unk_);
-                    chi2[idx] = linalg::QRSolve(a.data(),qr_,field_crop.data(),field_crop.size(),n_unk_);
-                    if (diff_op==DifferentialOperator::Field) {
-                        // zero order
-                        dst[idx] = std::log(a[0]).imag();
-                    } else if (diff_op==DifferentialOperator::GradientX||
-                        diff_op==DifferentialOperator::GradientY||
-                        diff_op==DifferentialOperator::GradientZ) {
-                        // first order
-                        int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientX);
-                        std::complex<double> der = a[1+NDIM+d]/dd[d];
-                        dst[idx] = (der/a[0]).imag();
-                    } else if (diff_op==DifferentialOperator::GradientXX||
-                        // second order
-                        diff_op==DifferentialOperator::GradientYY||
-                        diff_op==DifferentialOperator::GradientZZ) {
-                        int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientXX);
-                        std::complex<double> der = a[1+NDIM+d]/dd[d];
-                        std::complex<double> dder = 2.0*a[1+d]/dd[d]/dd[d];
-                        dst[idx] = (der*der/a[0]/a[0] + dder/a[0]).imag();
-                    } else if (diff_op==DifferentialOperator::Laplacian) {
-                        // laplacian
-                        dst[idx] = 0.0;
-                        for (int d = 0; d<NDIM; ++d) {
-                            std::complex<double> der = a[1+NDIM+d]/dd[d];
-                            std::complex<double> dder = 2.0*a[1+d]/dd[d]/dd[d];
-                            dst[idx] += (der*der/a[0]/a[0] + dder/a[0]).imag();
-                        }
-                    }
-                } else {
-                    // ...without the quality index
-                    if (diff_op==DifferentialOperator::Field) {
-                        // zero order
-                        dst[idx] = std::log(ZeroOrder(field_crop)).imag();
-                    }
-                    if (diff_op==DifferentialOperator::GradientX||
-                        diff_op==DifferentialOperator::GradientY||
-                        diff_op==DifferentialOperator::GradientZ) {
-                        // first order
-                        int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientX);
-                        std::complex<double> tmp = ZeroOrder(field_crop);
-                        std::complex<double> der = FirstOrder(d,field_crop,dd);
-                        dst[idx] = (der/tmp).imag();
-                    } else if (diff_op==DifferentialOperator::GradientXX||
-                        diff_op==DifferentialOperator::GradientYY||
-                        diff_op==DifferentialOperator::GradientZZ) {
-                        // second order
-                        int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientXX);
+                // ...without the quality index
+                if (diff_op==DifferentialOperator::Field) {
+                    // zero order
+                    dst[idx] = std::log(ZeroOrder(field_crop)).imag();
+                }
+                if (diff_op==DifferentialOperator::GradientX||
+                    diff_op==DifferentialOperator::GradientY||
+                    diff_op==DifferentialOperator::GradientZ) {
+                    // first order
+                    int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientX);
+                    std::complex<double> tmp = ZeroOrder(field_crop);
+                    std::complex<double> der = FirstOrder(d,field_crop,dd);
+                    dst[idx] = (der/tmp).imag();
+                } else if (diff_op==DifferentialOperator::GradientXX||
+                    diff_op==DifferentialOperator::GradientYY||
+                    diff_op==DifferentialOperator::GradientZZ) {
+                    // second order
+                    int d = static_cast<int>(diff_op) - static_cast<int>(DifferentialOperator::GradientXX);
+                    std::complex<double> tmp = ZeroOrder(field_crop);
+                    std::complex<double> der = FirstOrder(d,field_crop,dd);
+                    std::complex<double> dder = SecondOrder(d,field_crop,dd);
+                    dst[idx] = (der*der/tmp/tmp + dder/tmp).imag();
+                } else if (diff_op==DifferentialOperator::Laplacian) {
+                    // laplacian
+                    dst[idx] = 0.0;
+                    for (int d = 0; d<NDIM; ++d) {
                         std::complex<double> tmp = ZeroOrder(field_crop);
                         std::complex<double> der = FirstOrder(d,field_crop,dd);
                         std::complex<double> dder = SecondOrder(d,field_crop,dd);
-                        dst[idx] = (der*der/tmp/tmp + dder/tmp).imag();
-                    } else if (diff_op==DifferentialOperator::Laplacian) {
-                        // laplacian
-                        dst[idx] = 0.0;
-                        for (int d = 0; d<NDIM; ++d) {
-                            std::complex<double> tmp = ZeroOrder(field_crop);
-                            std::complex<double> der = FirstOrder(d,field_crop,dd);
-                            std::complex<double> dder = SecondOrder(d,field_crop,dd);
-                            dst[idx] += (der*der/tmp/tmp + dder/tmp).imag();
-                        }
+                        dst[idx] += (der*der/tmp/tmp + dder/tmp).imag();
                     }
                 }
             }
         }
     }
     return EPTlibError::Success;
-}
-// FDSavitzkyGolayFilter apply
-EPTlibError FDSavitzkyGolayFilter::
-ApplyWrappedPhase(const DifferentialOperator diff_op, double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const {
-    return ApplyWrappedPhase(diff_op,dst,nullptr,src,nn,dd);
 }
 
 // FDSavitzkyGolayFilter apply kernel zero order derivative
@@ -394,9 +453,28 @@ GetShape() const {
     return shape_;
 }
 
+// FDSavitzkyGolayFilter evaluate the uncertainty
+double FDSavitzkyGolayFilter::
+EvaluateVariance(const std::vector<double> &u) const {
+    assert(u.size()==n_unk_);
+    std::vector<double> r(n_unk_,0.0);
+    // solve the equation with the transpose of R
+    r[0] = u[0]/qr_[0][0];
+    for (int i = 1; i<n_unk_; ++i) {
+        double s = 0;
+        for (int j = 0; j<i; ++j) {
+            s += r[j]*qr_[i][j];
+        }
+        r[i] = (u[i]-s)/qr_[i][i];
+    }
+    // compute the variance
+    double sigma = linalg::Dot(r.data(),r.data(),n_unk_);
+    return sigma;
+}
+
 // FDSavitzkyGolayFilter specialisations
-template EPTlibError FDSavitzkyGolayFilter::Apply<double>(const DifferentialOperator diff_op,double *dst,double *chi2, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
-template EPTlibError FDSavitzkyGolayFilter::Apply<std::complex<double> >(const DifferentialOperator diff_op,std::complex<double> *dst,double *chi2, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+template EPTlibError FDSavitzkyGolayFilter::Apply<double>(const DifferentialOperator diff_op,double *dst,double *var, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+template EPTlibError FDSavitzkyGolayFilter::Apply<std::complex<double> >(const DifferentialOperator diff_op,std::complex<double> *dst,double *var, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
 
 template EPTlibError FDSavitzkyGolayFilter::Apply<double>(const DifferentialOperator diff_op,double *dst, const double *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
 template EPTlibError FDSavitzkyGolayFilter::Apply<std::complex<double> >(const DifferentialOperator diff_op,std::complex<double> *dst, const std::complex<double> *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;

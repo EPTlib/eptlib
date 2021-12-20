@@ -33,6 +33,7 @@
 set(EPTLIB_SRC
     ept_convreact.cc
     ept_gradient.cc
+    ept_helmholtz_chi2.cc
     ept_helmholtz.cc
     ept_interface.cc
     ept_methods.cc

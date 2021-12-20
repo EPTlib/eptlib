@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 
+#include "eptlib/ept_helmholtz_chi2.h"
 #include "eptlib/ept_helmholtz.h"
 #include "eptlib/ept_convreact.h"
 #include "eptlib/ept_gradient.h"
