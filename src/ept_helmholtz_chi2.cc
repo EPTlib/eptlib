@@ -32,13 +32,10 @@
 
 #include "eptlib/ept_helmholtz_chi2.h"
 
-#include <iostream>
-
 using namespace eptlib;
 
 namespace {
     static double nand = std::numeric_limits<double>::quiet_NaN();
-    static std::complex<double> nancd = std::complex<double>(nand,nand);
 }
 
 // EPTHelmholtzChi2 constructor
