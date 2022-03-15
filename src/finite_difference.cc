@@ -44,12 +44,15 @@ using namespace eptlib;
 
 // FDSavitzkyGolayFilter constructor
 FDSavitzkyGolayFilter::
-FDSavitzkyGolayFilter(const Shape &shape) :
+FDSavitzkyGolayFilter(const Shape &shape, const int degree) :
+    degree_(degree),
     shape_(shape),
     m_vox_(std::accumulate(shape.GetSize().begin(),shape.GetSize().end(),1,std::multiplies<int>())),
     n_unk_(0) {
     double toll = 1e-10;
     std::array<int,NDIM> mm = shape_.GetSize();
+    // check that the degree is at least 2
+    assert(degree>=2);
     // check to have odd shape size
     assert(m_vox_%2);
     // get the central voxel address
@@ -59,11 +62,18 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     }
     // initialise the design matrix
     int n_row = shape_.GetVolume();
-    constexpr int n_col_start = 1 + NDIM + (NDIM*(NDIM+1))/2;
-    int n_col = n_col_start;
+    constexpr int n_col_deg2 = 1 + NDIM + (NDIM*(NDIM+1))/2;
+    int n_col = 0;
+    for (int k = 0; k<=degree; ++k) {
+        int tmp = 1;
+        for (int d = 1; d<NDIM; ++d) {
+            tmp *= (k+d);
+        }
+        n_col += tmp/(NDIM-1);
+    }
     linalg::MatrixReal F(n_col,std::vector<double>(n_row));
     // initialise the derivative indexes
-    std::array<DifferentialOperator,n_col_start> der_idx_inv;
+    std::vector<DifferentialOperator> der_idx_inv(n_col);
     der_idx_inv[0] = DifferentialOperator::Field;
     der_idx_inv[1] = DifferentialOperator::GradientXX;
     der_idx_inv[2] = DifferentialOperator::GradientYY;
@@ -71,7 +81,7 @@ FDSavitzkyGolayFilter(const Shape &shape) :
     der_idx_inv[4] = DifferentialOperator::GradientX;
     der_idx_inv[5] = DifferentialOperator::GradientY;
     der_idx_inv[6] = DifferentialOperator::GradientZ;
-    for (int c = 7; c<n_col_start; ++c) {
+    for (int c = 7; c<n_col; ++c) {
         der_idx_inv[c] = DifferentialOperator::END;
     }
     // fill the design matrix
@@ -98,6 +108,12 @@ FDSavitzkyGolayFilter(const Shape &shape) :
                             F[1+2*NDIM + c][r] = di[d]*di[d2];
                             ++c;
                         }
+                    }
+                    // design matrix for monomials of degree larger than 2
+                    int c = 0;
+                    for (int k = 3; k<=degree_; ++k) {
+                        std::array<int,NDIM> jj;
+                        /////
                     }
                     ++r;
                 }
