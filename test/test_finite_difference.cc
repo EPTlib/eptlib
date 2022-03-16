@@ -401,3 +401,57 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayGradient) {
         }
     }
 }
+
+TEST(FiniteDifferenceGTest,HigherOrderInterpolation) {
+    const std::array<int,NDIM> nn = {7,5,5};
+    const std::array<double,NDIM> dd = {1.0,2.0,3.0};
+    const int degree = 4;
+    std::array<int,NDIM> ii;
+    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    //
+    std::array<int,NDIM> rr = {2,2,2};
+    Shape cube = shapes::CuboidR(rr);
+    ASSERT_TRUE(cube.IsSymmetric());
+    FDSavitzkyGolayFilter fd_lapl(cube,degree);
+    //
+    std::vector<double> field(n_vox);
+    for (int idx = 0; idx<n_vox; ++idx) {
+        IdxToMultiIdx(ii,idx,nn);
+        field[idx] = 0.0;
+        for (int d = 0; d<NDIM; ++d) {
+            field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
+            field[idx] += ii[d]*ii[d]*ii[d]*dd[d]*dd[d]*dd[d];
+        }
+    }
+    //
+    std::vector<double> lapl(n_vox);
+    DifferentialOperator diff_op = DifferentialOperator::Laplacian;
+    fd_lapl.Apply(diff_op,lapl.data(),field.data(),nn,dd);
+    //
+    std::vector<double> lapl_chi2(n_vox);
+    std::vector<double> chi2(n_vox);
+    EPTlibError error = fd_lapl.Apply(diff_op,lapl_chi2.data(),chi2.data(),field.data(),nn,dd);
+    ASSERT_TRUE(error==EPTlibError::Success);
+    //
+    for (int idx = 0; idx<n_vox; ++idx) {
+        IdxToMultiIdx(ii,idx,nn);
+        bool kernel_in_domain = true;
+        for (int d = 0; d<NDIM; ++d) {
+            if (ii[d]-rr[d]<0 || ii[d]+rr[d]>=nn[d]) {
+                kernel_in_domain = false;
+                break;
+            }
+        }
+        if (kernel_in_domain) {
+            double tmp = 0.0;
+            for (int d = 0; d<NDIM; ++d) {
+                tmp += 2.0 + 6.0*ii[d]*dd[d];
+            }
+            ASSERT_NEAR(lapl[idx],tmp,1e-12);
+            ASSERT_NEAR(lapl_chi2[idx],tmp,1e-12);
+        } else {
+            ASSERT_NEAR(lapl[idx],0.0,1e-12);
+            ASSERT_NEAR(lapl_chi2[idx],0.0,1e-12);
+        }
+    }
+}
