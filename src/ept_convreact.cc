@@ -50,10 +50,10 @@ namespace {
 // EPTConvReact constructor
 EPTConvReact::
 EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const Shape &shape) :
+    const std::array<double,NDIM> &dd, const Shape &shape, const int degree) :
     EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
     plane_idx_(nn[2]/2), is_volume_(false), diff_coeff_(0.0),
-    thereis_diff_(false), fd_filter_(shape),
+    thereis_diff_(false), fd_filter_(shape,degree),
     solver_iterations_(0), solver_residual_(0.0) {
     return;
 }
