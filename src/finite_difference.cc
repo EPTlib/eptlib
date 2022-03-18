@@ -110,10 +110,21 @@ FDSavitzkyGolayFilter(const Shape &shape, const int degree) :
                         }
                     }
                     // design matrix for monomials of degree larger than 2
-                    int c = 0;
+                    c = 0;
                     for (int k = 3; k<=degree_; ++k) {
                         std::array<int,NDIM> jj;
-                        /////
+                        for (jj[0] = 0; jj[0]<=k; ++jj[0]) {
+                            for (jj[1] = 0; jj[1]<=k-jj[0]; ++jj[1]) {
+                                jj[2] = k-jj[0]-jj[1];
+                                F[n_col_deg2 + c][r] = 1;
+                                for (int d = 0; d<NDIM; ++d) {
+                                    for (int counter = 0; counter<jj[d]; ++counter) {
+                                        F[n_col_deg2 + c][r] *= di[d];
+                                    }
+                                }
+                                ++c;
+                            }
+                        }
                     }
                     ++r;
                 }

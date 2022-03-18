@@ -58,11 +58,14 @@ class EPTHelmholtz : public EPTInterface {
          * @param nn number of voxels in each direction.
          * @param dd voxel sizes in each direction.
          * @param shape mask over which apply the finite difference scheme.
+         * @param degree degree of the interpolating polynomial for the finite
+         *     difference scheme (default: 2).
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
         EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
-            const std::array<double,NDIM> &dd, const Shape &shape);
+            const std::array<double,NDIM> &dd, const Shape &shape,
+            const int degree = 2);
         /**
          * Virtual destructor.
          */

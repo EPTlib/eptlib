@@ -46,8 +46,8 @@ namespace {
 // EPTHelmholtz constructor
 EPTHelmholtz::
 EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd), fd_lapl_(shape), get_var_(false),
+    const std::array<double,NDIM> &dd, const Shape &shape, const int degree) :
+    EPTInterface(freq,nn,dd), fd_lapl_(shape,degree), get_var_(false),
     thereis_var_(false), var_() {
     return;
 }

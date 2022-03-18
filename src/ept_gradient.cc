@@ -50,11 +50,11 @@ namespace {
 EPTGradient::
 EPTGradient(const double freq, const std::array<int,NDIM> &nn,
 	const std::array<double,NDIM> &dd, const int tx_ch,
-	const Shape &shape, const bool is_2d) :
+	const Shape &shape, const bool is_2d, const int degree) :
 	EPTInterface(freq,nn,dd,tx_ch, 1),
 	is_2d_(is_2d), use_seed_points_(false),
 	plane_idx_(nn[2]/2), lambda_(0.0), gradient_tolerance_(0.0),
-	mask_(0), seed_points_(0), fd_filter_(shape),
+	mask_(0), seed_points_(0), fd_filter_(shape,degree),
 	epsc_(0), g_plus_(0), g_z_(0), cost_functional_(0.0),
 	cost_regularization_(0.0), thereis_epsc_(false),
 	run_mode_(EPTGradientRun::FULL) {

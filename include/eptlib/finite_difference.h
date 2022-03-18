@@ -77,7 +77,7 @@ class FDSavitzkyGolayFilter {
          * Constructor.
          * 
          * @param shape mask over which apply the finite difference scheme.
-         * @param degree degree of the interpolating polynomial.
+         * @param degree degree of the interpolating polynomial (default: 2).
          */
         FDSavitzkyGolayFilter(const Shape &shape,const int degree = 2);
         /**

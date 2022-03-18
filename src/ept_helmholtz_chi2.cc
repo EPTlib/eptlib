@@ -84,7 +84,7 @@ Run() {
         }
         // get the partial results
         for (int idx = 0; idx<n_vox_; ++idx) {
-            if (!std::isnan(hept.var_[idx]) && (hept.var_[idx]<var_[idx] || std::isnan(var_[idx]))) {
+            if (hept.var_[idx]==hept.var_[idx] && (hept.var_[idx]<var_[idx] || !(var_[idx]==var_[idx]))) {
                 bool is_physical = hept.sigma_[idx]>0.0;
                 if (is_physical) {
                     var_[idx] = hept.var_[idx];
