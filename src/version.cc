@@ -35,6 +35,7 @@
 using namespace eptlib;
 
 constexpr char project::name[];
+constexpr char project::git_branch[];
 
 constexpr char compiler::name[];
 constexpr char compiler::version[];
