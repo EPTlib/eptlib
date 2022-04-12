@@ -77,8 +77,9 @@ class FDSavitzkyGolayFilter {
          * Constructor.
          * 
          * @param shape mask over which apply the finite difference scheme.
+         * @param degree degree of the interpolating polynomial (default: 2).
          */
-        FDSavitzkyGolayFilter(const Shape &shape);
+        FDSavitzkyGolayFilter(const Shape &shape,const int degree = 2);
         /**
          * @brief Apply the FD filter to an input field and compute the variance.
          * 
@@ -201,6 +202,8 @@ class FDSavitzkyGolayFilter {
          */
         double EvaluateVariance(const std::vector<double> &u) const;
     private:
+        /// Degree of the interpolating polynomial.
+        int degree_;
         /// Shape of the kernel for Laplacian approximation.
         Shape shape_;
         /// Total number of voxels.
