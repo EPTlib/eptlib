@@ -62,11 +62,14 @@ public:
      * @param nn number of voxels in each direction.
      * @param dd voxels sizes in each direction.
      * @param shapes list of masks over which apply the finite difference scheme.
+     * @param degree degree of the interpolating polynomial for the finite
+     *     difference scheme (default: 2).
      * 
      * The number of Tx and Rx channels is fixed equal to one.
      */
     EPTHelmholtzChi2(const double freq,const std::array<int,NDIM> &nn,
-        const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes);
+        const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes,
+        const int degree = 2);
     /**
      * @brief Virtual destructor.
      */
@@ -98,6 +101,8 @@ private:
     double freq_;
     /// List of masks over which apply the finite difference scheme.
     std::vector<Shape> shapes_;
+    /// Degree of the interpolating polynomial for the finite difference scheme.
+    int degree_;
     /// Quality map.
     Image<double> var_;
     /// Pixel-wise selected kernel shape.

@@ -344,6 +344,7 @@ int main(int argc, char **argv) {
             }
             if (degree.first<2) {
                 cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                return 1;
             }
             if (n_txch.first>1||n_rxch.first>1) {
                 cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
@@ -419,6 +420,7 @@ int main(int argc, char **argv) {
             }
             if (degree.first<2) {
                 cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                return 1;
             }
             if (!is_3d.first) {
                 if (imaging_slice.first<rr.first[2]||imaging_slice.first>nn.first[2]-1-rr.first[2]) {
@@ -528,6 +530,7 @@ int main(int argc, char **argv) {
             }
             if (degree.first<2) {
                 cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                return 1;
             }
             if (!is_3d.first) {
                 if (imaging_slice.first<2*rr.first[2]||imaging_slice.first>nn.first[2]-1-2*rr.first[2]) {
@@ -642,9 +645,11 @@ int main(int argc, char **argv) {
         case EPTMethod::HELMHOLTZ_CHI2: {
             // declare the parameters
             string savitzky_golay_url = "parameter.savitzky-golay";
+            cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
             cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
             cfgdata<string> output_var_addr("","parameter.output-variance");
             // load the parameters
+            LOADOPTIONALDATA(io_toml,degree);
             LOADMANDATORYDATA(io_toml,output_sg_index_addr);
             LOADMANDATORYDATA(io_toml,output_var_addr);
             cout<<endl;
@@ -670,6 +675,11 @@ int main(int argc, char **argv) {
             }
             if (!thereis_trxphase) {
                 cout<<"FATAL ERROR in config file: The transceive phase address is needed by "<<ToString(ept_method)<<endl;
+                return 1;
+            }
+            if (degree.first<2) {
+                cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                return 1;
             }
             if (thereis_txsens) {
                 cout<<"WARNING: This method works only with the phase-based approximation. Relative permittivity will not be computed and the Tx sensitivity will not be used."<<endl;
@@ -692,6 +702,7 @@ int main(int argc, char **argv) {
                 cout<<", "<<"["<<sizes[idx][0]<<", "<<sizes[idx][1]<<", "<<sizes[idx][2]<<"]";
             }
             cout<<"]\n";
+            cout<<"    Polynomial degree: "<<degree.first<<"\n";
             cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
             cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
             cout<<endl;
@@ -712,7 +723,7 @@ int main(int argc, char **argv) {
                 }
             }
             // create the EPT method
-            ept.reset(new EPTHelmholtzChi2(freq.first,nn.first,dd.first,kernels));
+            ept.reset(new EPTHelmholtzChi2(freq.first,nn.first,dd.first,kernels,degree.first));
             break;
         }
     }

@@ -41,8 +41,9 @@ namespace {
 // EPTHelmholtzChi2 constructor
 EPTHelmholtzChi2::
 EPTHelmholtzChi2(const double freq,const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes) :
-    EPTInterface(freq,nn,dd), freq_(freq), shapes_(shapes) {
+    const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes,
+    const int degree) :
+    EPTInterface(freq,nn,dd), freq_(freq), shapes_(shapes), degree_(degree) {
     return;
 }
 
@@ -73,7 +74,7 @@ Run() {
     // loop over the shapes
     for (int idx_s = 0; idx_s<shapes_.size(); ++idx_s) {
         // initialise the Helmholtz-EPT method
-        EPTHelmholtz hept(freq_,nn_,dd_,shapes_[idx_s]);
+        EPTHelmholtz hept(freq_,nn_,dd_,shapes_[idx_s],degree_);
         // set-up Helmholtz-EPT
         hept.SetTRxPhase(trx_phase_[0]);
         hept.ToggleGetVar();
