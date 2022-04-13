@@ -30,7 +30,36 @@
 *
 *****************************************************************************/
 
-#include "eptlib/ept_helmholtz_chi2.h"
-#include "eptlib/ept_helmholtz.h"
-#include "eptlib/ept_convreact.h"
-#include "eptlib/ept_gradient.h"
+#include "eptlib/linalg/linalg_householder.h"
+
+#include <cmath>
+#include <complex>
+#include <limits>
+
+#include "eptlib/linalg/linalg_util.h"
+
+using namespace eptlib;
+using namespace eptlib::linalg;
+
+// Compute the elementary reflector
+void eptlib::linalg::HouseholderReflector(double *x,const size_t n) {
+    double sigma = std::copysign(Norm2(x,n),x[0]);
+    // sum avoiding loss of significance
+    x[0] += sigma;
+    // store the factor pi
+    x[n] = sigma*x[0];
+    return;
+}
+
+// Compute the product of the elementary reflector with a vector
+template <typename NumType>
+void eptlib::linalg::HouseholderLeft(NumType *x,const double *u,const size_t n) {
+    NumType tau = Dot(x,u,n)/u[n];
+    for (int i = 0; i<n; ++i) {
+        x[i] -= tau*u[i];
+    }
+    return;
+}
+
+template void eptlib::linalg::HouseholderLeft<double>(double *x,const double *u,const size_t n);
+template void eptlib::linalg::HouseholderLeft<std::complex<double> >(std::complex<double> *x,const double *u,const size_t n);

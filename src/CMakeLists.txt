@@ -33,6 +33,7 @@
 set(EPTLIB_SRC
     ept_convreact.cc
     ept_gradient.cc
+    ept_helmholtz_chi2.cc
     ept_helmholtz.cc
     ept_interface.cc
     ept_methods.cc
@@ -44,7 +45,10 @@ set(EPTLIB_SRC
     version.cc
     io/io_hdf5.cc
     io/io_toml.cc
-    io/io_util.cc)
+    io/io_util.cc
+    linalg/linalg_householder.cc
+    linalg/linalg_qr.cc
+    linalg/linalg_util.cc)
 
 add_library(EPTlib SHARED ${EPTLIB_SRC})
 

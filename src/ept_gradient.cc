@@ -50,11 +50,11 @@ namespace {
 EPTGradient::
 EPTGradient(const double freq, const std::array<int,NDIM> &nn,
 	const std::array<double,NDIM> &dd, const int tx_ch,
-	const Shape &shape, const bool is_2d) :
+	const Shape &shape, const bool is_2d, const int degree) :
 	EPTInterface(freq,nn,dd,tx_ch, 1),
 	is_2d_(is_2d), use_seed_points_(false),
 	plane_idx_(nn[2]/2), lambda_(0.0), gradient_tolerance_(0.0),
-	mask_(0), seed_points_(0), fd_filter_(shape),
+	mask_(0), seed_points_(0), fd_filter_(shape,degree),
 	epsc_(0), g_plus_(0), g_z_(0), cost_functional_(0.0),
 	cost_regularization_(0.0), thereis_epsc_(false),
 	run_mode_(EPTGradientRun::FULL) {
@@ -365,9 +365,10 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 			std::array<int,NDIM> ii_l;
 			std::vector<std::vector<std::complex<double> > > field_crop(tx_ch_);
 			for (int itx = 0; itx<tx_ch_; ++itx) {
-				field_crop[itx].resize(m_vox,0.0);
+				field_crop[itx].resize(fd_filter_.GetShape().GetVolume(),0.0);
 			}
 			// inner loop over the kernel voxels
+			int idx_f = 0;
 			int idx_l = 0;
 			int idx_g = ii[0]-rr[0] + nn_[0]*(ii[1]-rr[1] + nn_[1]*(ii[2]-rr[2]));
 			for (ii_l[2] = -rr[2]; ii_l[2]<=rr[2]; ++ii_l[2]) {
@@ -376,10 +377,11 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 						if (fd_filter_.GetShape()[idx_l]) {
 							// set the field value
 							for (int itx = 0; itx<tx_ch_; ++itx) {
-								field_crop[itx][idx_l] = (*tx_sens_[itx])[idx_g]*
+								field_crop[itx][idx_f] = (*tx_sens_[itx])[idx_g]*
 									std::exp(std::complex<double>(0.0,(*trx_phase_[itx])[idx_g]-
 									(*trx_phase_[iref])[idx_g]));
 							}
+							++idx_f;
 						}
 						++idx_l;
 						idx_g += m_inc[0];
@@ -424,7 +426,7 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
 	// grad_phi0 laplacian...
 	for (int d = 0; d<n_dim; ++d) {
 		std::vector<double> lapl_phi0(n_vox);
-		DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+		DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
 		EPTlibError error = fd_filter_.Apply(diff_op,lapl_phi0.data(),
 			grad_phi0[d].data(),nn,dd_);
 		if (error!=EPTlibError::Success) {

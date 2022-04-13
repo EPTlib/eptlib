@@ -46,8 +46,9 @@ namespace {
 // EPTHelmholtz constructor
 EPTHelmholtz::
 EPTHelmholtz(const double freq, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const Shape &shape) :
-    EPTInterface(freq,nn,dd), fd_lapl_(shape) {
+    const std::array<double,NDIM> &dd, const Shape &shape, const int degree) :
+    EPTInterface(freq,nn,dd), fd_lapl_(shape,degree), get_var_(false),
+    thereis_var_(false), var_() {
     return;
 }
 
@@ -68,6 +69,10 @@ Run() {
         thereis_sigma_ = true;
         sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
     }
+    if (get_var_ && !thereis_epsr_) {
+        thereis_var_ = true;
+        var_ = Image<double>(nn_[0],nn_[1],nn_[2]);
+    }
     if (thereis_epsr_ && thereis_sigma_) {
         // ...complete Helmholtz-based
         CompleteEPTHelm();
@@ -81,6 +86,23 @@ Run() {
         // ...not enough input data provided
         return EPTlibError::MissingData;
     }
+    return EPTlibError::Success;
+}
+
+// Set or unset the result quality flag
+bool EPTHelmholtz::
+ToggleGetVar() {
+    get_var_ = !get_var_;
+    return get_var_;
+}
+
+// Get the result quality index
+EPTlibError EPTHelmholtz::
+GetVar(Image<double> *var) {
+    if (!thereis_var_) {
+        return EPTlibError::MissingData;
+    }
+    *var = var_;
     return EPTlibError::Success;
 }
 
@@ -103,25 +125,39 @@ CompleteEPTHelm() {
 }
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
-    std::vector<double> epsr(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op,epsr.data(),tx_sens_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
-        epsr_[idx] = -epsr[idx]/(EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx]);
+        epsr_[idx] = nand;
+    }
+    fd_lapl_.Apply(diff_op,epsr_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    for (int idx = 0; idx<n_vox_; ++idx) {
+        epsr_[idx] /= -EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx];
     }
     return;
 }
 void EPTHelmholtz::
 PhaseEPTHelm() {
-    std::vector<double> sigma(n_vox_,::nand);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    if (PhaseIsWrapped()) {
-        WrappedPhaseDerivative(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_lapl_);
-    } else {
-        fd_lapl_.Apply(diff_op,sigma.data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    double *var = nullptr;
+    if (thereis_var_) {
+        var = var_.GetData().data();
     }
     for (int idx = 0; idx<n_vox_; ++idx) {
-        sigma_[idx] = sigma[idx]/(2.0*MU0*omega_);
+        sigma_[idx] = nand;
+        if (thereis_var_) {
+            var[idx] = nand;
+        }
+    }
+    if (PhaseIsWrapped() && !thereis_var_) {
+        fd_lapl_.ApplyWrappedPhase(diff_op,sigma_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    } else {
+        fd_lapl_.Apply(diff_op,sigma_.GetData().data(),var,trx_phase_[0]->GetData().data(),nn_,dd_);
+    }
+    for (int idx = 0; idx<n_vox_; ++idx) {
+        sigma_[idx] /= 2.0*MU0*omega_;
+        if (thereis_var_) {
+            var_[idx] /= 2.0*MU0*omega_;
+        }
     }
     return;
 }

@@ -48,20 +48,29 @@ struct software {
 };
 
 enum class EPTMethod {
+    /// Fictitius label to denote the begin of stable methods
+    BEGIN_STABLE = -1,
     /// Helmholtz-based EPT
-    HELMHOLTZ = 0,
+    HELMHOLTZ,
     /// Convection-reaction EPT
     CONVREACT,
     /// Gradient EPT
     GRADIENT,
-    /// Fictitious EPT method
-    END,
+    /// Fictitius label to denote the end of stable methods (at most 98)
+    END_STABLE,
+    /// Fictitius label to denote the begin of experimental methods
+    BEGIN_EXPERIMENTAL = 99,
+    /// Helmholtz-based EPT with pixel-wise optimised kernel shape
+    HELMHOLTZ_CHI2,
+    /// Fictitious label to denote the end of experimental methods
+    END_EXPERIMENTAL,
 };
 std::string ToString(const EPTMethod ept_method) {
     switch (ept_method) {
         case EPTMethod::HELMHOLTZ: return "Helmholtz EPT";
         case EPTMethod::CONVREACT: return "Convection-reaction EPT";
         case EPTMethod::GRADIENT: return "Gradient EPT";
+        case EPTMethod::HELMHOLTZ_CHI2: return "Phase-based Helmholtz EPT with automatically selected kernels";
     }
     return "";
 }
