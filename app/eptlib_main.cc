@@ -197,7 +197,7 @@ int main(int argc, char **argv) {
     cfgdata<string> txsens_addr("","input.tx-sensitivity");
     cfgdata<string> trxphase_addr("","input.trx-phase");
     cfgdata<bool> wrapped_phase(false,"input.wrapped-phase");
-    cfgdata<string> refimg_addr("","input.reference-img");
+    cfgdata<string> refimg_addr("","input.reference-image");
     cfgdata<string> sigma_addr("","output.electric-conductivity");
     cfgdata<string> epsr_addr("","output.relative-permittivity");
     // load the input data
@@ -228,7 +228,7 @@ int main(int argc, char **argv) {
     bool thereis_sigma = sigma_addr.first!="";
     bool thereis_epsr = epsr_addr.first!="";
     //   EPT method
-    if (method.first<0||ept_method>=EPTMethod::END) {
+    if (ept_method<=EPTMethod::BEGIN_STABLE||(ept_method>=EPTMethod::END_STABLE&&ept_method<=EPTMethod::BEGIN_EXPERIMENTAL)||ept_method>=EPTMethod::END_EXPERIMENTAL) {
         cout<<"FATAL ERROR in config file: Wrong data format '"<<method.second<<"'"<<endl;
         return 1;
     }
@@ -253,7 +253,7 @@ int main(int argc, char **argv) {
     cout<<"  Rx channels: "<<n_rxch.first<<"\n";
     cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
     cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
-    cout<<"  Phase is wrapped: '"<<(wrapped_phase.first?"Yes":"No")<<"\n";
+    cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
     cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
     cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
     cout<<"  Output relative permittivity addr.: '"<<epsr_addr.first<<"'\n";
