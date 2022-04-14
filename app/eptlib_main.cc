@@ -650,8 +650,8 @@ int main(int argc, char **argv) {
             cfgdata<string> output_var_addr("","parameter.output-variance");
             // load the parameters
             LOADOPTIONALDATA(io_toml,degree);
-            LOADMANDATORYDATA(io_toml,output_sg_index_addr);
-            LOADMANDATORYDATA(io_toml,output_var_addr);
+            LOADOPTIONALDATA(io_toml,output_sg_index_addr);
+            LOADOPTIONALDATA(io_toml,output_var_addr);
             cout<<endl;
             std::vector<int> shapes(0);
             std::vector<std::array<int,NDIM> > sizes(0);
@@ -846,21 +846,23 @@ int main(int argc, char **argv) {
     } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
         // Save the quality index chi2 distribution
         cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-        cfgdata<string> output_var_addr("","parameter.output-variance");
         LOADOPTIONALDATA(io_toml,output_sg_index_addr);
-        LOADOPTIONALDATA(io_toml,output_var_addr);
-        {
-            Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
-            EPTlibError var_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVar(&var);
-            if (var_error==EPTlibError::Success) {
-                SAVEMAP(var,output_var_addr.first);
-            }
-        }
-        {
+        bool thereis_index = output_sg_index_addr.first!="";
+        if (thereis_index) {
             Image<int> index(nn.first[0],nn.first[1],nn.first[2]);
             EPTlibError index_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetShapeIndex(&index);
             if (index_error==EPTlibError::Success) {
                 SAVEMAP(index,output_sg_index_addr.first);
+            }
+        }
+        cfgdata<string> output_var_addr("","parameter.output-variance");
+        LOADOPTIONALDATA(io_toml,output_var_addr);
+        bool thereis_var = output_var_addr.first!="";
+        if (thereis_var) {
+            Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
+            EPTlibError var_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVar(&var);
+            if (var_error==EPTlibError::Success) {
+                SAVEMAP(var,output_var_addr.first);
             }
         }
     }
