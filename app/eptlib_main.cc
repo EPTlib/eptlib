@@ -64,6 +64,12 @@
 #define LOADOPTIONALDATA(io_toml,data) LOADOPTIONAL(GetValue,io_toml,data,decltype(data.first))
 #define LOADOPTIONALLIST(io_toml,data) LOADOPTIONAL(GetArrayOf,io_toml,data,decltype(data.first)::value_type)
 
+#define LOADOPTIONALNOWARNING(what,io_toml,data,T) { \
+    EPTlibError MACRO_error = io_toml->what<T>(data.first,data.second); \
+}
+#define LOADOPTIONALNOWARNINGDATA(io_toml,data) LOADOPTIONALNOWARNING(GetValue,io_toml,data,decltype(data.first))
+#define LOADOPTIONALNOWARNINGLIST(io_toml,data) LOADOPTIONALNOWARNING(GetArrayOf,io_toml,data,decltype(data.first)::value_type)
+
 #define LOADMAP(map,addr) { \
     string MACRO_fname; \
     string MACRO_uri; \
@@ -759,7 +765,7 @@ int main(int argc, char **argv) {
     if (ept_method==EPTMethod::HELMHOLTZ) {
         // Save the quality index chi2 distribution
         cfgdata<string> output_var_addr("","parameter.output-variance");
-        LOADOPTIONALDATA(io_toml,output_var_addr);
+        LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
         bool thereis_var = output_var_addr.first!="" && !thereis_txsens;
         if (thereis_var) {
             Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
@@ -781,7 +787,7 @@ int main(int argc, char **argv) {
                 // Save the mask
                 {
                     cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
-                    LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
+                    LOADOPTIONALNOWARNINGDATA(io_toml,regularization_output_mask_addr);
                     bool thereis_mask = regularization_output_mask_addr.first!="";
                     if (thereis_mask) {
                         const boost::dynamic_bitset<>& mask = dynamic_cast<EPTGradient*>(ept.get())->GetMask();
@@ -806,8 +812,8 @@ int main(int argc, char **argv) {
         {
             cfgdata<bool> is_3d(false,"parameter.volume-tomography");
             cfgdata<string> output_gradient_addr("","parameter.output-gradient");
-            LOADOPTIONALDATA(io_toml,is_3d);
-            LOADOPTIONALDATA(io_toml,output_gradient_addr);
+            LOADOPTIONALNOWARNINGDATA(io_toml,is_3d);
+            LOADOPTIONALNOWARNINGDATA(io_toml,output_gradient_addr);
             bool thereis_grad = output_gradient_addr.first!="";
             if (thereis_grad) {
                 std::vector<int> nn_grad{nn.first[0],nn.first[1]};
@@ -846,7 +852,7 @@ int main(int argc, char **argv) {
     } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
         // Save the quality index chi2 distribution
         cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-        LOADOPTIONALDATA(io_toml,output_sg_index_addr);
+        LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
         bool thereis_index = output_sg_index_addr.first!="";
         if (thereis_index) {
             Image<int> index(nn.first[0],nn.first[1],nn.first[2]);
@@ -856,7 +862,7 @@ int main(int argc, char **argv) {
             }
         }
         cfgdata<string> output_var_addr("","parameter.output-variance");
-        LOADOPTIONALDATA(io_toml,output_var_addr);
+        LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
         bool thereis_var = output_var_addr.first!="";
         if (thereis_var) {
             Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
