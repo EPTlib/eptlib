@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2021  Alessandro Arduino
+*  Copyright (c) 2020-2022  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -83,8 +83,8 @@ TEST(ShapeGTest,Ellipsoid) {
     const std::array<int,NDIM> rr = {7,5,3};
     const std::array<int,NDIM> nn = {15,11,7};
     std::array<int,NDIM> ii;
-    std::array<real_t,NDIM> xx;
-    real_t rho;
+    std::array<double,NDIM> xx;
+    double rho;
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     int idx;
     //
@@ -94,7 +94,7 @@ TEST(ShapeGTest,Ellipsoid) {
         for (int i1 = 0; i1<nn[1]; ++i1) {
             for (int i0 = 0; i0<nn[0]; ++i0) {
                 ii = {i0,i1,i2};
-                xx = {static_cast<real_t>(i0-rr[0]),static_cast<real_t>(i1-rr[1]),static_cast<real_t>(i2-rr[2])};
+                xx = {static_cast<double>(i0-rr[0]),static_cast<double>(i1-rr[1]),static_cast<double>(i2-rr[2])};
                 rho = 0.0;
                 for (int d = 0; d<NDIM; ++d) {
                     rho += xx[d]*xx[d]/rr[d]/rr[d];

@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2021  Alessandro Arduino
+*  Copyright (c) 2020-2022  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -251,7 +251,9 @@ namespace shapes {
                 for (xx[0] = -rr[0]; xx[0]<=rr[0]; ++xx[0]) {
                     double rho = 0.0;
                     for (int d = 0; d<NDIM; ++d) {
-                        rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
+                        if (rr[d]>0) {
+                            rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
+                        }
                     }
                     if (rho<=1.0) {
                         ellipsoid.GetShape().set(idx);

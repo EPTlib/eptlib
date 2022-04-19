@@ -30,9 +30,42 @@
 *
 *****************************************************************************/
 
-#include "gtest/gtest.h"
+#ifndef LINALG_HOUSEHOLDER_H_
+#define LINALG_HOUSEHOLDER_H_
 
-int main(int argc, char **argv) {
-    ::testing::InitGoogleTest(&argc,argv);
-    return RUN_ALL_TESTS();
-}
+#include "eptlib/util.h"
+
+namespace eptlib {
+
+namespace linalg {
+
+    /**
+     * @brief Compute the elementary reflector 
+     * 
+     * @param x vector for which the reflector is computed.
+     * @param n vector size.
+     * 
+     * The elementary reflector u is stored in place of `x', which should be
+     * larger than `n' to allow storing the factor pi.
+     */
+    void HouseholderReflector(double *x,const size_t n);
+
+    /**
+     * @brief Compute the product of the elementary reflector with a vector.
+     * 
+     * @tparam NumType numeric typename.
+     * 
+     * @param x vector to which the reflector is applied.
+     * @param u elementary reflector.
+     * @param n vector size.
+     * 
+     * The result of the application is stored in place of `x'.
+     */
+    template <typename NumType>
+    void HouseholderLeft(NumType *x,const double *u,const size_t n);
+
+}  // namespace linalg
+
+}  // namespace eptlib
+
+#endif  // LINALG_HOUSEHOLDER_H_

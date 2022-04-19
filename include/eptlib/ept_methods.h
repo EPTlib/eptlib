@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2021  Alessandro Arduino
+*  Copyright (c) 2020-2022  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,6 +30,7 @@
 *
 *****************************************************************************/
 
+#include "eptlib/ept_helmholtz_chi2.h"
 #include "eptlib/ept_helmholtz.h"
 #include "eptlib/ept_convreact.h"
 #include "eptlib/ept_gradient.h"

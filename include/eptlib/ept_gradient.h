@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2021  Alessandro Arduino
+*  Copyright (c) 2020-2022  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -85,12 +85,14 @@ class EPTGradient : public EPTInterface {
 		 * @param tx_ch number of transmit channels.
 		 * @param shape mask over which apply the finite difference scheme.
 		 * @param is_2d 2D assumption flag.
+		 * @param degree degree of the interpolating polynomial for the finite
+		 *     difference scheme (default: 2).
 		 * 
 		 * The number of Rx channels is fixed equal to one.
 		 */
 		EPTGradient(const double freq, const std::array<int,NDIM> &nn,
 			const std::array<double,NDIM> &dd, const int tx_ch,
-			const Shape &shape, const bool is_2d);
+			const Shape &shape, const bool is_2d, const int degree = 2);
 		/**
 		 * Virtual destructor.
 		 */

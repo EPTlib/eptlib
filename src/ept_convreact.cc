@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2021  Alessandro Arduino
+*  Copyright (c) 2020-2022  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -50,10 +50,10 @@ namespace {
 // EPTConvReact constructor
 EPTConvReact::
 EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const Shape &shape) :
+    const std::array<double,NDIM> &dd, const Shape &shape, const int degree) :
     EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
     plane_idx_(nn[2]/2), is_volume_(false), diff_coeff_(0.0),
-    thereis_diff_(false), fd_filter_(shape),
+    thereis_diff_(false), fd_filter_(shape,degree),
     solver_iterations_(0), solver_residual_(0.0) {
     return;
 }
@@ -191,7 +191,7 @@ CompleteEPTConvReact() {
     }
     for (int d = 0; d<n_dim; ++d) {
         beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
-        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
         EPTlibError error = fd_filter_.Apply(diff_op,beta[d].data(),tx_sens_c.data(),nn_,dd_);
         if (error!=EPTlibError::Success) {
             return error;
@@ -305,10 +305,10 @@ PhaseEPTConvReact() {
     std::array<std::vector<double>,NDIM> beta;
     for (int d = 0; d<n_dim; ++d) {
         beta[d].resize(n_vox_,std::numeric_limits<double>::quiet_NaN());
-        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = WrappedPhaseDerivative(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_filter_);
+            error = fd_filter_.ApplyWrappedPhase(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         } else {
             error = fd_filter_.Apply(diff_op,beta[d].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         }
@@ -321,7 +321,7 @@ PhaseEPTConvReact() {
         DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = WrappedPhaseDerivative(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_,fd_filter_);
+            error = fd_filter_.ApplyWrappedPhase(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         } else {
             error = fd_filter_.Apply(diff_op,beta[2].data(),trx_phase_[0]->GetData().data(),nn_,dd_);
         }
