@@ -96,6 +96,12 @@ public:
      * @return a Success or MissingData error.
      */
     EPTlibError GetShapeIndex(Image<int> *shape_index);
+    /**
+     * Set/unset unphysical values as admittable.
+     * 
+     * @return if unphysical values are admittable.
+     */
+    bool ToggleUnphysicalValues();
 private:
     /// Frequency of the MRI scanner.
     double freq_;
@@ -107,6 +113,8 @@ private:
     Image<double> var_;
     /// Pixel-wise selected kernel shape.
     Image<int> shape_index_;
+    /// Unphysical values flag.
+    bool unphysical_values_;
 };
 
 }  // namespace eptlib

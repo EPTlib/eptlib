@@ -653,10 +653,12 @@ int main(int argc, char **argv) {
             string savitzky_golay_url = "parameter.savitzky-golay";
             cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
             cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
+            cfgdata<bool> unphysical_values(false,"parameter.unphysical-values");
             cfgdata<string> output_var_addr("","parameter.output-variance");
             // load the parameters
             LOADOPTIONALDATA(io_toml,degree);
             LOADOPTIONALDATA(io_toml,output_sg_index_addr);
+            LOADOPTIONALDATA(io_toml,unphysical_values);
             LOADOPTIONALDATA(io_toml,output_var_addr);
             cout<<endl;
             std::vector<int> shapes(0);
@@ -710,6 +712,7 @@ int main(int argc, char **argv) {
             cout<<"]\n";
             cout<<"    Polynomial degree: "<<degree.first<<"\n";
             cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
+            cout<<"  Admit unphysical values: "<<(unphysical_values.first?"Yes":"No")<<"\n";
             cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
             cout<<endl;
             // combine the parameters
@@ -730,6 +733,9 @@ int main(int argc, char **argv) {
             }
             // create the EPT method
             ept.reset(new EPTHelmholtzChi2(freq.first,nn.first,dd.first,kernels,degree.first));
+            if (unphysical_values.first) {
+                dynamic_cast<EPTHelmholtzChi2*>(ept.get())->ToggleUnphysicalValues();
+            }
             break;
         }
     }

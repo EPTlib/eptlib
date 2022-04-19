@@ -43,7 +43,8 @@ EPTHelmholtzChi2::
 EPTHelmholtzChi2(const double freq,const std::array<int,NDIM> &nn,
     const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes,
     const int degree) :
-    EPTInterface(freq,nn,dd), freq_(freq), shapes_(shapes), degree_(degree) {
+    EPTInterface(freq,nn,dd), freq_(freq), shapes_(shapes), degree_(degree),
+    unphysical_values_(false) {
     return;
 }
 
@@ -87,7 +88,7 @@ Run() {
         for (int idx = 0; idx<n_vox_; ++idx) {
             if (hept.var_[idx]==hept.var_[idx] && (hept.var_[idx]<var_[idx] || !(var_[idx]==var_[idx]))) {
                 bool is_physical = hept.sigma_[idx]>0.0;
-                if (is_physical) {
+                if (unphysical_values_||is_physical) {
                     var_[idx] = hept.var_[idx];
                     shape_index_[idx] = idx_s;
                     sigma_[idx] = hept.sigma_[idx];
@@ -116,4 +117,10 @@ GetShapeIndex(Image<int> *shape_index) {
     }
     *shape_index = shape_index_;
     return EPTlibError::Success;
+}
+
+bool EPTHelmholtzChi2::
+ToggleUnphysicalValues() {
+	unphysical_values_ = !unphysical_values_;
+	return unphysical_values_;
 }
