@@ -129,7 +129,7 @@ MagnitudeEPTHelm() {
     for (int idx = 0; idx<n_vox_; ++idx) {
         epsr_[idx] = nand;
     }
-    fd_lapl_.Apply(diff_op,epsr_.GetData().data(),trx_phase_[0]->GetData().data(),nn_,dd_);
+    fd_lapl_.Apply(diff_op,epsr_.GetData().data(),tx_sens_[0]->GetData().data(),nn_,dd_);
     for (int idx = 0; idx<n_vox_; ++idx) {
         epsr_[idx] /= -EPS0*MU0*omega_*omega_*(*tx_sens_[0])[idx];
     }
