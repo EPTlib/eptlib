@@ -403,6 +403,7 @@ int main(int argc, char **argv) {
             cfgdata<double> dir_epsr(1.0,"parameter.dirichlet.relative-permittivity");
             cfgdata<bool> thereis_diff(false,"parameter.artificial-diffusion");
             cfgdata<double> diff_coeff(0.0,"parameter.artificial-diffusion-coefficient");
+            cfgdata<bool> is_rx(false,"parameter.tx-means-rx");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
@@ -417,6 +418,7 @@ int main(int argc, char **argv) {
             if (thereis_diff.first) {
                 LOADOPTIONALDATA(io_toml,diff_coeff);
             }
+            LOADOPTIONALDATA(io_toml,is_rx);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -463,6 +465,7 @@ int main(int argc, char **argv) {
             if (thereis_diff.first) {
                 cout<<"    Artificial diffusion coefficient: "<<diff_coeff.first<<"\n";
             }
+            cout<<"  Tx means Rx: "<<(is_rx.first?"Yes":"No")<<"\n";
             cout<<endl;
             // combine the parameters
             Shape kernel;
@@ -488,6 +491,9 @@ int main(int argc, char **argv) {
             dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
             if (thereis_diff.first) {
                 dynamic_cast<EPTConvReact*>(ept.get())->SetArtificialDiffusion(diff_coeff.first);
+            }
+            if (is_rx.first) {
+                dynamic_cast<EPTConvReact*>(ept.get())->ToggleRx();
             }
             break;
         }

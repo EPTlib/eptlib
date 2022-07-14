@@ -117,6 +117,12 @@ class EPTConvReact : public EPTInterface {
          * @return the estimated error in the linear system solution.
          */
         double GetSolverResidual();
+        /**
+         * Set/unset the Rx sensitivity in place of the Tx sensitivity.
+         * 
+         * @return if it has been set.
+         */
+        bool ToggleRx();
     private:
         /// Dirichlet condition of relative permittivity.
         double dir_epsr_;
@@ -136,6 +142,8 @@ class EPTConvReact : public EPTInterface {
         int solver_iterations_;
         /// The estimated error in the linear system solution.
         double solver_residual_;
+        /// Receive sensitivity flag.
+        bool is_rx_;
 
         // Auxiliary methods
         /// Perform the complete convection-reaction EPT.

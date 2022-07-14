@@ -54,7 +54,8 @@ EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
     EPTInterface(freq,nn,dd, 1,1), dir_epsr_(1.0), dir_sigma_(0.0),
     plane_idx_(nn[2]/2), is_volume_(false), diff_coeff_(0.0),
     thereis_diff_(false), fd_filter_(shape,degree),
-    solver_iterations_(0), solver_residual_(0.0) {
+    solver_iterations_(0), solver_residual_(0.0),
+    is_rx_(false) {
     return;
 }
 
@@ -149,6 +150,13 @@ GetSolverResidual() {
     return solver_residual_;
 }
 
+// EPTConvReact set Rx sensitivity in place of Tx sensitivity
+bool EPTConvReact::
+ToggleRx() {
+    is_rx_ = !is_rx_;
+    return is_rx_;
+}
+
 namespace { // details
     template <typename T>
     void FillDoF(std::vector<int> *dof, int *idx_dof, int *n_dof, int *n_dop,
@@ -198,7 +206,7 @@ CompleteEPTConvReact() {
         }
     }
     for (int idx = 0; idx<n_vox_; ++idx) {
-        beta[0][idx] = beta[0][idx] - std::complex<double>(0.0,1.0)*beta[1][idx];
+        beta[0][idx] = beta[0][idx] - std::complex<double>(0.0,is_rx_?-1.0:1.0)*beta[1][idx];
         beta[1][idx] = std::complex<double>(0.0,1.0)*beta[0][idx];
     }
     if (!is_volume_) {
