@@ -69,21 +69,20 @@ namespace {
         size_t depth = 0;
         size_t snip = url.find_first_of("/", 0) ? 0 : 1;
         size_t snap = url.find_first_of("/", snip);
-        std::string subpath = url.substr(snip,snap);
-        H5::Group* tmp, group;
+        std::string subpath = url.substr(snip,snap-snip);
+        H5::Group group;
         while (!subpath.empty()) {
             try {
-                group = depth ? tmp->openGroup(subpath) : file.openGroup(subpath);
+                group = depth ? group.openGroup(subpath) : file.openGroup(subpath);
             } catch (const H5::Exception&) {
-                group = depth ? tmp->createGroup(subpath) : file.createGroup(subpath);
+                group = depth ? group.createGroup(subpath) : file.createGroup(subpath);
             }
             snip = ++snap;
             snap = url.find_first_of("/",snip);
-            subpath = url.substr(snip,snap);
-            tmp = &group;
+            subpath = url.substr(snip,snap-snip);
             depth++;
         }
-        return *tmp;
+        return group;
     }
 
     // HDF5 types traits
