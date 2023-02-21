@@ -254,6 +254,7 @@ namespace { //details
 	// Fill the local matrix for pixel-by-pixel recovery.
 	void FillLocalMatrix(Eigen::MatrixXd *A, Eigen::VectorXd *b,
 		const std::vector<std::vector<std::complex<double> > > &field_crop,
+		const std::vector<std::complex<double> > &field_mid_values,
 		const FDSavitzkyGolayFilter &fd_filter,
 		const std::array<double,NDIM> &dd, const int tx_ch, const bool is_2d) {
 		int mid_vox = fd_filter.GetShape().GetBoxVolume()/2;
@@ -294,7 +295,7 @@ namespace { //details
 				(*A)(row+1,col_gz+1) = tmp.real();
 			}
 			// ...value
-			tmp = field_crop[itx][mid_vox];
+			tmp = field_mid_values[itx];
 			(*A)(row,col_theta) = tmp.real();
 			(*A)(row+1,col_theta) = tmp.imag();
 			(*A)(row,col_theta+1) = -tmp.imag();
@@ -364,6 +365,7 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 		for (ii[0] = rr[0]; ii[0]<nn_[0]-rr[0]; ++ii[0]) {
 			std::array<int,NDIM> ii_l;
 			std::vector<std::vector<std::complex<double> > > field_crop(tx_ch_);
+            std::vector<std::complex<double> > field_mid_values(tx_ch_, 0.0);
 			for (int itx = 0; itx<tx_ch_; ++itx) {
 				field_crop[itx].resize(fd_filter_.GetShape().GetVolume(),0.0);
 			}
@@ -374,6 +376,13 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 			for (ii_l[2] = -rr[2]; ii_l[2]<=rr[2]; ++ii_l[2]) {
 				for (ii_l[1] = -rr[1]; ii_l[1]<=rr[1]; ++ii_l[1]) {
 					for (ii_l[0] = -rr[0]; ii_l[0]<=rr[0]; ++ii_l[0]) {
+						if (ii_l[0]==0 && ii_l[1]==0 && ii_l[2]==0) {
+							for (int itx = 0; itx<tx_ch_; ++itx) {
+                                field_mid_values[itx] = (*tx_sens_[itx])[idx_g]*
+									std::exp(std::complex<double>(0.0,(*trx_phase_[itx])[idx_g]-
+									(*trx_phase_[iref])[idx_g]));
+                            }
+                        }
 						if (fd_filter_.GetShape()[idx_l]) {
 							// set the field value
 							for (int itx = 0; itx<tx_ch_; ++itx) {
@@ -393,7 +402,7 @@ LocalRecoverySlice(std::array<std::vector<double>,NDIM> *grad_phi0,
 			// fill the matrix
 			Eigen::MatrixXd A;
 			Eigen::VectorXd b;
-			::FillLocalMatrix(&A,&b, field_crop,fd_filter_,dd_,tx_ch_,is_2d_);
+			::FillLocalMatrix(&A,&b, field_crop,field_mid_values, fd_filter_,dd_,tx_ch_,is_2d_);
 			// solve the system
 			int idx = ii[0] + nn_[0]*ii[1];
 			if (is_2d_) {
