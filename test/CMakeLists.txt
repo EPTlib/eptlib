@@ -33,6 +33,7 @@
 set(EPTlib_TEST_SRC
     main.cc
     test_ept_interface.cc
+    test_filter_moving_window.cc
     test_finite_difference.cc
     test_image.cc
     test_io_hdf5.cc
