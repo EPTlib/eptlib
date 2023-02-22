@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -86,7 +86,7 @@ TEST(LinalgHouseholderGTest,HouseholderLeft) {
         x_ref[i] = 0.0;
     }
     //
-    for (int i = 0; i<n+1; ++i) {
+    for (int i = 0; i<n; ++i) {
         ASSERT_NEAR(x[i],x_ref[i],1e-12);
         ASSERT_NEAR(x_c[i].real(),x_ref[i],1e-12);
         ASSERT_NEAR(x_c[i].imag(),0.0,1e-12);

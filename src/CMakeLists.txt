@@ -5,7 +5,7 @@
 #
 #  MIT License
 #
-#  Copyright (c) 2020-2022  Alessandro Arduino
+#  Copyright (c) 2020-2023  Alessandro Arduino
 #  Istituto Nazionale di Ricerca Metrologica (INRiM)
 #  Strada delle cacce 91, 10135 Torino
 #  ITALY
@@ -36,19 +36,15 @@ set(EPTLIB_SRC
     ept_helmholtz_chi2.cc
     ept_helmholtz.cc
     ept_interface.cc
-    ept_methods.cc
     finite_difference.cc
-    image.cc
-    median_filter.cc
     shape.cc
-    util.cc
-    version.cc
     io/io_hdf5.cc
     io/io_toml.cc
     io/io_util.cc
     linalg/linalg_householder.cc
     linalg/linalg_qr.cc
-    linalg/linalg_util.cc)
+    linalg/linalg_util.cc
+)
 
 add_library(EPTlib SHARED ${EPTLIB_SRC})
 
@@ -63,13 +59,13 @@ target_include_directories(EPTlib
         ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(EPTlib PRIVATE Eigen3::Eigen)
-if(${CMAKE_TOOLCHAIN_FILE} MATCHES "vcpkg")
+if(HDF5_LIBRARIES)
     target_link_libraries(EPTlib PUBLIC ${HDF5_LIBRARIES})
 else()
     target_link_libraries(EPTlib PUBLIC hdf5 hdf5_cpp)
 endif()
 
-target_compile_features(EPTlib PUBLIC cxx_std_11)
+target_compile_features(EPTlib PUBLIC cxx_std_17)
 
 set_property(TARGET EPTlib
     PROPERTY MSVC_RUNTIME_LIBRARY "MultiThreaded$<$<CONFIG:Debug>:Debug>")

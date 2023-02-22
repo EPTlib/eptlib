@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2023  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,32 +30,32 @@
 *
 *****************************************************************************/
 
+#include "gtest/gtest.h"
+
 #include "eptlib/io/io_util.h"
 
-#include <iostream>
+#include <string>
 
-// Deduce the filename and the uri from a given address
-void eptlib::io::GetAddress(const std::string &address, std::string &fname, std::string &uri) {
-    size_t snip = 0;
-    size_t snap = address.find_last_of(":");
-    fname = address.substr(snip,snap);
-    snip = ++snap;
-    uri = address.substr(snip);
-    return;
+TEST(IOUtilGTest,GetAddress) {
+    std::string address = "/test/input/test_input.xx:/group/dataset";
+    std::string fname;
+    std::string uri;
+    eptlib::io::GetAddress(address, fname, uri);
+    ASSERT_STREQ(fname.c_str(), "/test/input/test_input.xx");
+    ASSERT_STREQ(uri.c_str(), "/group/dataset");
 }
 
-std::string eptlib::io::BytesWithSuffix(size_t size) {
-    char prefixes[] = "KMGT";
-    std::string result;
-    if (size < 1024) {
-        result = std::to_string(size) + " bytes";
-    } else {
-        int i = -1;
-        while (size >= 1024 && i < 3) {
-            size >>= 10;
-            ++i;
-        }
-        result = std::to_string(size) + " " + prefixes[i] + "iB";
-    }
-    return result;
+TEST(IOUtilGTest,BytesWithSuffix) {
+    size_t     byte = ((size_t) 1)<<0;
+    size_t kibibyte = ((size_t) 2)<<10;
+    size_t mebibyte = ((size_t) 3)<<20;
+    size_t gibibyte = ((size_t) 4)<<30;
+    size_t tebibyte = ((size_t) 5)<<40;
+    size_t pebibyte = ((size_t) 6)<<50;
+    ASSERT_STREQ(eptlib::io::BytesWithSuffix(    byte).c_str(), "1 bytes");
+    ASSERT_STREQ(eptlib::io::BytesWithSuffix(kibibyte).c_str(), "2 KiB");
+    ASSERT_STREQ(eptlib::io::BytesWithSuffix(mebibyte).c_str(), "3 MiB");
+    ASSERT_STREQ(eptlib::io::BytesWithSuffix(gibibyte).c_str(), "4 GiB");
+    ASSERT_STREQ(eptlib::io::BytesWithSuffix(tebibyte).c_str(), "5 TiB");
+    ASSERT_STREQ(eptlib::io::BytesWithSuffix(pebibyte).c_str(), "6144 TiB");
 }

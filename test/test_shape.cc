@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -34,262 +34,158 @@
 
 #include "eptlib/shape.h"
 
-#include <algorithm>
-#include <array>
-#include <functional>
-#include <numeric>
-#include <vector>
-
-using namespace eptlib;
-
-TEST(ShapeGTest,Cuboid) {
-    const std::array<int,NDIM> nn = {7,3,3};
-    std::array<int,NDIM> ii;
-    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
-    int idx;
-    //
-    Shape cuboid = shapes::Cuboid(nn);
-    idx = 0;
-    for (int i2 = 0; i2<nn[2]; ++i2) {
-        for (int i1 = 0; i1<nn[1]; ++i1) {
-            for (int i0 = 0; i0<nn[0]; ++i0) {
-                ii = {i0,i1,i2};
-                ASSERT_TRUE(cuboid[ii]);
-                ASSERT_TRUE(cuboid[idx]);
-                ++idx;
-            }
-        }
-    }
-    ASSERT_TRUE(cuboid.GetShape().all());
-    ASSERT_TRUE(cuboid.IsSymmetric());
-    //
-    const Shape c_cuboid = shapes::Cuboid(nn);
-    idx = 0;
-    for (int i2 = 0; i2<nn[2]; ++i2) {
-        for (int i1 = 0; i1<nn[1]; ++i1) {
-            for (int i0 = 0; i0<nn[0]; ++i0) {
-                ii = {i0,i1,i2};
-                ASSERT_TRUE((c_cuboid[ii]));
-                ASSERT_TRUE(c_cuboid[idx]);
-                ++idx;
-            }
-        }
-    }
-    ASSERT_TRUE(c_cuboid.GetShape().all());
-    ASSERT_TRUE(c_cuboid.IsSymmetric());
+TEST(ShapeGTest,GetSize) {
+    eptlib::Shape shape(15,10,5);
+    ASSERT_EQ(shape.GetSize()[0], 15);
+    ASSERT_EQ(shape.GetSize()[1], 10);
+    ASSERT_EQ(shape.GetSize()[2], 5);
+    ASSERT_EQ(shape.GetSize(0), 15);
+    ASSERT_EQ(shape.GetSize(1), 10);
+    ASSERT_EQ(shape.GetSize(2), 5);
 }
 
-TEST(ShapeGTest,Ellipsoid) {
-    const std::array<int,NDIM> rr = {7,5,3};
-    const std::array<int,NDIM> nn = {15,11,7};
-    std::array<int,NDIM> ii;
-    std::array<double,NDIM> xx;
-    double rho;
-    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
-    int idx;
-    //
-    Shape ellipsoid = shapes::Ellipsoid(rr);
-    idx = 0;
-    for (int i2 = 0; i2<nn[2]; ++i2) {
-        for (int i1 = 0; i1<nn[1]; ++i1) {
-            for (int i0 = 0; i0<nn[0]; ++i0) {
-                ii = {i0,i1,i2};
-                xx = {static_cast<double>(i0-rr[0]),static_cast<double>(i1-rr[1]),static_cast<double>(i2-rr[2])};
-                rho = 0.0;
-                for (int d = 0; d<NDIM; ++d) {
-                    rho += xx[d]*xx[d]/rr[d]/rr[d];
-                }
-                if (rho<=1.0) {
-                    ASSERT_TRUE(ellipsoid[ii]);
-                    ASSERT_TRUE(ellipsoid[idx]);
-                } else {
-                    ASSERT_FALSE(ellipsoid[ii]);
-                    ASSERT_FALSE(ellipsoid[idx]);
-                }
-                ++idx;
+TEST(ShapeGTest,GetNVox) {
+    eptlib::Shape shape(15,10,5);
+    ASSERT_EQ(shape.GetNVox(), 750);
+}
+
+TEST(ShapeGTest,GetVolume) {
+    eptlib::Shape shape(15,10,5);
+    for (int idx = 0; idx<13; ++idx) {
+        shape.GetData().set(idx);
+    }
+    ASSERT_EQ(shape.GetVolume(), 13);
+}
+
+TEST(ShapeGTest,GetData) {
+    /*
+     * shape = [
+     *     1 1
+     *     1 0
+     *     0 1
+     *     0 0
+     * ];
+     */
+    eptlib::Shape shape(2,4,1);
+    auto& data = shape.GetData();
+    data.set(0);
+    data.set(1);
+    data.set(2);
+    data.set(5);
+    for (int idx = 0; idx<shape.GetNVox(); ++idx) {
+        ASSERT_EQ(shape(idx), idx==0||idx==1||idx==2||idx==5);
+    }
+    for (int k = 0; k<shape.GetSize(2); ++k) {
+        for (int j = 0; j<shape.GetSize(1); ++j) {
+            for (int i = 0; i<shape.GetSize(0); ++i) {
+                int idx = eptlib::IJKToIdx(i,j,k, 2,4);
+                ASSERT_EQ(shape(i,j,k), idx==0||idx==1||idx==2||idx==5);
             }
         }
     }
-    ASSERT_TRUE(ellipsoid.IsSymmetric());
-    return;
+}
+
+TEST(ShapeGTest,AccessData) {
+    eptlib::Shape shape(2,4,1);
+    for (int idx = 0; idx<shape.GetNVox(); ++idx) {
+        shape(idx) = idx==0||idx==1||idx==2||idx==5;
+    }
+    for (int k = 0; k<shape.GetSize(2); ++k) {
+        for (int j = 0; j<shape.GetSize(1); ++j) {
+            for (int i = 0; i<shape.GetSize(0); ++i) {
+                int idx = eptlib::IJKToIdx(i,j,k, 2,4);
+                ASSERT_EQ(shape(i,j,k), idx==0||idx==1||idx==2||idx==5);
+            }
+        }
+    }
 }
 
 TEST(ShapeGTest,Operators) {
-    std::array<int,NDIM> nn1{3,5,1};
-    Shape cuboid1 = shapes::Cuboid(nn1);
-    std::array<int,NDIM> l{1,0,2};
-    std::array<int,NDIM> r{1,0,2};
-    cuboid1.Pad(l,r);
-    std::array<int,NDIM> nn2{5,3,1};
-    Shape cuboid2 = shapes::Cuboid(nn2);
-    l = {0,1,2};
-    r = {0,1,2};
-    cuboid2.Pad(l,r);
-    std::array<int,NDIM> nn3{5,1,5};
-    Shape cuboid3 = shapes::Cuboid(nn3);
-    l = {0,2,0};
-    r = {0,2,0};
-    cuboid3.Pad(l,r);
-    // union
-    Shape cross = cuboid1+cuboid2+cuboid3;
-    std::vector<bool> expected_cross{false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,true ,true ,true ,false,
-                                     true ,true ,true ,true ,true ,
-                                     true ,true ,true ,true ,true ,
-                                     true ,true ,true ,true ,true ,
-                                     false,true ,true ,true ,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false};
-    for (int idx = 0; idx<cross.GetBoxVolume(); ++idx) {
-        ASSERT_TRUE(cross[idx]==expected_cross[idx]);
-    }
-    ASSERT_TRUE(cross.IsSymmetric());
-    // intersection
-    Shape inter = cuboid1&cuboid2&cuboid3;
-    std::vector<bool> expected_inter{false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,true ,true ,true ,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false};
-    for (int idx = 0; idx<inter.GetBoxVolume(); ++idx) {
-        ASSERT_TRUE(inter[idx]==expected_inter[idx]);
-    }
-    ASSERT_TRUE(inter.IsSymmetric());
-    // difference
-    Shape diffe = cross-inter;
-    std::vector<bool> expected_diffe{false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,true ,true ,true ,false,
-                                     true ,true ,true ,true ,true ,
-                                     true ,false,false,false,true ,
-                                     true ,true ,true ,true ,true ,
-                                     false,true ,true ,true ,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     
-                                     false,false,false,false,false,
-                                     false,false,false,false,false,
-                                     true ,true ,true ,true ,true ,
-                                     false,false,false,false,false,
-                                     false,false,false,false,false};
-    for (int idx = 0; idx<diffe.GetBoxVolume(); ++idx) {
-        ASSERT_TRUE(diffe[idx]==expected_diffe[idx]);
-    }
-    ASSERT_TRUE(diffe.IsSymmetric());
+    eptlib::Shape cuboid1 = eptlib::shapes::Cuboid(3,5,1);
+    cuboid1.Pad(1,0,2, 1,0,2);
+    eptlib::Shape cuboid2 = eptlib::shapes::Cuboid(5,3,1);
+    cuboid2.Pad(0,1,2, 0,1,2);
+    eptlib::Shape cuboid3 = eptlib::shapes::Cuboid(5,1,5);
+    cuboid3.Pad(0,2,0, 0,2,0);
+
+    eptlib::Shape shape_union = cuboid1 + cuboid2 + cuboid3;
+    boost::dynamic_bitset<> expected_union(std::string(
+        "00000" "00000" "11111" "00000" "00000"
+        "00000" "00000" "11111" "00000" "00000"
+        "01110" "11111" "11111" "11111" "01110"
+        "00000" "00000" "11111" "00000" "00000"
+        "00000" "00000" "11111" "00000" "00000"
+    ));
+    ASSERT_TRUE(shape_union.GetData()==expected_union);
+
+    eptlib::Shape shape_intersection = cuboid1 & cuboid2 & cuboid3;
+    boost::dynamic_bitset<> expected_intersection(std::string(
+        "00000" "00000" "00000" "00000" "00000"
+        "00000" "00000" "00000" "00000" "00000"
+        "00000" "00000" "01110" "00000" "00000"
+        "00000" "00000" "00000" "00000" "00000"
+        "00000" "00000" "00000" "00000" "00000"
+    ));
+    ASSERT_TRUE(shape_intersection.GetData()==expected_intersection);
+
+    eptlib::Shape shape_difference = shape_union-shape_intersection;
+    boost::dynamic_bitset<> expected_difference = expected_union - expected_intersection;
+    ASSERT_TRUE(shape_difference.GetData()==expected_difference);
 }
 
 TEST(ShapeGTest,Pad) {
-    const std::array<int,NDIM> nn3 = {3,2,1};
-    Shape cuboid3 = shapes::Cuboid(nn3);
-    const std::array<int,NDIM> l{1,1,1};
-    const std::array<int,NDIM> r{2,2,2};
-    //
-    cuboid3.Pad(l,r);
-    std::vector<bool> expected3{false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                
-                                false,false,false,false,false,false,
-                                false,true ,true ,true ,false,false,
-                                false,true, true ,true ,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false,
-                                false,false,false,false,false,false};
-    for (int idx = 0; idx<cuboid3.GetBoxVolume(); ++idx) {
-        ASSERT_TRUE(cuboid3[idx]==expected3[idx]);
-    }
-    ASSERT_FALSE(cuboid3.IsSymmetric());
+    eptlib::Shape cuboid = eptlib::shapes::Cuboid(3,2,1);
+    cuboid.Pad(1,1,1, 2,2,2);
+    boost::dynamic_bitset<> expected(std::string(
+        "000000" "000000" "000000" "000000" "000000"
+        "000000" "000000" "000000" "000000" "000000"
+        "000000" "000000" "001110" "001110" "000000"
+        "000000" "000000" "000000" "000000" "000000"
+    ));
+    ASSERT_TRUE(cuboid.GetData()==expected);
     return;
 }
 
 TEST(ShapeGTest,Shrink) {
-    const std::array<int,NDIM> nn3 = {3,2,1};
-    Shape cuboid3 = shapes::Cuboid(nn3);
-    std::array<int,NDIM> l = {1,1,1};
-    std::array<int,NDIM> r = {2,2,2};
-    cuboid3.Pad(l,r);
-    l = {2,2,2};
-    r = {1,1,1};
-    //
-    cuboid3.Shrink(l,r);
-    const std::array<int,NDIM> xnn3 = {nn3[0]+l[0]+r[0],nn3[1]+l[1]+r[1],nn3[2]+l[2]+r[2]};
-    std::vector<bool> expected3{false,false,false,
-                                false,false,false};
-    for (int idx = 0; idx<cuboid3.GetBoxVolume(); ++idx) {
-        ASSERT_TRUE(cuboid3[idx]==expected3[idx]);
-    }
-    ASSERT_TRUE(cuboid3.IsSymmetric());
+    eptlib::Shape cuboid = eptlib::shapes::Cuboid(3,2,1);
+    cuboid.Pad(1,1,1, 2,2,2);
+    cuboid.Shrink(2,2,1, 1,1,1);
+    boost::dynamic_bitset<> expected(std::string(
+        "000" "000"
+        "000" "011"
+    ));
+    ASSERT_TRUE(cuboid.GetData()==expected);
     return;
+}
+
+TEST(ShapeGTest,ShapesCuboid) {
+    eptlib::Shape cuboid = eptlib::shapes::Cuboid(7,3,3);
+    ASSERT_EQ(cuboid.GetSize(0), 7);
+    ASSERT_EQ(cuboid.GetSize(1), 3);
+    ASSERT_EQ(cuboid.GetSize(2), 3);
+    ASSERT_TRUE(cuboid.GetData().all());
+}
+
+TEST(ShapeGTest,ShapesCuboidR) {
+    eptlib::Shape cuboid = eptlib::shapes::CuboidR(3,1,1);
+    ASSERT_EQ(cuboid.GetSize(0), 7);
+    ASSERT_EQ(cuboid.GetSize(1), 3);
+    ASSERT_EQ(cuboid.GetSize(2), 3);
+    ASSERT_TRUE(cuboid.GetData().all());
+}
+
+TEST(ShapeGTest,ShapesEllipsoid) {
+    eptlib::Shape ellipsoid = eptlib::shapes::Ellipsoid(3,3,1);
+    ASSERT_EQ(ellipsoid.GetSize(0), 7);
+    ASSERT_EQ(ellipsoid.GetSize(1), 7);
+    ASSERT_EQ(ellipsoid.GetSize(2), 3);
+    ASSERT_EQ(ellipsoid.GetVolume(), 31);
+}
+
+TEST(ShapeGTest,ShapesCross) {
+    eptlib::Shape cross = eptlib::shapes::Cross(3,2,4);
+    ASSERT_EQ(cross.GetSize(0), 7);
+    ASSERT_EQ(cross.GetSize(1), 5);
+    ASSERT_EQ(cross.GetSize(2), 9);
+    ASSERT_EQ(cross.GetVolume(), 19);
 }

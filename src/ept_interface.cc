@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -38,14 +38,20 @@ using namespace eptlib;
 
 // EPTInterface constructor
 EPTInterface::
-EPTInterface(const double freq, const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd, const int tx_ch, const int rx_ch) :
-    omega_(2.0*PI*freq), tx_ch_(tx_ch), rx_ch_(rx_ch), nn_(nn), dd_(dd), 
-    n_vox_(std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>())),
-    tx_sens_(tx_ch,nullptr), trx_phase_(tx_ch*rx_ch,nullptr),
-    thereis_tx_sens_(tx_ch,false), thereis_trx_phase_(tx_ch*rx_ch,false),
-    sigma_(), epsr_(), thereis_sigma_(false), thereis_epsr_(false),
-    postpro_(nullptr), thereis_postpro_(false), phase_is_wrapped_(false) {
+EPTInterface(const size_t n0, const size_t n1, const size_t n2,
+    const double d0, const double d1, const double d2,
+    const double freq, const size_t n_tx_ch, const size_t n_rx_ch,
+    const bool trx_phase_is_wrapped) :
+    nn_({n0,n1,n2}),
+    dd_({d0,d1,d2}),
+    omega_(2.0*PI*freq),
+    n_tx_ch_(n_tx_ch),
+    n_rx_ch_(n_rx_ch),
+    tx_sens_(n_tx_ch,nullptr),
+    trx_phase_(n_tx_ch*n_rx_ch,nullptr),
+    sigma_(nullptr),
+    epsr_(nullptr),
+    trx_phase_is_wrapped_(trx_phase_is_wrapped) {
     return;
 }
 
@@ -55,103 +61,28 @@ EPTInterface::
     return;
 }
 
-// EPTInterface setters
+// EPTInterface set Tx sensitivity
 EPTlibError EPTInterface::
-SetTxSensitivity(const Image<double> *tx_sens, const int j) {
-    if (j<0 || j>=tx_ch_) {
+SetTxSensitivity(const Image<double> &tx_sens, const size_t tx_ch) {
+    if (tx_ch>=n_tx_ch_) {
         return EPTlibError::OutOfRange;
     }
-    if (tx_sens->GetNDim()!=NDIM) {
+    if (!CheckSizes(tx_sens.GetSize(),nn_)) {
         return EPTlibError::WrongDataFormat;
     }
-    for (int d = 0; d<NDIM; ++d) {
-        if (tx_sens->GetSize(d)!=nn_[d]) {
-            return EPTlibError::WrongDataFormat;
-        }
-    }
-    tx_sens_[j] = tx_sens;
-    thereis_tx_sens_.set(j);
+    tx_sens_[tx_ch] = &tx_sens;
     return EPTlibError::Success;
 }
+
+// EPTInterface set TRx phase
 EPTlibError EPTInterface::
-SetTRxPhase(const Image<double> *trx_phase, const int j, const int k) {
-    if (j<0 || j>=tx_ch_ || k<0 || k>=rx_ch_) {
+SetTRxPhase(const Image<double> &trx_phase, const size_t tx_ch, const size_t rx_ch) {
+    if (tx_ch>=n_tx_ch_ || rx_ch>=n_rx_ch_) {
         return EPTlibError::OutOfRange;
     }
-    if (trx_phase->GetNDim()!=NDIM) {
+    if (!CheckSizes(trx_phase.GetSize(),nn_)) {
         return EPTlibError::WrongDataFormat;
     }
-    for (int d = 0; d<NDIM; ++d) {
-        if (trx_phase->GetSize(d)!=nn_[d]) {
-            return EPTlibError::WrongDataFormat;
-        }
-    }
-    trx_phase_[j+k*tx_ch_] = trx_phase;
-    thereis_trx_phase_.set(j+k*tx_ch_);
+    trx_phase_[tx_ch+rx_ch*n_tx_ch_] = &trx_phase;
     return EPTlibError::Success;
-}
-
-// EPTInterface getters
-EPTlibError EPTInterface::
-GetElectricConductivity(Image<double> *sigma) {
-    if (!thereis_sigma_) {
-        return EPTlibError::MissingData;
-    }
-    *sigma = sigma_;
-    return EPTlibError::Success;    
-}
-EPTlibError EPTInterface::
-GetRelativePermittivity(Image<double> *epsr) {
-    if (!thereis_epsr_) {
-        return EPTlibError::MissingData;
-    }
-    *epsr = epsr_;
-    return EPTlibError::Success;
-}
-
-// EPTInterface post-processing
-EPTlibError EPTInterface::
-SetPostPro(const Shape &shape) {
-    if (thereis_postpro_) {
-        delete postpro_;
-    }
-    postpro_ = new MedianFilter(shape);
-    thereis_postpro_ = true;
-    return EPTlibError::Success;
-}
-EPTlibError EPTInterface::
-UnsetPostPro() {
-    if (thereis_postpro_) {
-        delete postpro_;
-        postpro_ = nullptr;
-    }
-    thereis_postpro_ = false;
-    return EPTlibError::Success;
-}
-EPTlibError EPTInterface::
-ApplyPostPro(const double *img) {
-    if (!thereis_postpro_ || !(thereis_sigma_ || thereis_epsr_)) {
-        return EPTlibError::MissingData;
-    }
-    std::vector<double> tmp(n_vox_);
-    if (thereis_sigma_) {
-        postpro_->ApplyFilter(tmp.data(),sigma_.GetData().data(),nn_,img);
-        std::memcpy(sigma_.GetData().data(),tmp.data(),n_vox_*sizeof(double));
-    }
-    if (thereis_epsr_) {
-        postpro_->ApplyFilter(tmp.data(),epsr_.GetData().data(),nn_,img);
-        std::memcpy(epsr_.GetData().data(),tmp.data(),n_vox_*sizeof(double));
-    }
-    return EPTlibError::Success;
-}
-
-// EPTInterface flag switch
-bool EPTInterface::
-TogglePhaseIsWrapped() {
-    phase_is_wrapped_ = !phase_is_wrapped_;
-    return phase_is_wrapped_;
-}
-bool EPTInterface::
-PhaseIsWrapped() const {
-    return phase_is_wrapped_;
 }

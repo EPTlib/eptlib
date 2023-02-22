@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -47,89 +47,130 @@ namespace eptlib {
  * Class describing a generic shape in the space. Can be used in the
  * definition of domains, masks, kernels, patches, and so on.
  */
-class Shape : boost::addable<Shape>, boost::subtractable<Shape>,
-    boost::andable<Shape> {
+class Shape : boost::addable<Shape>, boost::subtractable<Shape>, boost::andable<Shape> {
     public:
         /**
          * Default constructor.
          */
         Shape();
-        /**
-         * Constructor.
-         * 
-         * @param nn number of voxels in each direction.
-         */
-        Shape(const std::array<int,NDIM> &nn);
 
         /**
-         * Get a read-only reference to the number of voxels in each direction.
+         * 3-D constructor.
          * 
-         * @return a read-only reference to the number of voxels.
+         * @param n0 number of voxels along the x-direction.
+         * @param n1 number of voxels along the y-direction.
+         * @param n2 number of voxels along the z-direction.
          */
-        const std::array<int,NDIM>& GetSize() const;
+        Shape(const size_t n0, const size_t n1, const size_t n2);
+
         /**
-         * Get a reference to the shape descriptor.
-         * 
-         * @return a reference to the shape descriptor.
+         * Destructor.
          */
-        boost::dynamic_bitset<>& GetShape();
+        virtual ~Shape();
+
         /**
-         * Get a read-only reference to the shape descriptor.
+         * Get a constant reference to the shape dimensions.
          * 
-         * @return a read-only reference to the shape descriptor.
+         * @return a constant reference to the dimensions.
          */
-        const boost::dynamic_bitset<>& GetShape() const;
+        inline const std::array<size_t,N_DIM>& GetSize() const {
+            return nn_;
+        }
+
+        /**
+         * Get the number of voxels along dimensions `d'.
+         * 
+         * @param d dimension of interest.
+         * 
+         * @return the number of voxels along dimension `d'.
+         */
+        inline size_t GetSize(const size_t d) const {
+            return nn_[d];
+        }
+
+        /**
+         * Get the number of voxels of the shape's bounding box.
+         * 
+         * @return the number of voxels of the shape's bounding box.
+         */
+        inline size_t GetNVox() const {
+            return data_.size();
+        }
+        
         /**
          * Get the number of voxels inside the shape.
          * 
          * @return the number of voxels inside the shape.
          */
-        int GetVolume() const;
-        /**
-         * Get the number of voxels inside the bounding box.
-         * 
-         * @return the number of voxels inside the bounding box.
-         */
-        int GetBoxVolume() const;
-        /**
-         * Get if the shape has mirror symmetries.
-         * 
-         * @return if the shape has mirror symmetries.
-         */
-        bool IsSymmetric() const;
+        inline size_t GetVolume() const {
+            return data_.count();
+        }
 
         /**
-         * Get a reference to the ii-th element in the grid.
+         * Get a reference to the data bitset.
          * 
-         * @param ii multi-index of the element.
-         * 
-         * @return a reference to the ii-th element in the grid.
+         * @return a reference to the data bitset.
          */
-        boost::dynamic_bitset<>::reference operator[](const std::array<int,NDIM> &ii);
+        inline boost::dynamic_bitset<>& GetData() {
+            return data_;
+        }
+
         /**
-         * Get a reference to the idx-th element in the grid.
+         * Get a constant reference to the data bitset.
          * 
-         * @param idx single index of the element.
-         * 
-         * @return a reference to the idx-th element in the grid.
+         * @return a constant reference to the data bitset.
          */
-        boost::dynamic_bitset<>::reference operator[](const int &idx);
+        inline const boost::dynamic_bitset<>& GetData() const {
+            return data_;
+        }
+
         /**
-         * Get a copy of the ii-th element in the grid.
+         * Get a reference to the idx-th voxel in the shape.
          * 
-         * @param ii multi-index of the element.
+         * @param idx single index of the voxel.
          * 
-         * @return a copy of the ii-th element in the grid.
+         * @return a reference to the idx-th voxel.
          */
-        bool operator[](const std::array<int,NDIM> &ii) const;
+        inline boost::dynamic_bitset<>::reference operator()(const size_t idx) {
+            return data_[idx];
+        }
+
         /**
-         * Get a copy to the idx-th element in the grid.
+         * Get a copy of the idx-th voxel in the shape.
          * 
-         * @param idx single index of the element.
+         * @param idx single index of the voxel.
          * 
-         * @return a copy to the idx-th element in the grid.
+         * @return a copy of the idx-th voxel.
          */
-        bool operator[](const int &idx) const;
+        inline bool operator()(const size_t idx) const {
+            return data_[idx];
+        };
+
+        /**
+         * Get a reference to the voxel in the shape of indices i,j,k.
+         * 
+         * @param i index along the x-direction.
+         * @param j index along the y-direction.
+         * @param k index along the z-direction.
+         * 
+         * @return a reference to the voxel.
+         */
+        inline boost::dynamic_bitset<>::reference operator()(const size_t i, const size_t j, const size_t k) {
+            return data_[IJKToIdx(i,j,k,nn_[0],nn_[1])];
+        }
+
+        /**
+         * Get a copy of the idx-th voxel in the shape.
+         * 
+         * @param i index along the x-direction.
+         * @param j index along the y-direction.
+         * @param k index along the z-direction.
+         * 
+         * @return a copy of the voxel.
+         */
+        inline bool operator()(const size_t i, const size_t j, const size_t k) const {
+            return data_[IJKToIdx(i,j,k,nn_[0],nn_[1])];
+        };
 
         /**
          * Set union of two shapes.
@@ -139,6 +180,7 @@ class Shape : boost::addable<Shape>, boost::subtractable<Shape>,
          * @return a reference to _this_.
          */
         Shape& operator+=(const Shape &rhs);
+
         /**
          * Set difference of two shapes.
          * 
@@ -147,6 +189,7 @@ class Shape : boost::addable<Shape>, boost::subtractable<Shape>,
          * @return a reference to _this_.
          */
         Shape& operator-=(const Shape &rhs);
+
         /**
          * Set intersection of two shapes.
          * 
@@ -157,72 +200,89 @@ class Shape : boost::addable<Shape>, boost::subtractable<Shape>,
         Shape& operator&=(const Shape &rhs);
 
         /**
-         * Check and set if the shape has mirror symmetries.
+         * Add empty layers around the shape.
          * 
-         * @return if the shape has mirror symmetries.
+         * @param left0 number of layers before the x-direction.
+         * @param left1 number of layers before the y-direction.
+         * @param left2 number of layers before the z-direction.
+         * @param right0 number of layers after the x-direction.
+         * @param right1 number of layers after the y-direction.
+         * @param right2 number of layers after the z-direction.
          */
-        bool CheckSymmetry();
+        void Pad(const size_t left0, const size_t left1, const size_t left2,
+            const size_t right0, const size_t right1, const size_t right2);
 
         /**
-         * Add void layers around the grid in a certain direction.
+         * Remove external layers from the shape.
          * 
-         * @param l number of layers before the existing grid.
-         * @param r number of layers after the existing grid.
-         * 
-         * Updates the symmetry of the shape.
+         * @param left0 number of layers before the x-direction.
+         * @param left1 number of layers before the y-direction.
+         * @param left2 number of layers before the z-direction.
+         * @param right0 number of layers after the x-direction.
+         * @param right1 number of layers after the y-direction.
+         * @param right2 number of layers after the z-direction.
          */
-        void Pad(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r);
-        /**
-         * Remove external layers from the grid in a certain direction.
-         * 
-         * @param l number of layers removed before the new grid.
-         * @param r number of layers removed after the new grid.
-         * 
-         * Updates the symmetry of the shape.
-         */
-        void Shrink(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r);
+        void Shrink(const size_t left0, const size_t left1, const size_t left2,
+            const size_t right0, const size_t right1, const size_t right2);
     private:
         /// Number of voxels in each direction.
-        std::array<int,NDIM> nn_;
-        /// Total number of voxels.
-        int n_vox_;
+        std::array<size_t,N_DIM> nn_;
         /// "Black and white" shape descriptor.
-        boost::dynamic_bitset<> shape_;
-        /// Has the shape got mirror symmetries?
-        bool is_symmetric_;
+        boost::dynamic_bitset<> data_;
 };
 
 /// Collection of methods to generate elementary shapes.
 namespace shapes {
 
     /**
-     * Create a cuboid shape that fill the input grid.
+     * Create a cuboid shape that fill the bounding box of sizes `n0', `n1' and `n2'.
      * 
-     * @param nn number of voxels in each direction.
-     * 
-     * @return a cuboid shape.
-     */
-    Shape Cuboid(const std::array<int,NDIM> &nn);
-    /**
-     * Create a cuboid shape that fill the input grid.
-     * 
-     * @param rr semi-length (in voxels) in each direction.
+     * @param n0 number of voxels along x-direction.
+     * @param n1 number of voxels along y-direction.
+     * @param n2 number of voxels along z-direction.
      * 
      * @return a cuboid shape.
      */
-    Shape CuboidR(const std::array<int,NDIM> &rr);
+    Shape Cuboid(const size_t n0, const size_t n1, const size_t n2);
+
     /**
-     * Create an ellipsoid shape fitted within a grid.
+     * Create a cuboid shape that fill the bounding box of semiaxes `r0', `r1' and `r2'.
      * 
-     * @param rr semi-axes (in voxels) of the ellipsoid.
+     * @param r0 semi-axes (in voxel) along x-direction.
+     * @param r1 semi-axes (in voxel) along y-direction.
+     * @param r2 semi-axes (in voxel) along z-direction.
+     * 
+     * The bounding box sizes are `r0*2+1', `r1*2+1' and `r2*2+1'.
+     * 
+     * @return a cuboid shape.
      */
-    Shape Ellipsoid(const std::array<int,NDIM> &rr);
+    Shape CuboidR(const size_t r0, const size_t r1, const size_t r2);
+
     /**
-     * Create a cross shape fitted within a grid.
+     * Create an ellipsoid shape of semiaxes `r0', `r1' and `r2'.
      * 
-     * @param rr semi-length (in voxels) of the cross lines.
+     * @param r0 semi-axes (in voxel) along x-direction.
+     * @param r1 semi-axes (in voxel) along y-direction.
+     * @param r2 semi-axes (in voxel) along z-direction.
+     * 
+     * The bounding box sizes are `r0*2+1', `r1*2+1' and `r2*2+1'.
+     * 
+     * @return an ellipsoid shape.
      */
-    Shape Cross(const std::array<int,NDIM> &rr);
+    Shape Ellipsoid(const size_t r0, const size_t r1, const size_t r2);
+
+    /**
+     * Create a cross shape of semiaxes `r0', `r1' and `r2'.
+     * 
+     * @param r0 semi-axes (in voxel) along x-direction.
+     * @param r1 semi-axes (in voxel) along y-direction.
+     * @param r2 semi-axes (in voxel) along z-direction.
+     * 
+     * The bounding box sizes are `r0*2+1', `r1*2+1' and `r2*2+1'.
+     * 
+     * @return a cross shape.
+     */
+    Shape Cross(const size_t r0, const size_t r1, const size_t r2);
 
 }  // shapes
 

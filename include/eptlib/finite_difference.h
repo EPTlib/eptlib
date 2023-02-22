@@ -98,7 +98,7 @@ class FDSavitzkyGolayFilter {
          */
         template <typename NumType>
         EPTlibError Apply(const DifferentialOperator diff_op,NumType *dst,double *var,
-            const NumType *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
+            const NumType *src,const std::array<int,N_DIM> &nn,const std::array<double,N_DIM> &dd) const;
         /**
          * Apply the FD filter to an input field.
          * 
@@ -116,7 +116,7 @@ class FDSavitzkyGolayFilter {
          */
         template <typename NumType>
         EPTlibError Apply(const DifferentialOperator diff_op, NumType *dst,
-            const NumType *src, const std::array<int,NDIM> &nn, const std::array<double,NDIM> &dd) const;
+            const NumType *src, const std::array<int,N_DIM> &nn, const std::array<double,N_DIM> &dd) const;
         /**
          * @brief Apply the FD filter to a wrapped phase input field.
          * 
@@ -132,7 +132,7 @@ class FDSavitzkyGolayFilter {
          * propagation of the uncertainty.
          */
         EPTlibError ApplyWrappedPhase(const DifferentialOperator diff_op,double *dst,
-            const double *src,const std::array<int,NDIM> &nn,const std::array<double,NDIM> &dd) const;
+            const double *src,const std::array<int,N_DIM> &nn,const std::array<double,N_DIM> &dd) const;
         /**
          * Apply the kernel for zero order derivative.
          * 
@@ -156,7 +156,7 @@ class FDSavitzkyGolayFilter {
          * @return the approximated derivative.
          */
         template <typename NumType>
-        NumType FirstOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) const;
+        NumType FirstOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,N_DIM> &dd) const;
         /**
          * Apply the kernel for second order derivatives.
          * 
@@ -169,7 +169,7 @@ class FDSavitzkyGolayFilter {
          * @return the approximated derivative.
          */
         template <typename NumType>
-        NumType SecondOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) const;
+        NumType SecondOrder(const int d, const std::vector<NumType> &field_crop, const std::array<double,N_DIM> &dd) const;
         /**
          * Apply the kernel for Laplacian computation.
          * 
@@ -181,7 +181,7 @@ class FDSavitzkyGolayFilter {
          * @return the approximated Laplacian.
          */
         template <typename NumType>
-        NumType Laplacian(const std::vector<NumType> &field_crop, const std::array<double,NDIM> &dd) const;
+        NumType Laplacian(const std::vector<NumType> &field_crop, const std::array<double,N_DIM> &dd) const;
         /**
          * Return a const reference to the kernel shape.
          * 
@@ -213,9 +213,9 @@ class FDSavitzkyGolayFilter {
         /// QR decomposition of the design matrix.
         linalg::MatrixReal qr_;
         /// Kernel for Laplacian approximation.
-        std::array<std::vector<double>,NDIM> lapl_kernel_;
+        std::array<std::vector<double>,N_DIM> lapl_kernel_;
         /// Kernel for gradient approximation.
-        std::array<std::vector<double>,NDIM> grad_kernel_;
+        std::array<std::vector<double>,N_DIM> grad_kernel_;
         /// Kernel for field approximation.
         std::vector<double> field_kernel_;
         /// Index of the derivative in the design matrix

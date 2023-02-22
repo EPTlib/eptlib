@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -41,19 +41,20 @@
 #include <typeinfo>
 #include <vector>
 
+#include "eptlib/util.h"
+
 using namespace eptlib;
 
 TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
-    const std::array<int,NDIM> nn = {7,5,3};
-    const std::array<double,NDIM> dd = {1.0,2.0,3.0};
-    std::array<int,NDIM> ii;
+    const std::array<int,N_DIM> nn = {7,5,3};
+    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
+    std::array<size_t,N_DIM> ii;
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
-    std::array<int,NDIM> rr = {1,1,1};
-    std::array<int,NDIM> rr2 = {1,0,0};
-    Shape cross = shapes::Cross(rr);
-    Shape cross2 = shapes::Cross(rr2);
-    ASSERT_TRUE(cross.IsSymmetric());
+    std::array<int,N_DIM> rr = {1,1,1};
+    std::array<int,N_DIM> rr2 = {1,0,0};
+    Shape cross = shapes::Cross(rr[0],rr[1],rr[2]);
+    Shape cross2 = shapes::Cross(rr2[0],rr2[1],rr2[2]);
     FDSavitzkyGolayFilter fd_lapl(cross);
     FDSavitzkyGolayFilter fd_lapl2(cross2);
     //
@@ -61,11 +62,11 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
     std::vector<double> l_field(n_vox);
     std::vector<double> q_field(n_vox);
     for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
         c_field[idx] = 1.0;
         l_field[idx] = std::accumulate(ii.begin(),ii.end(),0.0);
         q_field[idx] = 0.0;
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             q_field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
         }
     }
@@ -110,17 +111,17 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
         ASSERT_NEAR(l_lapl2[idx],0.0,1e-13);
         ASSERT_NEAR(c_lapl2_chi2[idx],0.0,1e-14);
         ASSERT_NEAR(l_lapl2_chi2[idx],0.0,1e-13);
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
         bool kernel_in_domain = true;
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             if (ii[d]==0 || ii[d]==nn[d]-1) {
                 kernel_in_domain = false;
                 break;
             }
         }
         if (kernel_in_domain) {
-            ASSERT_NEAR(q_lapl[idx],2.0*NDIM,1e-12);
-            ASSERT_NEAR(q_lapl_chi2[idx],2.0*NDIM,1e-12);
+            ASSERT_NEAR(q_lapl[idx],2.0*N_DIM,1e-12);
+            ASSERT_NEAR(q_lapl_chi2[idx],2.0*N_DIM,1e-12);
             ASSERT_NEAR(q_lapl2[idx],2.0,1e-12);
             ASSERT_NEAR(q_lapl2_chi2[idx],2.0,1e-12);
         } else {
@@ -130,16 +131,15 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayLaplacian) {
     }
 }
 TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
-    const std::array<int,NDIM> nn = {7,5,3};
-    const std::array<double,NDIM> dd = {1.0,2.0,3.0};
-    std::array<int,NDIM> ii;
+    const std::array<int,N_DIM> nn = {7,5,3};
+    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
+    std::array<size_t,N_DIM> ii;
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
-    std::array<int,NDIM> rr = {1,1,1};
-    std::array<int,NDIM> rr2 = {1,0,0};
-    Shape cross = shapes::Cross(rr);
-    Shape cross2 = shapes::Cross(rr2);
-    ASSERT_TRUE(cross.IsSymmetric());
+    std::array<int,N_DIM> rr = {1,1,1};
+    std::array<int,N_DIM> rr2 = {1,0,0};
+    Shape cross = shapes::Cross(rr[0],rr[1],rr[2]);
+    Shape cross2 = shapes::Cross(rr2[0],rr2[1],rr2[2]);
     FDSavitzkyGolayFilter fd_grad(cross);
     FDSavitzkyGolayFilter fd_grad2(cross2);
     //
@@ -160,13 +160,13 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
         }
     }
     //
-    std::array<std::vector<double>,NDIM> c_grad;
-    std::array<std::vector<double>,NDIM> l_grad;
-    std::array<std::vector<double>,NDIM> q_grad;
-    std::array<std::vector<double>,NDIM> c_grad2;
-    std::array<std::vector<double>,NDIM> l_grad2;
-    std::array<std::vector<double>,NDIM> q_grad2;
-    for (int d = 0; d<NDIM; ++d) {
+    std::array<std::vector<double>,N_DIM> c_grad;
+    std::array<std::vector<double>,N_DIM> l_grad;
+    std::array<std::vector<double>,N_DIM> q_grad;
+    std::array<std::vector<double>,N_DIM> c_grad2;
+    std::array<std::vector<double>,N_DIM> l_grad2;
+    std::array<std::vector<double>,N_DIM> q_grad2;
+    for (int d = 0; d<N_DIM; ++d) {
         c_grad[d].resize(n_vox);
         l_grad[d].resize(n_vox);
         q_grad[d].resize(n_vox);
@@ -182,14 +182,14 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
         fd_grad2.Apply(diff_op,q_grad2[d].data(),q_field.data(),nn,dd);
     }
     //
-    std::array<std::vector<double>,NDIM> c_grad_chi2;
-    std::array<std::vector<double>,NDIM> l_grad_chi2;
-    std::array<std::vector<double>,NDIM> q_grad_chi2;
-    std::array<std::vector<double>,NDIM> c_grad2_chi2;
-    std::array<std::vector<double>,NDIM> l_grad2_chi2;
-    std::array<std::vector<double>,NDIM> q_grad2_chi2;
+    std::array<std::vector<double>,N_DIM> c_grad_chi2;
+    std::array<std::vector<double>,N_DIM> l_grad_chi2;
+    std::array<std::vector<double>,N_DIM> q_grad_chi2;
+    std::array<std::vector<double>,N_DIM> c_grad2_chi2;
+    std::array<std::vector<double>,N_DIM> l_grad2_chi2;
+    std::array<std::vector<double>,N_DIM> q_grad2_chi2;
     std::vector<double> chi2(n_vox);
-    for (int d = 0; d<NDIM; ++d) {
+    for (int d = 0; d<N_DIM; ++d) {
         c_grad_chi2[d].resize(n_vox);
         l_grad_chi2[d].resize(n_vox);
         q_grad_chi2[d].resize(n_vox);
@@ -220,15 +220,15 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
         }
     }
     //
-    for (int d = 0; d<NDIM; ++d) {
+    for (int d = 0; d<N_DIM; ++d) {
         for (int idx = 0; idx<n_vox; ++idx) {
             ASSERT_NEAR(c_grad[d][idx],0.0,1e-14);
             ASSERT_NEAR(c_grad_chi2[d][idx],0.0,1e-14);
             ASSERT_NEAR(c_grad2[d][idx],0.0,1e-14);
             ASSERT_NEAR(c_grad2_chi2[d][idx],0.0,1e-14);
-            IdxToMultiIdx(ii,idx,nn);
+            IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
             bool kernel_in_domain = true;
-            for (int d = 0; d<NDIM; ++d) {
+            for (int d = 0; d<N_DIM; ++d) {
                 if (ii[d]==0 || ii[d]==nn[d]-1) {
                     kernel_in_domain = false;
                     break;
@@ -256,42 +256,41 @@ TEST(FiniteDifferenceGTest,SavitzkyGolayGradient) {
 }
 
 TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
-    const std::array<int,NDIM> nn = {7,5,3};
-    const std::array<double,NDIM> dd = {1.0,2.0,3.0};
-    std::array<int,NDIM> ii;
+    const std::array<int,N_DIM> nn = {7,5,3};
+    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
+    std::array<size_t,N_DIM> ii;
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
-    const std::array<int,NDIM> cross_rr = {2,1,1};
-    std::array<int,NDIM> cuboid_nn = {4,2,2};
-    Shape cuboid = shapes::Cuboid(cuboid_nn);
-    std::array<int,NDIM> l = {1,1,1};
-    std::array<int,NDIM> r = {0,0,0};
-    cuboid.Pad(l,r);
+    const std::array<int,N_DIM> cross_rr = {2,1,1};
+    std::array<int,N_DIM> cuboid_nn = {4,2,2};
+    Shape cuboid = shapes::Cuboid(cuboid_nn[0],cuboid_nn[1],cuboid_nn[2]);
+    std::array<int,N_DIM> l = {1,1,1};
+    std::array<int,N_DIM> r = {0,0,0};
+    cuboid.Pad(l[0],l[1],l[2], r[0],r[1],r[2]);
     Shape cross = cuboid;
     cuboid_nn = {1,3,1};
-    cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid = shapes::Cuboid(cuboid_nn[0],cuboid_nn[1],cuboid_nn[2]);
     l = {2,0,1};
     r = {2,0,1};
-    cuboid.Pad(l,r);
+    cuboid.Pad(l[0],l[1],l[2], r[0],r[1],r[2]);
     cross += cuboid;
     cuboid_nn = {1,1,3};
-    cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid = shapes::Cuboid(cuboid_nn[0],cuboid_nn[1],cuboid_nn[2]);
     l = {2,1,0};
     r = {2,1,0};
-    cuboid.Pad(l,r);
+    cuboid.Pad(l[0],l[1],l[2], r[0],r[1],r[2]);
     cross += cuboid;
-    ASSERT_FALSE(cross.IsSymmetric());
     FDSavitzkyGolayFilter fd_lapl(cross);
     //
     std::vector<double> c_field(n_vox);
     std::vector<double> l_field(n_vox);
     std::vector<double> q_field(n_vox);
     for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2], idx,nn[0],nn[1]);
         c_field[idx] = 1.0;
         l_field[idx] = std::accumulate(ii.begin(),ii.end(),0.0);
         q_field[idx] = 0.0;
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             q_field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
         }
     }
@@ -307,10 +306,10 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
     for (int idx = 0; idx<n_vox; ++idx) {
         ASSERT_NEAR(c_lapl[idx],0.0,1e-14);
         ASSERT_NEAR(l_lapl[idx],0.0,1e-13);
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2], idx,nn[0],nn[1]);
         bool kernel_in_domain = true;
         if (kernel_in_domain) {
-            for (int d = 0; d<NDIM; ++d) {
+            for (int d = 0; d<N_DIM; ++d) {
                 if (ii[d]<cross_rr[d] || ii[d]>nn[d]-1-cross_rr[d]) {
                     kernel_in_domain = false;
                     break;
@@ -318,57 +317,56 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayLaplacian) {
             }
         }
         if (kernel_in_domain) {
-            ASSERT_NEAR(q_lapl[idx],2.0*NDIM,1e-12);
+            ASSERT_NEAR(q_lapl[idx],2.0*N_DIM,1e-12);
         } else {
             ASSERT_NEAR(q_lapl[idx],0.0,1e-12);
         }
     }
 }
 TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayGradient) {
-    const std::array<int,NDIM> nn = {7,5,3};
-    const std::array<double,NDIM> dd = {1.0,2.0,3.0};
-    std::array<int,NDIM> ii;
+    const std::array<int,N_DIM> nn = {7,5,3};
+    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
+    std::array<size_t,N_DIM> ii;
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
-    const std::array<int,NDIM> cross_rr = {2,1,1};
-    std::array<int,NDIM> cuboid_nn = {4,2,2};
-    Shape cuboid = shapes::Cuboid(cuboid_nn);
-    std::array<int,NDIM> l = {1,1,1};
-    std::array<int,NDIM> r = {0,0,0};
-    cuboid.Pad(l,r);
+    const std::array<int,N_DIM> cross_rr = {2,1,1};
+    std::array<int,N_DIM> cuboid_nn = {4,2,2};
+    Shape cuboid = shapes::Cuboid(cuboid_nn[0],cuboid_nn[1],cuboid_nn[2]);
+    std::array<int,N_DIM> l = {1,1,1};
+    std::array<int,N_DIM> r = {0,0,0};
+    cuboid.Pad(l[0],l[1],l[2], r[0],r[1],r[2]);
     Shape cross = cuboid;
     cuboid_nn = {1,3,1};
-    cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid = shapes::Cuboid(cuboid_nn[0],cuboid_nn[1],cuboid_nn[2]);
     l = {2,0,1};
     r = {2,0,1};
-    cuboid.Pad(l,r);
+    cuboid.Pad(l[0],l[1],l[2], r[0],r[1],r[2]);
     cross += cuboid;
     cuboid_nn = {1,1,3};
-    cuboid = shapes::Cuboid(cuboid_nn);
+    cuboid = shapes::Cuboid(cuboid_nn[0],cuboid_nn[1],cuboid_nn[2]);
     l = {2,1,0};
     r = {2,1,0};
-    cuboid.Pad(l,r);
+    cuboid.Pad(l[0],l[1],l[2], r[0],r[1],r[2]);
     cross += cuboid;
-    ASSERT_FALSE(cross.IsSymmetric());
     FDSavitzkyGolayFilter fd_grad(cross);
     //
     std::vector<double> c_field(n_vox);
     std::vector<double> l_field(n_vox);
     std::vector<double> q_field(n_vox);
     for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2], idx,nn[0],nn[1]);
         c_field[idx] = 1.0;
         q_field[idx] = 0.0;
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             l_field[idx] += ii[d]*dd[d];
             q_field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
         }
     }
     //
-    std::array<std::vector<double>,NDIM> c_grad;
-    std::array<std::vector<double>,NDIM> l_grad;
-    std::array<std::vector<double>,NDIM> q_grad;
-    for (int d = 0; d<NDIM; ++d) {
+    std::array<std::vector<double>,N_DIM> c_grad;
+    std::array<std::vector<double>,N_DIM> l_grad;
+    std::array<std::vector<double>,N_DIM> q_grad;
+    for (int d = 0; d<N_DIM; ++d) {
         c_grad[d].resize(n_vox);
         l_grad[d].resize(n_vox);
         q_grad[d].resize(n_vox);
@@ -378,13 +376,13 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayGradient) {
         fd_grad.Apply(diff_op,q_grad[d].data(),q_field.data(),nn,dd);
     }
     //
-    for (int d = 0; d<NDIM; ++d) {
+    for (int d = 0; d<N_DIM; ++d) {
         for (int idx = 0; idx<n_vox; ++idx) {
             ASSERT_NEAR(c_grad[d][idx],0.0,1e-14);
-            IdxToMultiIdx(ii,idx,nn);
+            IdxToIJK(ii[0],ii[1],ii[2], idx,nn[0],nn[1]);
             bool kernel_in_domain = true;
             if (kernel_in_domain) {
-                for (int d = 0; d<NDIM; ++d) {
+                for (int d = 0; d<N_DIM; ++d) {
                     if (ii[d]<cross_rr[d] || ii[d]>nn[d]-1-cross_rr[d]) {
                         kernel_in_domain = false;
                         break;
@@ -403,22 +401,21 @@ TEST(FiniteDifferenceGTest,AsymmetricFDSavitzkyGolayGradient) {
 }
 
 TEST(FiniteDifferenceGTest,HigherOrderInterpolation) {
-    const std::array<int,NDIM> nn = {7,5,5};
-    const std::array<double,NDIM> dd = {1.0,2.0,3.0};
+    const std::array<int,N_DIM> nn = {7,5,5};
+    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
     const int degree = 4;
-    std::array<int,NDIM> ii;
+    std::array<size_t,N_DIM> ii;
     const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
     //
-    std::array<int,NDIM> rr = {2,2,2};
-    Shape cube = shapes::CuboidR(rr);
-    ASSERT_TRUE(cube.IsSymmetric());
+    std::array<int,N_DIM> rr = {2,2,2};
+    Shape cube = shapes::CuboidR(rr[0],rr[1],rr[2]);
     FDSavitzkyGolayFilter fd_lapl(cube,degree);
     //
     std::vector<double> field(n_vox);
     for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2], idx,nn[0],nn[1]);
         field[idx] = 0.0;
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             field[idx] += ii[d]*ii[d]*dd[d]*dd[d];
             field[idx] += ii[d]*ii[d]*ii[d]*dd[d]*dd[d]*dd[d];
         }
@@ -426,27 +423,31 @@ TEST(FiniteDifferenceGTest,HigherOrderInterpolation) {
     //
     std::vector<double> lapl(n_vox);
     DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl.Apply(diff_op,lapl.data(),field.data(),nn,dd);
+    EPTlibError error = fd_lapl.Apply(diff_op,lapl.data(),field.data(),nn,dd);
+    ASSERT_TRUE(error==EPTlibError::Success);
     //
     std::vector<double> lapl_chi2(n_vox);
     std::vector<double> chi2(n_vox);
-    EPTlibError error = fd_lapl.Apply(diff_op,lapl_chi2.data(),chi2.data(),field.data(),nn,dd);
+    error = fd_lapl.Apply(diff_op,lapl_chi2.data(),chi2.data(),field.data(),nn,dd);
     ASSERT_TRUE(error==EPTlibError::Success);
     //
     for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToMultiIdx(ii,idx,nn);
+        IdxToIJK(ii[0],ii[1],ii[2], idx,nn[0],nn[1]);
         bool kernel_in_domain = true;
-        for (int d = 0; d<NDIM; ++d) {
-            if (ii[d]-rr[d]<0 || ii[d]+rr[d]>=nn[d]) {
+        for (int d = 0; d<N_DIM; ++d) {
+            if (ii[d]<rr[d] || ii[d]+rr[d]>=nn[d]) {
                 kernel_in_domain = false;
                 break;
             }
         }
         if (kernel_in_domain) {
             double tmp = 0.0;
-            for (int d = 0; d<NDIM; ++d) {
+            for (int d = 0; d<N_DIM; ++d) {
                 tmp += 2.0 + 6.0*ii[d]*dd[d];
             }
+
+            std::cout << idx << std::endl;
+
             ASSERT_NEAR(lapl[idx],tmp,1e-12);
             ASSERT_NEAR(lapl_chi2[idx],tmp,1e-12);
         } else {

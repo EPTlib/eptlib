@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -46,7 +46,7 @@
 #include "eptlib_main.h"
 
 #define LOADMANDATORY(what,io_toml,data,T) { \
-    EPTlibError MACRO_error = io_toml->what<T>(data.first,data.second); \
+    EPTlibError MACRO_error = io_toml->what<T>(&data.first,data.second); \
     if (MACRO_error!=EPTlibError::Success) { \
         cout<<"FATAL ERROR in config file: "<<ToString(MACRO_error)+" '"+data.second+"'"<<endl; \
         return 1; \
@@ -56,7 +56,7 @@
 #define LOADMANDATORYLIST(io_toml,data) LOADMANDATORY(GetArrayOf,io_toml,data,decltype(data.first)::value_type)
 
 #define LOADOPTIONAL(what,io_toml,data,T) { \
-    EPTlibError MACRO_error = io_toml->what<T>(data.first,data.second); \
+    EPTlibError MACRO_error = io_toml->what<T>(&data.first,data.second); \
     if (WALL && MACRO_error!=EPTlibError::Success) { \
         cout<<"WARNING in config file: "<<ToString(MACRO_error)+" '"+data.second+"'"<<endl; \
     } \
@@ -65,7 +65,7 @@
 #define LOADOPTIONALLIST(io_toml,data) LOADOPTIONAL(GetArrayOf,io_toml,data,decltype(data.first)::value_type)
 
 #define LOADOPTIONALNOWARNING(what,io_toml,data,T) { \
-    EPTlibError MACRO_error = io_toml->what<T>(data.first,data.second); \
+    EPTlibError MACRO_error = io_toml->what<T>(&data.first,data.second); \
 }
 #define LOADOPTIONALNOWARNINGDATA(io_toml,data) LOADOPTIONALNOWARNING(GetValue,io_toml,data,decltype(data.first))
 #define LOADOPTIONALNOWARNINGLIST(io_toml,data) LOADOPTIONALNOWARNING(GetArrayOf,io_toml,data,decltype(data.first)::value_type)
@@ -99,7 +99,7 @@ using namespace eptlib;
 constexpr char software::name[];
 
 template <class T> using cfgdata = pair<T,string>;
-template <class T> using cfglist = pair<array<T,NDIM>,string>;
+template <class T> using cfglist = pair<array<T,N_DIM>,string>;
 
 EPTlibError TOMLGetSeedPoints(std::vector<SeedPoint> &seed_points,
     const io::IOtoml &io_toml, const std::string &uri) {
@@ -107,15 +107,15 @@ EPTlibError TOMLGetSeedPoints(std::vector<SeedPoint> &seed_points,
     toml::Array coordinates;
     toml::Array sigmas;
     toml::Array epsrs;
-    error = io_toml.GetValue<toml::Array>(coordinates,uri+".coordinates");
+    error = io_toml.GetValue<toml::Array>(&coordinates, uri+".coordinates");
     if (error!=EPTlibError::Success) {
         return error;
     }
-    error = io_toml.GetValue<toml::Array>(sigmas,uri+".electric-conductivity");
+    error = io_toml.GetValue<toml::Array>(&sigmas, uri+".electric-conductivity");
     if (error!=EPTlibError::Success) {
         return error;
     }
-    error = io_toml.GetValue<toml::Array>(epsrs,uri+".relative-permittivity");
+    error = io_toml.GetValue<toml::Array>(&epsrs, uri+".relative-permittivity");
     if (error!=EPTlibError::Success) {
         return error;
     }
@@ -129,7 +129,7 @@ EPTlibError TOMLGetSeedPoints(std::vector<SeedPoint> &seed_points,
         if (!tmp[0].is<int>()) {
             return EPTlibError::WrongDataFormat;
         }
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             seed_points[idx].ijk[d] = tmp[d].as<int>();
         }
         seed_points[idx].sigma = sigmas[idx].as<double>();
@@ -139,16 +139,16 @@ EPTlibError TOMLGetSeedPoints(std::vector<SeedPoint> &seed_points,
 }
 
 EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
-    std::vector<std::array<int,NDIM> > &sizes, const io::IOtoml &io_toml,
+    std::vector<std::array<int,N_DIM> > &sizes, const io::IOtoml &io_toml,
     const std::string &uri) {
     EPTlibError error;
     toml::Array toml_shapes;
     toml::Array toml_sizes;
-    error = io_toml.GetValue<toml::Array>(toml_shapes,uri+".shapes");
+    error = io_toml.GetValue<toml::Array>(&toml_shapes,uri+".shapes");
     if (error!=EPTlibError::Success) {
         return error;
     }
-    error = io_toml.GetValue<toml::Array>(toml_sizes,uri+".sizes");
+    error = io_toml.GetValue<toml::Array>(&toml_sizes,uri+".sizes");
     if (error!=EPTlibError::Success) {
         return error;
     }
@@ -164,7 +164,7 @@ EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
         if (!tmp[0].is<int>()) {
             return EPTlibError::WrongDataFormat;
         }
-        for (int d = 0; d<NDIM; ++d) {
+        for (int d = 0; d<N_DIM; ++d) {
             sizes[idx][d] = tmp[d].as<int>();
         }
     }
@@ -184,7 +184,7 @@ int main(int argc, char **argv) {
     // load the config file
     unique_ptr<io::IOtoml> io_toml;
     try {
-        io_toml.reset(new io::IOtoml(string(argv[1]),io::Mode::In));
+        io_toml = std::make_unique<io::IOtoml>(string(argv[1]), io::Mode::In);
     } catch(const ios_base::failure &e) {
         cout<<"FATAL ERROR in config file: "<<e.what()<<endl;
         return 1;
@@ -296,7 +296,7 @@ int main(int argc, char **argv) {
         for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
             int tx = id_tx*wc_step.first+wc_start_from.first;
             string addr(txsens_addr.first);
-            StringReplace(addr,string(1,tx_wc.first),to_string(tx));
+            StringReplace(&addr,string(1,tx_wc.first),to_string(tx));
             Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
             LOADMAP(map,addr);
             txsens.push_back(map);
@@ -311,8 +311,8 @@ int main(int argc, char **argv) {
                 int tx = id_tx*wc_step.first+wc_start_from.first;
                 int rx = id_rx*wc_step.first+wc_start_from.first;
                 string addr(trxphase_addr.first);
-                StringReplace(addr,string(1,tx_wc.first),to_string(tx));
-                StringReplace(addr,string(1,rx_wc.first),to_string(rx));
+                StringReplace(&addr,string(1,tx_wc.first),to_string(tx));
+                StringReplace(&addr,string(1,rx_wc.first),to_string(rx));
                 Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
                 LOADMAP(map,addr);
                 trxphase.push_back(map);
@@ -328,7 +328,7 @@ int main(int argc, char **argv) {
         cout<<"  '"<<refimg_addr.first<<"'\n"<<endl;
     }
     // set-up the specific parameters of EPT methods
-    std::unique_ptr<EPTInterface> ept;
+    unique_ptr<EPTInterface> ept = nullptr;
     switch (ept_method) {
         case EPTMethod::HELMHOLTZ: {
             // declare the parameters
@@ -375,21 +375,19 @@ int main(int argc, char **argv) {
             Shape kernel;
             switch (kernel_shape) {
                 case KernelShape::CROSS:
-                    kernel = shapes::Cross(rr.first);
+                    kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
                     break;
                 case KernelShape::ELLIPSOID:
-                    kernel = shapes::Ellipsoid(rr.first);
+                    kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
                     break;
                 case KernelShape::CUBOID: {
-                    kernel = shapes::CuboidR(rr.first);
+                    kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
                     break;
                 }
             }
             // create the EPT method
-            ept.reset(new EPTHelmholtz(freq.first,nn.first,dd.first,kernel,degree.first));
-            if (output_var_addr.first!="") {
-                dynamic_cast<EPTHelmholtz*>(ept.get())->ToggleGetVar();
-            }
+            bool compute_variance = output_var_addr.first!="";
+            ept = std::make_unique<EPTHelmholtz>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first, wrapped_phase.first, compute_variance);
             break;
         }
         case EPTMethod::CONVREACT: {
@@ -468,27 +466,24 @@ int main(int argc, char **argv) {
             Shape kernel;
             switch (kernel_shape) {
                 case KernelShape::CROSS:
-                    kernel = shapes::Cross(rr.first);
+                    kernel = shapes::Cross(rr.first[0], rr.first[1], rr.first[2]);
                     break;
                 case KernelShape::ELLIPSOID:
-                    kernel = shapes::Ellipsoid(rr.first);
+                    kernel = shapes::Ellipsoid(rr.first[0], rr.first[1], rr.first[2]);
                     break;
-                case KernelShape::CUBOID: {
-                    kernel = shapes::CuboidR(rr.first);
+                case KernelShape::CUBOID:
+                    kernel = shapes::CuboidR(rr.first[0], rr.first[1], rr.first[2]);
                     break;
-                }
             }
             // create the EPT method
-            ept.reset(new EPTConvReact(freq.first,nn.first,dd.first,kernel,degree.first));
-            if (is_3d.first) {
-                dynamic_cast<EPTConvReact*>(ept.get())->Toggle3D();
-            } else {
+            ept = std::make_unique<EPTConvReact>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first);
+            if (!is_3d.first) {
                 dynamic_cast<EPTConvReact*>(ept.get())->SelectSlice(imaging_slice.first);
             }
-            dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
             if (thereis_diff.first) {
                 dynamic_cast<EPTConvReact*>(ept.get())->SetArtificialDiffusion(diff_coeff.first);
             }
+            dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
             break;
         }
         case EPTMethod::GRADIENT: {
@@ -545,7 +540,7 @@ int main(int argc, char **argv) {
                 }
             }
             for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
-                for (int d = 0; d<NDIM; ++d) {
+                for (int d = 0; d<N_DIM; ++d) {
                     if (seed_points[idx_sp].ijk[d]<0||seed_points[idx_sp].ijk[d]>=nn.first[d]) {
                         cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
                         return 1;
@@ -593,17 +588,17 @@ int main(int argc, char **argv) {
                 cout<<"    Use seed point: "<<(use_seed_point.first?"Yes":"No")<<"\n";
                 if (use_seed_point.first) {
                     cout<<"    Coordinates: [";
-                    for (int idx_sp; idx_sp<seed_points.size(); ++idx_sp) {
+                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
                         cout<<"["<<seed_points[idx_sp].ijk[0]<<", "<<seed_points[idx_sp].ijk[1]<<", "<<seed_points[idx_sp].ijk[2]<<"], ";
                     }
                     cout<<"]\n";
                     cout<<"    Electric conductivity: [";
-                    for (int idx_sp; idx_sp<seed_points.size(); ++idx_sp) {
+                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
                         cout<<seed_points[idx_sp].sigma<<", ";
                     }
                     cout<<"]\n";
                     cout<<"    Relative permittivity: [";
-                    for (int idx_sp; idx_sp<seed_points.size(); ++idx_sp) {
+                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
                         cout<<seed_points[idx_sp].epsr<<", ";
                     }
                     cout<<"]\n";
@@ -619,26 +614,23 @@ int main(int argc, char **argv) {
             Shape kernel;
             switch (kernel_shape) {
                 case KernelShape::CROSS:
-                    kernel = shapes::Cross(rr.first);
+                    kernel = shapes::Cross(rr.first[0], rr.first[1], rr.first[2]);
                     break;
                 case KernelShape::ELLIPSOID:
-                    kernel = shapes::Ellipsoid(rr.first);
+                    kernel = shapes::Ellipsoid(rr.first[0], rr.first[1], rr.first[2]);
                     break;
                 case KernelShape::CUBOID: {
-                    kernel = shapes::CuboidR(rr.first);
+                    kernel = shapes::CuboidR(rr.first[0], rr.first[1], rr.first[2]);
                     break;
                 }
             }
             // create the EPT method
-            ept.reset(new EPTGradient(freq.first,nn.first,dd.first,n_txch.first,kernel,!is_3d.first,degree.first));
+            EPTGradientRun run_mode = full_run.first ? EPTGradientRun::FULL : EPTGradientRun::LOCAL;
+            ept = std::make_unique<EPTGradient>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, n_txch.first, degree.first, run_mode);
             if (!is_3d.first) {
                 dynamic_cast<EPTGradient*>(ept.get())->SelectSlice(imaging_slice.first);
             }
-            if (!full_run.first) {
-                dynamic_cast<EPTGradient*>(ept.get())->SetRunMode(EPTGradientRun::LOCAL);
-            }
             if (use_seed_point.first) {
-                dynamic_cast<EPTGradient*>(ept.get())->ToggleSeedPoints();
                 for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
                     dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_points[idx_sp]);
                 }
@@ -653,16 +645,16 @@ int main(int argc, char **argv) {
             string savitzky_golay_url = "parameter.savitzky-golay";
             cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
             cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-            cfgdata<bool> unphysical_values(false,"parameter.unphysical-values");
+            cfgdata<bool> admit_unphysical_values(false,"parameter.admit-unphysical-values");
             cfgdata<string> output_var_addr("","parameter.output-variance");
             // load the parameters
             LOADOPTIONALDATA(io_toml,degree);
             LOADOPTIONALDATA(io_toml,output_sg_index_addr);
-            LOADOPTIONALDATA(io_toml,unphysical_values);
+            LOADOPTIONALDATA(io_toml,admit_unphysical_values);
             LOADOPTIONALDATA(io_toml,output_var_addr);
             cout<<endl;
             std::vector<int> shapes(0);
-            std::vector<std::array<int,NDIM> > sizes(0);
+            std::vector<std::array<int,N_DIM> > sizes(0);
             EPTlibError error = TOMLGetMultipleSGShapes(shapes,sizes,*io_toml,savitzky_golay_url);
             if (error!=EPTlibError::Success) {
                 cout<<"FATAL ERROR in config file: '"<<savitzky_golay_url<<"'"<<endl;
@@ -712,7 +704,7 @@ int main(int argc, char **argv) {
             cout<<"]\n";
             cout<<"    Polynomial degree: "<<degree.first<<"\n";
             cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
-            cout<<"  Admit unphysical values: "<<(unphysical_values.first?"Yes":"No")<<"\n";
+            cout<<"  Admit unphysical values: "<<(admit_unphysical_values.first?"Yes":"No")<<"\n";
             cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
             cout<<endl;
             // combine the parameters
@@ -720,40 +712,34 @@ int main(int argc, char **argv) {
             for (int idx = 0; idx<kernels.size(); ++idx) {
                 switch (kernel_shapes[idx]) {
                     case KernelShape::CROSS:
-                        kernels[idx] = shapes::Cross(sizes[idx]);
+                        kernels[idx] = shapes::Cross(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
                         break;
                     case KernelShape::ELLIPSOID:
-                        kernels[idx] = shapes::Ellipsoid(sizes[idx]);
+                        kernels[idx] = shapes::Ellipsoid(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
                         break;
                     case KernelShape::CUBOID: {
-                        kernels[idx] = shapes::CuboidR(sizes[idx]);
+                        kernels[idx] = shapes::CuboidR(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
                         break;
                     }
                 }
             }
             // create the EPT method
-            ept.reset(new EPTHelmholtzChi2(freq.first,nn.first,dd.first,kernels,degree.first));
-            if (unphysical_values.first) {
-                dynamic_cast<EPTHelmholtzChi2*>(ept.get())->ToggleUnphysicalValues();
-            }
+            ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first);
             break;
         }
     }
     // set-up the common parameters of the method
     if (thereis_txsens) {
         for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
-            ept->SetTxSensitivity(&(txsens[id_tx]),id_tx);
+            ept->SetTxSensitivity(txsens[id_tx], id_tx);
         }
     }
     if (thereis_trxphase) {
         for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
             for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
-                ept->SetTRxPhase(&(trxphase[id_tx+n_txch.first*id_rx]),id_tx,id_rx);
+                ept->SetTRxPhase(trxphase[id_tx+n_txch.first*id_rx], id_tx,id_rx);
             }
         }
-    }
-    if (wrapped_phase.first) {
-        ept->TogglePhaseIsWrapped();
     }
     // run the method
     cout<<"Run "<<ToString(ept_method)<<"..."<<flush;
@@ -774,11 +760,8 @@ int main(int argc, char **argv) {
         LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
         bool thereis_var = output_var_addr.first!="" && !thereis_txsens;
         if (thereis_var) {
-            Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
-            EPTlibError var_error = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVar(&var);
-            if (var_error==EPTlibError::Success) {
-                SAVEMAP(var,output_var_addr.first);
-            }
+            auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVariance();
+            SAVEMAP(*var,output_var_addr.first);
         }
     } else if (ept_method==EPTMethod::CONVREACT) {
         cout<<"  Iterative solver parameters:\n";
@@ -797,16 +780,16 @@ int main(int argc, char **argv) {
                     bool thereis_mask = regularization_output_mask_addr.first!="";
                     if (thereis_mask) {
                         const boost::dynamic_bitset<>& mask = dynamic_cast<EPTGradient*>(ept.get())->GetMask();
-                        std::vector<int> nn_mask{nn.first[0]-1,nn.first[1]-1};
+                        std::vector<int> nn_mask{nn.first[0]-1, nn.first[1]-1, 1};
                         if (mask.size()!=nn_mask[0]*nn_mask[1]) {
-                            nn_mask.push_back(nn.first[2]-1);
+                            nn_mask[2] = nn.first[2]-1;
                         }
-                        Image<int> mask_img(nn_mask);
+                        Image<int> mask_img(nn_mask[0], nn_mask[1], nn_mask[2]);
                         for (int idx = 0; idx<mask_img.GetNVox(); ++idx) {
                             if (mask[idx]) {
-                                mask_img[idx] = 1;
+                                mask_img(idx) = 1;
                             } else {
-                                mask_img[idx] = 0;
+                                mask_img(idx) = 0;
                             }
                         }
                         SAVEMAP(mask_img,regularization_output_mask_addr.first);
@@ -822,19 +805,18 @@ int main(int argc, char **argv) {
             LOADOPTIONALNOWARNINGDATA(io_toml,output_gradient_addr);
             bool thereis_grad = output_gradient_addr.first!="";
             if (thereis_grad) {
-                std::vector<int> nn_grad{nn.first[0],nn.first[1]};
+                std::vector<int> nn_grad{nn.first[0], nn.first[1], 1};
                 if (is_3d.first) {
-                    nn_grad.push_back(nn.first[2]);
+                    nn_grad[2] = nn.first[2];
                 }
-                Image<double> grad_real(nn_grad);
-                Image<double> grad_imag(nn_grad);
+                Image<double> grad_real(nn_grad[0], nn_grad[1], nn_grad[2]);
+                Image<double> grad_imag(nn_grad[0], nn_grad[1], nn_grad[2]);
                 // GPlus
-                std::vector<std::complex<double> > grad(0);
-                EPTlibError grad_error = dynamic_cast<EPTGradient*>(ept.get())->GetGPlus(&grad);
-                if (grad_error==EPTlibError::Success) {
+                auto& grad_p = dynamic_cast<EPTGradient*>(ept.get())->GetGPlus();
+                if (grad_p.size() > 0) {
                     for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
-                        grad_real[idx] = grad[idx].real();
-                        grad_imag[idx] = grad[idx].imag();
+                        grad_real(idx) = grad_p[idx].real();
+                        grad_imag(idx) = grad_p[idx].imag();
                     }
                     string real_addr = output_gradient_addr.first+"/gplus/real";
                     string imag_addr = output_gradient_addr.first+"/gplus/imag";
@@ -842,11 +824,11 @@ int main(int argc, char **argv) {
                     SAVEMAP(grad_imag,imag_addr);
                 }
                 // GZ
-                grad_error = dynamic_cast<EPTGradient*>(ept.get())->GetGZ(&grad);
-                if (grad_error==EPTlibError::Success) {
+                auto& grad_z = dynamic_cast<EPTGradient*>(ept.get())->GetGZ();
+                if (grad_z.size() > 0) {
                     for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
-                        grad_real[idx] = grad[idx].real();
-                        grad_imag[idx] = grad[idx].imag();
+                        grad_real(idx) = grad_z[idx].real();
+                        grad_imag(idx) = grad_z[idx].imag();
                     }
                     string real_addr = output_gradient_addr.first+"/gz/real";
                     string imag_addr = output_gradient_addr.first+"/gz/imag";
@@ -861,37 +843,26 @@ int main(int argc, char **argv) {
         LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
         bool thereis_index = output_sg_index_addr.first!="";
         if (thereis_index) {
-            Image<int> index(nn.first[0],nn.first[1],nn.first[2]);
-            EPTlibError index_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetShapeIndex(&index);
-            if (index_error==EPTlibError::Success) {
-                SAVEMAP(index,output_sg_index_addr.first);
-            }
+            auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetIndex();
+            SAVEMAP(*index,output_sg_index_addr.first);
         }
         cfgdata<string> output_var_addr("","parameter.output-variance");
         LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
         bool thereis_var = output_var_addr.first!="";
         if (thereis_var) {
-            Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
-            EPTlibError var_error = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVar(&var);
-            if (var_error==EPTlibError::Success) {
-                SAVEMAP(var,output_var_addr.first);
-            }
+            auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVariance();
+            SAVEMAP(*var,output_var_addr.first);
         }
     }
     cout<<endl;
     // get the results
-    Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
     if (thereis_sigma) {
-        EPTlibError sigma_error = ept->GetElectricConductivity(&map);
-        if (sigma_error==EPTlibError::Success) {
-            SAVEMAP(map,sigma_addr.first);
-        }
+        auto& map = ept->GetElectricConductivity();
+        SAVEMAP(*map,sigma_addr.first);
     }
     if (thereis_epsr) {
-        EPTlibError epsr_error = ept->GetRelativePermittivity(&map);
-        if (epsr_error==EPTlibError::Success) {
-            SAVEMAP(map,epsr_addr.first);
-        }
+        auto& map = ept->GetRelativePermittivity();
+        SAVEMAP(*map,epsr_addr.first);
     }
     //
     auto end = std::chrono::system_clock::now();
