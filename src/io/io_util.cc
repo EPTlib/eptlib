@@ -32,8 +32,6 @@
 
 #include "eptlib/io/io_util.h"
 
-#include <iostream>
-
 // Deduce the filename and the uri from a given address
 void eptlib::io::GetAddress(const std::string &address, std::string &fname, std::string &uri) {
     size_t snip = 0;

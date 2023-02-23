@@ -32,8 +32,6 @@
 
 #include "eptlib/shape.h"
 
-#include <iostream>
-
 #include <utility>
 
 // Shape default constructor
