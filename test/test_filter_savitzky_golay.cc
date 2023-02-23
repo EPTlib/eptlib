@@ -32,42 +32,57 @@
 
 #include "gtest/gtest.h"
 
-#include "eptlib/filter/moving_window.h"
+#include "eptlib/filter/savitzky_golay.h"
 
+#include <algorithm>
+#include <array>
+#include <functional>
+#include <numeric>
+#include <typeinfo>
 #include <vector>
 
 #include "eptlib/image.h"
-#include "eptlib/shape.h"
 #include "eptlib/util.h"
 
-TEST(FilterMovingWindowGTest,MovingWindow) {
-    const size_t n0 = 10;
-    const size_t n1 = 10;
-    const size_t n2 = 10;
-    const size_t r0 = 1;
-    const size_t r1 = 2;
-    const size_t r2 = 3;
-    eptlib::Image<double> img_in (n0, n1, n2);
-    eptlib::Image<double> img_out(n0, n1, n2);
-    eptlib::Shape window = eptlib::shapes::Ellipsoid(r0, r1, r2);
-    for (int idx = 0; idx<img_in.GetNVox(); ++idx) {
-        img_in (idx) = 1.0;
-        img_out(idx) = 0.0;
+using namespace eptlib;
+
+TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
+    const std::array<int,N_DIM> nn = {7,5,3};
+    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
+    std::array<size_t,N_DIM> ii;
+    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
+    //
+    std::array<int,N_DIM> rr = {1,1,1};
+    std::array<int,N_DIM> rr2 = {1,0,0};
+    Shape cube = shapes::CuboidR(rr[0],rr[1],rr[2]);
+    SavitzkyGolay fd_lapl(dd[0],dd[1],dd[2], cube, 2);
+    //
+    Image<double> q_field(nn[0],nn[1],nn[2]);
+    for (int idx = 0; idx<n_vox; ++idx) {
+        IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
+        q_field(idx) = 0.0;
+        for (int d = 0; d<N_DIM; ++d) {
+            q_field(idx) += ii[d]*ii[d]*dd[d]*dd[d];
+        }
     }
-    auto filter = [](const std::vector<double> &crop_in) -> double {
-        return eptlib::Sum(crop_in);
-    };
-    eptlib::EPTlibError error = eptlib::MovingWindow(&img_out, img_in, window, filter);
-    ASSERT_EQ(error, eptlib::EPTlibError::Success);
-    for (size_t i2 = 0; i2<n2; ++i2) {
-        for (size_t i1 = 0; i1<n1; ++i1) {
-            for (size_t i0 = 0; i0<n0; ++i0) {
-                if (i0<r0 || i0>=n0-r0 || i1<r1 || i1>=n1-r1 || i2<r2 || i2>=n2-r2) {
-                    ASSERT_EQ(img_out(i0,i1,i2), 0.0);
-                } else {
-                    ASSERT_EQ(img_out(i0,i1,i2), window.GetVolume());
-                }
+    //
+    Image<double> q_lapl(nn[0],nn[1],nn[2]);
+    EPTlibError error = fd_lapl.Apply(&q_lapl, q_field);
+    ASSERT_EQ(error, EPTlibError::Success);
+    //
+    for (int idx = 0; idx<n_vox; ++idx) {
+        IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
+        bool kernel_in_domain = true;
+        for (int d = 0; d<N_DIM; ++d) {
+            if (ii[d]==0 || ii[d]==nn[d]-1) {
+                kernel_in_domain = false;
+                break;
             }
+        }
+        if (kernel_in_domain) {
+            ASSERT_NEAR(q_lapl(idx),2.0*N_DIM,1e-12);
+        } else {
+            ASSERT_NEAR(q_lapl(idx),0.0,1e-12);
         }
     }
 }

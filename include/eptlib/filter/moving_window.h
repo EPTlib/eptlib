@@ -70,7 +70,7 @@ namespace eptlib {
                         }
                     }
                     // apply the filter
-                    dst->At(i0, i1, i2) = filter(src_crop, window);
+                    dst->At(i0, i1, i2) = filter(src_crop);
                 }
             }
         }

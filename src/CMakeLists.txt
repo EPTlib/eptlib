@@ -38,6 +38,7 @@ set(EPTLIB_SRC
     ept_interface.cc
     finite_difference.cc
     shape.cc
+    filter/savitzky_golay.cc
     io/io_hdf5.cc
     io/io_toml.cc
     io/io_util.cc
