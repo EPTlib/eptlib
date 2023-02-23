@@ -64,6 +64,24 @@ namespace eptlib {
             virtual ~SavitzkyGolay();
 
             /**
+             * @brief Get a constant reference to the filter window.
+             * 
+             * @return a constant reference to the filter window.
+             */
+            inline const Shape& GetWindow() const {
+                return window_;
+            }
+
+            /**
+             * @brief Get a constant reference to the coefficients of the Laplacian approximation.
+             * 
+             * @return a constant reference to the coefficients of the Laplacian approximation.
+             */
+            inline const std::vector<double>& GetLaplacianKernel() const {
+                return lapl_;
+            }
+
+            /**
              * @brief Compute the derivative by applying the filter in a crop.
              * 
              * @tparam Scalar numerical type of the data.
@@ -73,12 +91,12 @@ namespace eptlib {
              * @return Scalar the approximated derivative.
              */
             template <typename Scalar>
-            Scalar Filter(const std::vector<Scalar> &crop) {
+            Scalar Filter(const std::vector<Scalar> &crop) const {
                 return std::inner_product(lapl_.begin(), lapl_.end(), crop.begin(), 0.0);
             }
 
             template <typename Scalar>
-            EPTlibError Apply(Image<Scalar> *dst, const Image<Scalar> &src) {
+            EPTlibError Apply(Image<Scalar> *dst, const Image<Scalar> &src) const {
                 auto filter = [&](const std::vector<Scalar> &crop) -> Scalar {
                     return this->Filter(crop);
                 };

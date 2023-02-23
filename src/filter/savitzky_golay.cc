@@ -42,7 +42,7 @@ namespace {
     // of given maximum degree.
     size_t GetNumberOfMonomials(const size_t degree) {
         size_t n_monomials = 0;
-        for (size_t deg = 0; deg<degree; ++deg) {
+        for (size_t deg = 0; deg<=degree; ++deg) {
             n_monomials += (deg+2)*(deg+1)/2;
         }
         return n_monomials;
@@ -56,22 +56,22 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
     const eptlib::Shape &window, const size_t degree) :
     window_(window),
     lapl_(0) {
-    double x0[3] {window.GetSize(0)/2*d0, window.GetSize(1)/2*d1, window.GetSize(2)/2*d2};
+    double x0[3] {window_.GetSize(0)/2*d0, window_.GetSize(1)/2*d1, window_.GetSize(2)/2*d2};
     // initialise the design matrix
     size_t n_row = window_.GetVolume();
     size_t n_col = ::GetNumberOfMonomials(degree);
     eptlib::linalg::MatrixReal F(n_col, std::vector<double>(n_row));
     // fill the design matrix (1, x^2, y^2, z^2, x, y, z, x*y, x*z, y*z, x^3, x^2*y, x*y^2, ...)
     size_t row = 0;
-    for (size_t i2 = 0; i2<window.GetSize(2); ++i2) {
-        for (size_t i1 = 0; i1<window.GetSize(1); ++i1) {
-            for (size_t i0 = 0; i0<window.GetSize(0); ++i0) {
+    for (size_t i2 = 0; i2<window_.GetSize(2); ++i2) {
+        for (size_t i1 = 0; i1<window_.GetSize(1); ++i1) {
+            for (size_t i0 = 0; i0<window_.GetSize(0); ++i0) {
                 if (window_(i0, i1, i2)) {
                     double dx[3] {i0*d0-x0[0], i1*d1-x0[1], i2*d2-x0[2]};
                     // even monomials with deg<=2 (1, x^2, y^2, z^2)
                     F[0][row] = 1.0;
                     for (size_t d = 0; d<3; ++d) {
-                        F[1+d][row] = dx[d]*dx[d]/2.0;
+                        F[1+d][row] = dx[d]*dx[d];
                     }
                     // odd monomials with deg<=2 (x, y, z, xy, xz, yz)
                     {

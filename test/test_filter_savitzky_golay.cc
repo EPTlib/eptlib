@@ -47,42 +47,63 @@
 using namespace eptlib;
 
 TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
-    const std::array<int,N_DIM> nn = {7,5,3};
-    const std::array<double,N_DIM> dd = {1.0,2.0,3.0};
-    std::array<size_t,N_DIM> ii;
-    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
-    //
-    std::array<int,N_DIM> rr = {1,1,1};
-    std::array<int,N_DIM> rr2 = {1,0,0};
-    Shape cube = shapes::CuboidR(rr[0],rr[1],rr[2]);
-    SavitzkyGolay fd_lapl(dd[0],dd[1],dd[2], cube, 2);
-    //
-    Image<double> q_field(nn[0],nn[1],nn[2]);
-    for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
-        q_field(idx) = 0.0;
-        for (int d = 0; d<N_DIM; ++d) {
-            q_field(idx) += ii[d]*ii[d]*dd[d]*dd[d];
-        }
-    }
-    //
-    Image<double> q_lapl(nn[0],nn[1],nn[2]);
-    EPTlibError error = fd_lapl.Apply(&q_lapl, q_field);
-    ASSERT_EQ(error, EPTlibError::Success);
-    //
-    for (int idx = 0; idx<n_vox; ++idx) {
-        IdxToIJK(ii[0],ii[1],ii[2],idx,nn[0],nn[1]);
-        bool kernel_in_domain = true;
-        for (int d = 0; d<N_DIM; ++d) {
-            if (ii[d]==0 || ii[d]==nn[d]-1) {
-                kernel_in_domain = false;
-                break;
+    const size_t n0 = 10;
+    const size_t n1 = 10;
+    const size_t n2 = 10;
+
+    const double d0 = 1.0;
+    const double d1 = 1.0;
+    const double d2 = 1.0;
+
+    Image<double> constant_field (n0,n1,n2);
+    Image<double> linear_field   (n0,n1,n2);
+    Image<double> quadratic_field(n0,n1,n2);
+
+    for (int k = 0; k<n2; ++k) {
+        for (int j = 0; j<n1; ++j) {
+            for (int i = 0; i<n0; ++i) {
+                double x = i*d0;
+                double y = j*d1;
+                double z = k*d2;
+
+                constant_field (i,j,k) = 1.0;
+                linear_field   (i,j,k) = x + y + z;
+                quadratic_field(i,j,k) = x*x + y*y + z*z;
             }
         }
-        if (kernel_in_domain) {
-            ASSERT_NEAR(q_lapl(idx),2.0*N_DIM,1e-12);
-        } else {
-            ASSERT_NEAR(q_lapl(idx),0.0,1e-12);
+    }
+
+    const Shape window = shapes::CuboidR(1,1,1);
+    const size_t degree = 2;
+    SavitzkyGolay sg_filter(d0,d1,d2, window, degree);
+
+    Image<double> lapl_constant_field (n0,n1,n2);
+    Image<double> lapl_linear_field   (n0,n1,n2);
+    Image<double> lapl_quadratic_field(n0,n1,n2);
+
+    EPTlibError error;
+
+    error = sg_filter.Apply(&lapl_constant_field, constant_field);
+    ASSERT_EQ(error, EPTlibError::Success);
+
+    error = sg_filter.Apply(&lapl_linear_field, linear_field);
+    ASSERT_EQ(error, EPTlibError::Success);
+
+    error = sg_filter.Apply(&lapl_quadratic_field, quadratic_field);
+    ASSERT_EQ(error, EPTlibError::Success);
+
+    for (int k = 0; k<n2; ++k) {
+        for (int j = 0; j<n1; ++j) {
+            for (int i = 0; i<n0; ++i) {
+                ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-12);
+                ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-12);
+                if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1) {
+                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-12);
+                } else {
+                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-12);
+                }
+            }
         }
     }
+
 }
