@@ -38,8 +38,6 @@
 #include <Eigen/Dense>
 #include <Eigen/Sparse>
 
-#include <iostream>
-
 using namespace eptlib;
 
 namespace {
@@ -499,7 +497,7 @@ namespace { //details
     void SeedPointsToDoF(std::vector<std::complex<double> > *dir,
         std::vector<int> *dof, int *n_dof,
         const std::vector<SeedPoint> &seed_points,
-        const std::array<int,N_DIM> &nn, const int i2, const double omega,
+        const std::array<int,N_DIM> &nn, const double omega,
         const bool is_2d) {
         // for each seed find the corresponding idx
         auto n_out = dof->size();
@@ -805,7 +803,7 @@ GlobalMinimisation() {
     std::vector<std::complex<double> > dir(0);
     if (SeedPointsAreUsed()) {
         dir.resize(seed_points_->size());
-        ::SeedPointsToDoF(&dir,&dof,&ndof, seed_points_.value(), nn, slice_index_.value(), omega_, !VolumeTomography());
+        ::SeedPointsToDoF(&dir,&dof,&ndof, seed_points_.value(), nn, omega_, !VolumeTomography());
     } else {
         // ... otherwise set the mask
         mask_.resize(ele.size(),false);
