@@ -41,13 +41,10 @@
 
 namespace eptlib {
 
-class EPTHelmholtzChi2;
-
 /**
  * Implementation of the Helmholtz-based EPT method.
  */
 class EPTHelmholtz : public EPTInterface {
-    friend EPTHelmholtzChi2;
     public:
         /**
          * Constructor.

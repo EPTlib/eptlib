@@ -91,6 +91,7 @@ class EPTGradient : public EPTInterface {
          * @param n_tx_ch number of transmit channels.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
+         * @param run_mode run mode of the Gradient EPT run (default: FULL).
          * 
          * The number of Rx channels is fixed equal to one.
          */

@@ -55,17 +55,17 @@ namespace eptlib {
     /**
      * Error codes that can be provided by EPTlib functions and methods.
      */
-    enum EPTlibError {
-    /// Success.
-    Success = 0,
-    /// Missing data error.
-    MissingData,
-    /// Out of range error.
-    OutOfRange,
-    /// Wrong data format error.
-    WrongDataFormat,
-    /// Unknown error.
-    Unknown,
+    enum class EPTlibError {
+        /// Success.
+        Success = 0,
+        /// Missing data error.
+        MissingData,
+        /// Out of range error.
+        OutOfRange,
+        /// Wrong data format error.
+        WrongDataFormat,
+        /// Unknown error.
+        Unknown,
     };
     /**
      * Translates in a human-readable string the input EPTlibError symbol.

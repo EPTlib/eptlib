@@ -101,5 +101,5 @@ Run() {
             }
         }
     }
-    return Success;
+    return EPTlibError::Success;
 }

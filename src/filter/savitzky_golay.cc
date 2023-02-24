@@ -48,85 +48,167 @@ namespace {
         return n_monomials;
     }
 
-}  //
+    // Evaluate in x all the monomials of given degree, namely, all the
+    // products x^i * y^j * z^k, for any triple (i, j, k) such that
+    // i + j + k = degree.
+    std::vector<double> EvaluateMonomials(const double x, const double y, const double z, const size_t degree) {
+        std::vector<double> monomials;
+        for (size_t k = 0; k<=degree; ++k) {
+            for (size_t j = 0; j<=degree-k; ++j) {
+                size_t i = degree-j-k;
+                double monomial = 1.0;
+                for (size_t counter = 0; counter<i; ++counter) {
+                    monomial *= x;
+                }
+                for (size_t counter = 0; counter<j; ++counter) {
+                    monomial *= y;
+                }
+                for (size_t counter = 0; counter<k; ++counter) {
+                    monomial *= z;
+                }
+                monomials.push_back(monomial);
+            }
+        }
+        return monomials;
+    }
 
-// SavitzkyGolay constructor
-eptlib::SavitzkyGolay::
-SavitzkyGolay(const double d0, const double d1, const double d2,
-    const eptlib::Shape &window, const size_t degree) :
-    window_(window),
-    lapl_(0) {
-    double x0[3] {window_.GetSize(0)/2*d0, window_.GetSize(1)/2*d1, window_.GetSize(2)/2*d2};
-    // initialise the design matrix
-    size_t n_row = window_.GetVolume();
-    size_t n_col = ::GetNumberOfMonomials(degree);
-    eptlib::linalg::MatrixReal F(n_col, std::vector<double>(n_row));
-    // fill the design matrix (1, x^2, y^2, z^2, x, y, z, x*y, x*z, y*z, x^3, x^2*y, x*y^2, ...)
-    size_t row = 0;
-    for (size_t i2 = 0; i2<window_.GetSize(2); ++i2) {
-        for (size_t i1 = 0; i1<window_.GetSize(1); ++i1) {
-            for (size_t i0 = 0; i0<window_.GetSize(0); ++i0) {
-                if (window_(i0, i1, i2)) {
-                    double dx[3] {i0*d0-x0[0], i1*d1-x0[1], i2*d2-x0[2]};
-                    // even monomials with deg<=2 (1, x^2, y^2, z^2)
-                    F[0][row] = 1.0;
-                    for (size_t d = 0; d<3; ++d) {
-                        F[1+d][row] = dx[d]*dx[d];
-                    }
-                    // odd monomials with deg<=2 (x, y, z, xy, xz, yz)
-                    {
+    // Fill the design matrix for three-dimensional polynomial fitting with the
+    // monomial basis (1, x, y, z, x^2, x*y, y^2, x*z, y*z, z^2, x^3, x^2*y, x*y^2, y^3, x^2*z, ...).
+    eptlib::linalg::MatrixReal DesignMatrixWithMonomialsBasis(const double d0,
+        const double d1, const double d2, const eptlib::Shape &window,
+        const size_t degree) {
+        // initialise the design matrix
+        size_t n_row = window.GetVolume();
+        size_t n_col = ::GetNumberOfMonomials(degree);
+        eptlib::linalg::MatrixReal F(n_col, std::vector<double>(n_row));
+        // fill the design matrix (1, x, y, z, x^2, x*y, y^2, x*z, y*z, z^2, x^3, x^2*y, x*y^2, y^3, x^2*z, ...)
+        double x0 = window.GetSize(0)/2*d0;
+        double y0 = window.GetSize(1)/2*d1;
+        double z0 = window.GetSize(2)/2*d2;
+        size_t row = 0;
+        for (size_t i2 = 0; i2<window.GetSize(2); ++i2) {
+            for (size_t i1 = 0; i1<window.GetSize(1); ++i1) {
+                for (size_t i0 = 0; i0<window.GetSize(0); ++i0) {
+                    if (window(i0, i1, i2)) {
+                        double dx = i0*d0-x0;
+                        double dy = i1*d1-y0;
+                        double dz = i2*d2-z0;
                         size_t col = 0;
-                        for (size_t d = 0; d<3; ++d) {
-                            F[4+d][row] = dx[d];
-                            for (size_t d2 = d+1; d2<3; ++d2) {
-                                F[7+col][row] = dx[d]*dx[d2];
+                        for (size_t deg = 0; deg<=degree; ++deg) {
+                            std::vector<double> monomials = ::EvaluateMonomials(dx,dy,dz, deg);
+                            for (double monomial: monomials) {
+                                F[col][row] = monomial;
                                 ++col;
                             }
                         }
+                        ++row;
                     }
-                    // monomials with deg>2 (x^j[0] * y^j[1] * z^j[2])
-                    {
-                        size_t col = 0;
-                        for (size_t deg = 3; deg<=degree; ++deg) {
-                            size_t j[3];
-                            for (j[2] = 0; j[2]<=deg; ++j[2]) {
-                                for (j[1] = 0; j[1]<=deg-j[2]; ++j[1]) {
-                                    j[0] = deg-j[1]-j[2];
-                                    F[11+col][row] = 1;
-                                    for (size_t d = 0; d<N_DIM; ++d) {
-                                        for (size_t counter = 0; counter<j[d]; ++counter) {
-                                            F[11+col][row] *= dx[d];
-                                        }
-                                    }
-                                    ++col;
-                                }
-                            }
-                        }
-                    }
-                    ++row;
                 }
             }
         }
+        return F;
     }
-    // solve the linear system
+
+    // Solve a linear equation with R^T as matrix of coefficients.
+    void RTSolve(double *a, const eptlib::linalg::MatrixReal &QR, const double *b, const size_t n) {
+        a[0] = b[0] / QR[0][0];
+        for (int i = 1; i<n; ++i) {
+            double s = 0;
+            for (int j = 0; j<i; ++j) {
+                s += a[j] * QR[i][j];
+            }
+            a[i] = (a[i] - s) / QR[i][i];
+        }
+        return;
+    }
+
+}  //
+
+// SavitzkyGolay constructor
+eptlib::filter::SavitzkyGolay::
+SavitzkyGolay(const double d0, const double d1, const double d2,
+    const eptlib::Shape &window, const size_t degree) :
+    window_(window) {
+    // define the design matrix F
+    eptlib::linalg::MatrixReal F = ::DesignMatrixWithMonomialsBasis(d0,d1,d2, window, degree);
+    size_t n_col = F.size();
+    size_t n_row = F[0].size();
+    // initialise the kernel coefficients
+    zero_order_derivative_     .resize(window_.GetVolume());
+    first_order_derivative_ [0].resize(window_.GetVolume());
+    first_order_derivative_ [1].resize(window_.GetVolume());
+    first_order_derivative_ [2].resize(window_.GetVolume());
+    second_order_derivative_[0].resize(window_.GetVolume());
+    second_order_derivative_[1].resize(window_.GetVolume());
+    second_order_derivative_[2].resize(window_.GetVolume());
+    residuals_.resize(window_.GetVolume());
+    // swap columns to have the essential monomials in the first positions
+    F[5].swap(F[6]); // xy <-> yy
+    F[6].swap(F[9]); // xy <-> zz
+    // remove null columns
+    for (size_t col = 0; col<n_col; ++col) {
+        if (eptlib::linalg::Norm2(F[col].data(), n_row) == 0.0) {
+            --n_col;
+            F[col].swap(F[n_col]);
+            --col;
+        }
+    }
+    F.resize(n_col);
+    // compute the QR decomposition of F
     eptlib::linalg::MatrixReal QR;
     eptlib::linalg::HouseholderQR(&QR, F ,n_row ,n_col);
-    eptlib::linalg::MatrixReal A(n_row, std::vector<double>(n_col));
+    // solve the linear system
+    std::vector<double> a(n_col);
+    std::vector<double> b(n_row, 0.0);
     for (int row = 0; row<n_row; ++row) {
-        std::vector<double> b(n_row,0.0);
+        b.assign(n_row, 0.0);
         b[row] = 1.0;
-        eptlib::linalg::QRSolve(A[row].data(), QR, b.data(), n_row, n_col);
+        eptlib::linalg::QRSolve(a.data(), QR, b.data(), n_row, n_col);
+        // assign the kernel coefficients
+        zero_order_derivative_     [row] =     a[0];
+        first_order_derivative_ [0][row] =     a[1];
+        first_order_derivative_ [1][row] =     a[2];
+        first_order_derivative_ [2][row] =     a[3];
+        second_order_derivative_[0][row] = 2.0*a[4];
+        second_order_derivative_[1][row] = 2.0*a[5];
+        second_order_derivative_[2][row] = 2.0*a[6];
+        // compute the residual
+        residuals_[row].resize(n_col);
+        for (int col = 0; col<n_col; ++col) {
+            residuals_[row][col] = F[col][row] * a[col] - b[col];
+        }
     }
-    // compute the Laplacian coefficients
-    lapl_.resize(n_row);
-    for (int row = 0; row<n_row; ++row) {
-        lapl_[row] = 2.0*(A[row][1]+A[row][2]+A[row][3]);
+    // compute the variance coefficients (optional)
+    // zero and first order derivatives
+    for (int der = 0; der<4; ++der) {
+        a.assign(n_col, 0.0);
+        a[der] = 1.0;
+        RTSolve(a.data(), QR, a.data(), n_col);
+        variance_coefficients_[der] = eptlib::linalg::Norm2(a.data(), n_col);
+    }
+    // second order derivatives
+    for (int der = 4; der<7; ++der) {
+        a.assign(n_col, 0.0);
+        a[der] = 2.0;
+        RTSolve(a.data(), QR, a.data(), n_col);
+        variance_coefficients_[der] = eptlib::linalg::Norm2(a.data(), n_col);
+    }
+    // laplacian
+    a.assign(n_col, 0.0);
+    a[4] = 2.0;
+    a[5] = 2.0;
+    a[6] = 2.0;
+    RTSolve(a.data(), QR, a.data(), n_col);
+    variance_coefficients_[7] = eptlib::linalg::Norm2(a.data(), n_col);
+    // rescale the variance coefficients with n_row-n_col
+    for (int idx = 0; idx<variance_coefficients_.size(); ++idx) {
+        variance_coefficients_[idx] /= n_row - n_col;
     }
     return;
 }
 
 // SavitzkyGolay virtual destructor
-eptlib::SavitzkyGolay::
+eptlib::filter::SavitzkyGolay::
 ~SavitzkyGolay() {
     return;
 }

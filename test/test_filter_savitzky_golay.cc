@@ -44,8 +44,6 @@
 #include "eptlib/image.h"
 #include "eptlib/util.h"
 
-using namespace eptlib;
-
 TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
     const size_t n0 = 10;
     const size_t n1 = 10;
@@ -55,9 +53,9 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
     const double d1 = 1.0;
     const double d2 = 1.0;
 
-    Image<double> constant_field (n0,n1,n2);
-    Image<double> linear_field   (n0,n1,n2);
-    Image<double> quadratic_field(n0,n1,n2);
+    eptlib::Image<double> constant_field (n0,n1,n2);
+    eptlib::Image<double> linear_field   (n0,n1,n2);
+    eptlib::Image<double> quadratic_field(n0,n1,n2);
 
     for (int k = 0; k<n2; ++k) {
         for (int j = 0; j<n1; ++j) {
@@ -73,31 +71,32 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
         }
     }
 
-    const Shape window = shapes::CuboidR(1,1,1);
-    const size_t degree = 2;
-    SavitzkyGolay sg_filter(d0,d1,d2, window, degree);
+    const eptlib::Shape window = eptlib::shapes::Cross(2,2,2);
+    const size_t degree = 3;
+    eptlib::filter::SavitzkyGolay sg_filter(d0,d1,d2, window, degree);
 
-    Image<double> lapl_constant_field (n0,n1,n2);
-    Image<double> lapl_linear_field   (n0,n1,n2);
-    Image<double> lapl_quadratic_field(n0,n1,n2);
+    eptlib::Image<double> lapl_constant_field (n0,n1,n2);
+    eptlib::Image<double> lapl_linear_field   (n0,n1,n2);
+    eptlib::Image<double> lapl_quadratic_field(n0,n1,n2);
 
-    EPTlibError error;
+    eptlib::EPTlibError error;
 
-    error = sg_filter.Apply(&lapl_constant_field, constant_field);
-    ASSERT_EQ(error, EPTlibError::Success);
+    error = sg_filter.Apply(eptlib::filter::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
-    error = sg_filter.Apply(&lapl_linear_field, linear_field);
-    ASSERT_EQ(error, EPTlibError::Success);
+    error = sg_filter.Apply(eptlib::filter::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
-    error = sg_filter.Apply(&lapl_quadratic_field, quadratic_field);
-    ASSERT_EQ(error, EPTlibError::Success);
+    error = sg_filter.Apply(eptlib::filter::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
     for (int k = 0; k<n2; ++k) {
         for (int j = 0; j<n1; ++j) {
             for (int i = 0; i<n0; ++i) {
                 ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-12);
                 ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-12);
-                if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1) {
+                if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1 ||
+                    i==1 || i==n0-2 || j==1 || j==n1-2 || k==1 || k==n2-2) {
                     ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-12);
                 } else {
                     ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-12);

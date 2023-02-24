@@ -41,11 +41,29 @@
 
 namespace eptlib {
 
+namespace filter {
+
+    /**
+     * @brief Apply a moving window filter on a three-dimensional image.
+     * 
+     * @tparam Scalar numerical type of the image data.
+     * @tparam Filter functional type of the filter to be applied.
+     * 
+     * @param dst image where the filter result is written.
+     * @param src image to which the filter is applied.
+     * @param window mask over which apply the filter.
+     * @param filter filter to be applied.
+     * 
+     * @return a Success or a WrongDataFormat if the argument sizes are inconsistent.
+     */
     template <typename Scalar, typename Filter>
     EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter) {
         const size_t n0 = src.GetSize(0);
         const size_t n1 = src.GetSize(1);
         const size_t n2 = src.GetSize(2);
+        if (dst->GetSize(0)!=n0 || dst->GetSize(1)!=n1 || dst->GetSize(2)!=n2) {
+            return EPTlibError::WrongDataFormat;
+        }
         const size_t m0 = window.GetSize(0);
         const size_t m1 = window.GetSize(1);
         const size_t m2 = window.GetSize(2);
@@ -77,6 +95,8 @@ namespace eptlib {
         return EPTlibError::Success;
     }
 
-}  // eptlib
+}  // namespace filter
+
+}  // namespace eptlib
 
 #endif  // EPTLIB_FILTER_MOVING_WINDOW_H_
