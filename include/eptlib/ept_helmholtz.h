@@ -35,9 +35,10 @@
 
 #include "eptlib/ept_interface.h"
 
-#include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
+
+#include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
 
@@ -56,7 +57,7 @@ class EPTHelmholtz : public EPTInterface {
          * @param d1 resolution in meter along direction y.
          * @param d2 resolution in meter along direction z.
          * @param freq operative frequency of the MRI scanner.
-         * @param shape mask over which apply the finite difference scheme.
+         * @param window mask over which apply the finite difference scheme.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
          * @param trx_phase_is_wrapped if true, the TRx phase is wrapped.
@@ -66,7 +67,7 @@ class EPTHelmholtz : public EPTInterface {
          */
         EPTHelmholtz(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
-            const double freq, const Shape &shape, const int degree = 2,
+            const double freq, const Shape &window, const int degree = 2,
             const bool trx_phase_is_wrapped = false,
             const bool compute_variance = false);
 
@@ -125,8 +126,8 @@ class EPTHelmholtz : public EPTInterface {
             return variance_!=nullptr;
         }
     private:
-        /// Filter for the Laplacian computation.
-        FDSavitzkyGolayFilter fd_lapl_;
+        /// Savitzky-Golay filter for the derivative computation.
+        filter::SavitzkyGolay sg_filter_;
         /// Quality map.
         std::unique_ptr<Image<double> > variance_;
         /// If true, compute the result variance.

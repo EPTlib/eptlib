@@ -47,10 +47,10 @@ namespace {
 EPTHelmholtz::
 EPTHelmholtz(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
-    const double freq, const Shape &shape, const int degree,
+    const double freq, const Shape &window, const int degree,
     const bool trx_phase_is_wrapped, const bool compute_variance) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, trx_phase_is_wrapped),
-    fd_lapl_(shape,degree),
+    sg_filter_(d0,d1,d2, window, degree),
     variance_(nullptr),
     compute_variance_(compute_variance) {
     return;
@@ -91,23 +91,21 @@ Run() {
 // EPTHelmholtz complete method
 void EPTHelmholtz::
 CompleteEPTHelm() {
-    auto n_vox = sigma_->GetNVox();
-    std::array<int,N_DIM> nn{nn_[0],nn_[1],nn_[2]};
     // setup the input
-    std::vector<std::complex<double> > tx_sens_c(n_vox);
-    std::vector<std::complex<double> > eps_c(n_vox,::nancd);
-    for (int idx = 0; idx<n_vox; ++idx) {
+    Image<std::complex<double> > tx_sens_c(nn_[0], nn_[1], nn_[2]);
+    Image<std::complex<double> > eps_c(nn_[0], nn_[1], nn_[2]);
+    for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
         std::complex<double> exponent = std::complex<double>(0.0, 0.5 * GetTRxPhase(0,0)->At(idx));
-        tx_sens_c[idx] = GetTxSens(0)->At(idx) * std::exp(exponent);
+        tx_sens_c(idx) = GetTxSens(0)->At(idx) * std::exp(exponent);
+        eps_c(idx) = ::nancd;
     }
     // compute the laplacian
-    DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op, eps_c.data(), tx_sens_c.data(), nn, dd_);
+    sg_filter_.Apply(filter::DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
     // extract the output
-    for (int idx = 0; idx<n_vox; ++idx) {
-        eps_c[idx] /= -MU0*omega_*omega_*tx_sens_c[idx];
-        epsr_->At(idx) = std::real(eps_c[idx])/EPS0;
-        sigma_->At(idx) = -std::imag(eps_c[idx])*omega_;
+    for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
+        eps_c(idx) /= -MU0*omega_*omega_*tx_sens_c(idx);
+        epsr_ ->At(idx) =  std::real(eps_c(idx))/EPS0;
+        sigma_->At(idx) = -std::imag(eps_c(idx))*omega_;
     }
     return;
 }
@@ -115,15 +113,12 @@ CompleteEPTHelm() {
 // EPTHelmholtz magnitude-based method
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
-    auto n_vox = sigma_->GetNVox();
-    std::array<int,N_DIM> nn{nn_[0],nn_[1],nn_[2]};
     // setup the input
-    epsr_->GetData().assign(n_vox,::nand);
+    epsr_->GetData().assign(epsr_->GetNVox(), ::nand);
     // compute the laplacian
-    DifferentialOperator diff_op = DifferentialOperator::Laplacian;
-    fd_lapl_.Apply(diff_op, epsr_->GetData().data(), GetTxSens(0)->GetData().data(), nn, dd_);
+    sg_filter_.Apply(filter::DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
     // extract the output
-    for (int idx = 0; idx<n_vox; ++idx) {
+    for (int idx = 0; idx<epsr_->GetNVox(); ++idx) {
         epsr_->At(idx) /= -EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
     }
     return;
@@ -132,24 +127,21 @@ MagnitudeEPTHelm() {
 // EPTHelmholtz phase-based method
 void EPTHelmholtz::
 PhaseEPTHelm() {
-    auto n_vox = sigma_->GetNVox();
-    std::array<int,N_DIM> nn{nn_[0],nn_[1],nn_[2]};
     // setup the input
-    sigma_->GetData().assign(n_vox,::nand);
+    sigma_->GetData().assign(sigma_->GetNVox(), ::nand);
     if(ComputeVariance()) {
-        variance_->GetData().assign(n_vox,::nand);
+        variance_->GetData().assign(sigma_->GetNVox(), ::nand);
     }
     // compute the laplacian
-    DifferentialOperator diff_op = DifferentialOperator::Laplacian;
     if (PhaseIsWrapped() && !ComputeVariance()) {
-        fd_lapl_.ApplyWrappedPhase(diff_op, sigma_->GetData().data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+        sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0)); // ApplyWrappedPhase
     } else if (!ComputeVariance()) {
-        fd_lapl_.Apply(diff_op, sigma_->GetData().data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+        sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
     } else {
-        fd_lapl_.Apply(diff_op, sigma_->GetData().data(), variance_->GetData().data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+        sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0));
     }
     // extract the output
-    for (int idx = 0; idx<n_vox; ++idx) {
+    for (int idx = 0; idx<sigma_->GetNVox(); ++idx) {
         sigma_->At(idx) /= 2.0*MU0*omega_;
         if (ComputeVariance()) {
             variance_->At(idx) /= 2.0*MU0*omega_;
