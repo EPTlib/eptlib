@@ -34,10 +34,8 @@
 #define EPTLIB_FILTER_SAVITZKY_GOLAY_H_
 
 #include <array>
-#include <complex>
 #include <functional>
 #include <numeric>
-#include <optional>
 #include <vector>
 
 #include "eptlib/image.h"
@@ -149,7 +147,7 @@ namespace filter {
              */
             template <typename Scalar>
             inline Scalar ZeroOrderDerivative(const std::vector<Scalar> &crop) const {
-                return std::inner_product(zero_order_derivative_.begin(), zero_order_derivative_.end(), crop.begin(), 0.0);
+                return std::inner_product(zero_order_derivative_.begin(), zero_order_derivative_.end(), crop.begin(), static_cast<Scalar>(0.0));
             }
 
             /**
@@ -164,7 +162,7 @@ namespace filter {
              */
             template <typename Scalar>
             inline Scalar FirstOrderDerivative(const size_t d, const std::vector<Scalar> &crop) const {
-                return std::inner_product(first_order_derivative_[d].begin(), first_order_derivative_[d].end(), crop.begin(), 0.0);
+                return std::inner_product(first_order_derivative_[d].begin(), first_order_derivative_[d].end(), crop.begin(), static_cast<Scalar>(0.0));
             }
 
             /**
@@ -179,7 +177,7 @@ namespace filter {
              */
             template <typename Scalar>
             inline Scalar SecondOrderDerivative(const size_t d, const std::vector<Scalar> &crop) const {
-                return std::inner_product(second_order_derivative_[d].begin(), second_order_derivative_[d].end(), crop.begin(), 0.0);
+                return std::inner_product(second_order_derivative_[d].begin(), second_order_derivative_[d].end(), crop.begin(), static_cast<Scalar>(0.0));
             }
 
             /**
@@ -193,7 +191,7 @@ namespace filter {
              */
             template <typename Scalar>
             inline Scalar Laplacian(const std::vector<Scalar> &crop) const {
-                double laplacian = 0.0;
+                Scalar laplacian = 0.0;
                 laplacian += SecondOrderDerivative(0, crop);
                 laplacian += SecondOrderDerivative(1, crop);
                 laplacian += SecondOrderDerivative(2, crop);
@@ -263,8 +261,8 @@ namespace filter {
              */
             template <typename Scalar>
             inline double ComputeVariance(const DifferentialOperator differential_operator, const std::vector<Scalar> &crop) const {
-                const size_t n_row = residuals_.value().size();
-                const size_t n_col = residuals_.value()[0].size();
+                const size_t n_row = residuals_.size();
+                const size_t n_col = residuals_[0].size();
                 std::vector<Scalar> residual(n_row, 0.0);
                 for (size_t row = 0; row<n_row; ++row) {
                     for (size_t col = 0; col<n_col; ++col) {
@@ -313,7 +311,7 @@ namespace filter {
                 // compute the variance
                 auto compute_variance = [&](const std::vector<Scalar> &crop) -> Scalar {
                     return this->ComputeVariance(differential_operator, crop);
-                }
+                };
                 return MovingWindow(variance, src, window_, compute_variance);
             }
         private:
