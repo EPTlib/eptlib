@@ -34,17 +34,155 @@
 
 #include "eptlib/filter/savitzky_golay.h"
 
-#include <algorithm>
-#include <array>
-#include <functional>
-#include <numeric>
-#include <typeinfo>
-#include <vector>
+TEST(FilterSavitzkyGolayGTest,GetWindow) {
+    eptlib::Shape window = eptlib::shapes::Ellipsoid(1,2,3);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    auto& sg_window = sg_filter.GetWindow();
+    ASSERT_EQ(sg_window.GetVolume(), window.GetVolume());
+    ASSERT_EQ(sg_window.GetSize(0), window.GetSize(0));
+    ASSERT_EQ(sg_window.GetSize(1), window.GetSize(1));
+    ASSERT_EQ(sg_window.GetSize(2), window.GetSize(2));
+    ASSERT_EQ(sg_window.GetNVox(), window.GetNVox());
+}
 
-#include "eptlib/image.h"
-#include "eptlib/util.h"
+TEST(FilterSavitzkyGolayGTest,GetZeroOrderDerivativeKernel) {
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    auto& zero_order_derivative = sg_filter.GetZeroOrderDerivativeKernel();
+    for (size_t idx = 0; idx<zero_order_derivative.size(); ++idx) {
+        if (idx == zero_order_derivative.size()/2) {
+            ASSERT_NEAR(zero_order_derivative[idx], 1.0, 1e-15);
+        } else {
+            ASSERT_NEAR(zero_order_derivative[idx], 0.0, 1e-15);
+        }
+    }
+}
 
-TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
+TEST(FilterSavitzkyGolayGTest,GetFirstOrderDerivativeKernel) {
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    auto& first_order_derivative_x = sg_filter.GetFirstOrderDerivativeKernel(0);
+    auto& first_order_derivative_y = sg_filter.GetFirstOrderDerivativeKernel(1);
+    auto& first_order_derivative_z = sg_filter.GetFirstOrderDerivativeKernel(2);
+    size_t idx = 0;
+    for (size_t k = 0; k<window.GetSize(2); ++k) {
+        for (size_t j = 0; j<window.GetSize(1); ++j) {
+            for (size_t i = 0; i<window.GetSize(0); ++i) {
+                if (window(i,j,k)) {
+                    if (i == 0) {
+                        ASSERT_NEAR(first_order_derivative_x[idx], -0.5, 1e-15);
+                    } else if (i == 2) {
+                        ASSERT_NEAR(first_order_derivative_x[idx],  0.5, 1e-15);
+                    } else {
+                        ASSERT_NEAR(first_order_derivative_x[idx],  0.0, 1e-15);
+                    }
+
+                    if (j == 0) {
+                        ASSERT_NEAR(first_order_derivative_y[idx], -0.5, 1e-15);
+                    } else if (j == 2) {
+                        ASSERT_NEAR(first_order_derivative_y[idx],  0.5, 1e-15);
+                    } else {
+                        ASSERT_NEAR(first_order_derivative_y[idx],  0.0, 1e-15);
+                    }
+
+                    if (k == 0) {
+                        ASSERT_NEAR(first_order_derivative_z[idx], -0.5, 1e-15);
+                    } else if (k == 2) {
+                        ASSERT_NEAR(first_order_derivative_z[idx],  0.5, 1e-15);
+                    } else {
+                        ASSERT_NEAR(first_order_derivative_z[idx],  0.0, 1e-15);
+                    }
+
+                    ++idx;
+                }
+            }
+        }
+    }
+}
+
+TEST(FilterSavitzkyGolayGTest,GetSecondOrderDerivativeKernel) {
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    auto& second_order_derivative_x = sg_filter.GetSecondOrderDerivativeKernel(0);
+    auto& second_order_derivative_y = sg_filter.GetSecondOrderDerivativeKernel(1);
+    auto& second_order_derivative_z = sg_filter.GetSecondOrderDerivativeKernel(2);
+    size_t idx = 0;
+    for (size_t k = 0; k<window.GetSize(2); ++k) {
+        for (size_t j = 0; j<window.GetSize(1); ++j) {
+            for (size_t i = 0; i<window.GetSize(0); ++i) {
+                if (window(i,j,k)) {
+                    if (j == 1 && k == 1) {
+                        ASSERT_NEAR(second_order_derivative_x[idx], i==1 ? -2.0 : 1.0, 1e-14);
+                    } else {
+                        ASSERT_NEAR(second_order_derivative_x[idx], 0.0, 1e-14);
+                    }
+
+                    if (i == 1 && k == 1) {
+                        ASSERT_NEAR(second_order_derivative_y[idx], j==1 ? -2.0 : 1.0, 1e-14);
+                    } else {
+                        ASSERT_NEAR(second_order_derivative_y[idx], 0.0, 1e-14);
+                    }
+
+                    if (i == 1 && j == 1) {
+                        ASSERT_NEAR(second_order_derivative_z[idx], k==1 ? -2.0 : 1.0, 1e-14);
+                    } else {
+                        ASSERT_NEAR(second_order_derivative_z[idx], 0.0, 1e-14);
+                    }
+                    ++idx;
+                }
+            }
+        }
+    }
+}
+
+TEST(FilterSavitzkyGolayGTest,ZeroOrderDerivative) {
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    std::vector<double> crop(window.GetVolume());
+    std::iota(crop.begin(), crop.end(), 1.0);
+    ASSERT_NEAR(sg_filter.ZeroOrderDerivative(crop), 4.0, 1e-15);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::Field)(crop), 4.0, 1e-15);
+}
+
+TEST(FilterSavitzkyGolayGTest,FirstOrderDerivative) {
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    std::vector<double> crop(window.GetVolume());
+    std::iota(crop.begin(), crop.end(), 1.0);
+    ASSERT_NEAR(sg_filter.FirstOrderDerivative(0, crop), 1.0, 1e-15);
+    ASSERT_NEAR(sg_filter.FirstOrderDerivative(1, crop), 2.0, 1e-15);
+    ASSERT_NEAR(sg_filter.FirstOrderDerivative(2, crop), 3.0, 1e-15);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientX)(crop), 1.0, 1e-15);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientY)(crop), 2.0, 1e-15);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientZ)(crop), 3.0, 1e-15);
+}
+
+TEST(FilterSavitzkyGolayGTest,SecondOrderDerivative) {
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
+    std::vector<double> crop(window.GetVolume());
+    size_t idx = 0;
+    for (size_t k = 0; k<window.GetSize(2); ++k) {
+        for (size_t j = 0; j<window.GetSize(1); ++j) {
+            for (size_t i = 0; i<window.GetSize(0); ++i) {
+                if (window(i,j,k)) {
+                    crop[idx] = i*i + j*j + k*k;
+                    ++idx;
+                }
+            }
+        }
+    }
+    ASSERT_NEAR(sg_filter.SecondOrderDerivative(0, crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.SecondOrderDerivative(1, crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.SecondOrderDerivative(2, crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.Laplacian(crop), 6.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientXX)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientYY)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientZZ)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::Laplacian)(crop), 6.0, 1e-14);
+}
+
+TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
     const size_t n0 = 10;
     const size_t n1 = 10;
     const size_t n2 = 10;
@@ -93,16 +231,15 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayLaplacian) {
     for (int k = 0; k<n2; ++k) {
         for (int j = 0; j<n1; ++j) {
             for (int i = 0; i<n0; ++i) {
-                ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-12);
-                ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-12);
+                ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-13);
+                ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-13);
                 if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1 ||
                     i==1 || i==n0-2 || j==1 || j==n1-2 || k==1 || k==n2-2) {
-                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-12);
+                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-13);
                 } else {
-                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-12);
+                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-13);
                 }
             }
         }
     }
-
 }

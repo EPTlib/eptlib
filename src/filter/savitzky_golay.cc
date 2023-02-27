@@ -178,22 +178,21 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
             residuals_[row][col] = F[col][row] * a[col] - b[col];
         }
     }
-    // compute the variance coefficients (optional)
-    // zero and first order derivatives
+    // compute the variance coefficients of zero and first order derivatives
     for (int der = 0; der<4; ++der) {
         a.assign(n_col, 0.0);
         a[der] = 1.0;
         RTSolve(a.data(), QR, a.data(), n_col);
         variance_coefficients_[der] = eptlib::linalg::Norm2(a.data(), n_col);
     }
-    // second order derivatives
+    // compute the variance coefficients of second order derivatives
     for (int der = 4; der<7; ++der) {
         a.assign(n_col, 0.0);
         a[der] = 2.0;
         RTSolve(a.data(), QR, a.data(), n_col);
         variance_coefficients_[der] = eptlib::linalg::Norm2(a.data(), n_col);
     }
-    // laplacian
+    // compute the variance coefficients of laplacian
     a.assign(n_col, 0.0);
     a[4] = 2.0;
     a[5] = 2.0;
