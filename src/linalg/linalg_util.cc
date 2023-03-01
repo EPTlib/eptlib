@@ -72,6 +72,9 @@ NumType eptlib::linalg::Dot(const NumType *x,const double *y,const size_t n) {
 double eptlib::linalg::MaxAbs(const double *x,const size_t n) {
     double eta = 0;
     for (int i = 0; i<n; ++i) {
+        if (std::isnan(x[i])) {
+            return std::numeric_limits<double>::quiet_NaN();
+        }
         if (std::abs(x[i])>eta) {
             eta = std::abs(x[i]);
         }

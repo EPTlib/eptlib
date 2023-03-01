@@ -117,7 +117,7 @@ namespace {
             for (int j = 0; j<i; ++j) {
                 s += a[j] * QR[i][j];
             }
-            a[i] = (a[i] - s) / QR[i][i];
+            a[i] = (b[i] - s) / QR[i][i];
         }
         return;
     }
@@ -141,7 +141,6 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
     second_order_derivative_[0].resize(window_.GetVolume());
     second_order_derivative_[1].resize(window_.GetVolume());
     second_order_derivative_[2].resize(window_.GetVolume());
-    residuals_.resize(window_.GetVolume());
     // swap columns to have the essential monomials in the first positions
     F[5].swap(F[6]); // xy <-> yy
     F[6].swap(F[9]); // xy <-> zz
@@ -157,26 +156,30 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
     // compute the QR decomposition of F
     eptlib::linalg::MatrixReal QR;
     eptlib::linalg::HouseholderQR(&QR, F ,n_row ,n_col);
-    // solve the linear system
+    // initialize the residuals
+    residuals_.resize(n_row, std::vector<double>(n_row, 0.0));
+    // solve the linear systems (F * a_k = e_k, for k = 1,...,n_row)
     std::vector<double> a(n_col);
     std::vector<double> b(n_row, 0.0);
-    for (int row = 0; row<n_row; ++row) {
+    for (int k = 0; k<n_row; ++k) {
         b.assign(n_row, 0.0);
-        b[row] = 1.0;
+        b[k] = 1.0;
         eptlib::linalg::QRSolve(a.data(), QR, b.data(), n_row, n_col);
         // assign the kernel coefficients
-        zero_order_derivative_     [row] =     a[0];
-        first_order_derivative_ [0][row] =     a[1];
-        first_order_derivative_ [1][row] =     a[2];
-        first_order_derivative_ [2][row] =     a[3];
-        second_order_derivative_[0][row] = 2.0*a[4];
-        second_order_derivative_[1][row] = 2.0*a[5];
-        second_order_derivative_[2][row] = 2.0*a[6];
-        // compute the residual
-        residuals_[row].resize(n_col);
+        zero_order_derivative_     [k] =     a[0];
+        first_order_derivative_ [0][k] =     a[1];
+        first_order_derivative_ [1][k] =     a[2];
+        first_order_derivative_ [2][k] =     a[3];
+        second_order_derivative_[0][k] = 2.0*a[4];
+        second_order_derivative_[1][k] = 2.0*a[5];
+        second_order_derivative_[2][k] = 2.0*a[6];
+        // compute the residual (r_k = F * a_k - e_k)
         for (int col = 0; col<n_col; ++col) {
-            residuals_[row][col] = F[col][row] * a[col] - b[col];
+            for (int row = 0; row<n_row; ++row) {
+                residuals_[k][row] += F[col][row] * a[col];
+            }
         }
+        residuals_[k][k] -= 1.0;
     }
     // compute the variance coefficients of zero and first order derivatives
     for (int der = 0; der<4; ++der) {

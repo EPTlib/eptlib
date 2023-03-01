@@ -264,9 +264,9 @@ namespace filter {
                 const size_t n_row = residuals_.size();
                 const size_t n_col = residuals_[0].size();
                 std::vector<Scalar> residual(n_row, 0.0);
-                for (size_t row = 0; row<n_row; ++row) {
-                    for (size_t col = 0; col<n_col; ++col) {
-                        residual[col] += crop[row] * residuals_[row][col];
+                for (size_t k = 0; k<n_row; ++k) {
+                    for (size_t row = 0; row<n_row; ++row) {
+                        residual[row] += crop[k] * residuals_[k][row];
                     }
                 }
                 return variance_coefficients_[static_cast<size_t>(differential_operator)] * eptlib::linalg::Norm2(residual.data(), n_row);
