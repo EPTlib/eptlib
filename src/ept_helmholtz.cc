@@ -34,7 +34,6 @@
 
 #include <complex>
 #include <limits>
-#include <vector>
 
 using namespace eptlib;
 
