@@ -47,10 +47,10 @@ namespace {
 EPTHelmholtzChi2::
 EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
-    const double freq, const std::vector<Shape> &shapes,
+    const double freq, const std::vector<Shape> &windows,
     const int degree, const bool admit_unphysical_values) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, false),
-    shapes_(shapes),
+    windows_(windows),
     degree_(degree),
     variance_(nullptr),
     index_(nullptr),
@@ -80,9 +80,9 @@ Run() {
     index_   ->GetData().assign(n_vox,-1);
     // loop over the shapes
     auto freq = omega_/2.0/PI;
-    for (int idx_s = 0; idx_s<shapes_.size(); ++idx_s) {
+    for (int idx_s = 0; idx_s<windows_.size(); ++idx_s) {
         // setup Helmholtz-EPT
-        EPTHelmholtz hept(nn_[0],nn_[1],nn_[2], dd_[0],dd_[1],dd_[2], freq, shapes_[idx_s], degree_, false, true);
+        EPTHelmholtz hept(nn_[0],nn_[1],nn_[2], dd_[0],dd_[1],dd_[2], freq, windows_[idx_s], degree_, false, true);
         hept.SetTRxPhase(*GetTRxPhase(0,0));
         // run Helmholtz-EPT
         EPTlibError error = hept.Run();

@@ -62,7 +62,7 @@ class EPTHelmholtzChi2 : public EPTInterface {
          * @param d1 resolution in meter along direction y.
          * @param d2 resolution in meter along direction z.
          * @param freq operative frequency of the MRI scanner.
-         * @param shapes list of masks over which apply the finite difference scheme.
+         * @param windows list of masks over which apply the finite difference scheme.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
          * @param admit_unphysical_values if true, unphysical results are admitted in the maps.
@@ -71,7 +71,7 @@ class EPTHelmholtzChi2 : public EPTInterface {
         */
         EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
-            const double freq, const std::vector<Shape> &shapes,
+            const double freq, const std::vector<Shape> &windows,
             const int degree = 2, const bool admit_unphysical_values = false);
 
         /**
@@ -147,7 +147,7 @@ class EPTHelmholtzChi2 : public EPTInterface {
         }
     private:
         /// List of masks over which apply the finite difference scheme.
-        std::vector<Shape> shapes_;
+        std::vector<Shape> windows_;
         /// Degree of the interpolating polynomial for the finite difference scheme.
         int degree_;
         /// Quality map.
