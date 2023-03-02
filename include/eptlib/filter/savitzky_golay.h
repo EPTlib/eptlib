@@ -314,6 +314,29 @@ namespace filter {
                 };
                 return MovingWindow(variance, src, window_, compute_variance);
             }
+
+            /**
+             * @brief Get the filter function corresponding to the selected differential operator
+             *     for a wrapped phase map.
+             * 
+             * @param differential_operator differential operator to be applied.
+             * 
+             * @return the filter function corresponding to the selected differential operator for
+             *     a wrapped phase map.
+             */
+            std::function<double(const std::vector<double>&)> GetFilterWrappedPhase(const DifferentialOperator differential_operator) const;
+
+            /**
+             * @brief Apply the Savitzky-Golay filter to estimate the selected differential operator
+             *     for a wrapped phase map.
+             * 
+             * @param differential_operator differential operator to be applied.
+             * @param dst image where the filter result is written.
+             * @param src image to which the filter is applied.
+             * 
+             * @return a Success or a WrongDataFormat if the argument sizes are inconsistent.
+             */
+            EPTlibError ApplyWrappedPhase(const DifferentialOperator differential_operator, Image<double> *dst, const Image<double> &src) const;
         private:
             /// Mask over which apply the filter.
             Shape window_;

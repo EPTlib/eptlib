@@ -32,6 +32,8 @@
 
 #include "eptlib/filter/savitzky_golay.h"
 
+#include <complex>
+
 #include "eptlib/linalg/linalg_householder.h"
 #include "eptlib/linalg/linalg_qr.h"
 #include "eptlib/linalg/linalg_util.h"
@@ -213,4 +215,97 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
 eptlib::filter::SavitzkyGolay::
 ~SavitzkyGolay() {
     return;
+}
+
+namespace {
+
+    using namespace std::literals::complex_literals;
+
+    // Compute the exponential e^{i * phi} for each element phi of a real-valued vector.
+    std::vector<std::complex<double> > ExpIVector(const std::vector<double> &phi) {
+        std::vector<std::complex<double> > exp_iphi(phi.size());
+        std::transform(phi.begin(), phi.end(), exp_iphi.begin(),
+            [](const double &phi) -> std::complex<double> {
+                std::exp(1.0i * phi);
+            }
+        );
+        return exp_iphi;
+    }
+
+}  //
+
+// SavitzkyGolay get the correct filter function for a wrapped phase map
+std::function<double(const std::vector<double>&)> eptlib::filter::SavitzkyGolay::
+GetFilterWrappedPhase(const eptlib::filter::DifferentialOperator differential_operator) const {
+    switch (differential_operator) {
+    case DifferentialOperator::Field:
+        return [&](const std::vector<double> &crop) -> double {
+            return std::log(this->ZeroOrderDerivative(ExpIVector(crop))).imag();
+        };
+    case DifferentialOperator::GradientX:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dx = this->FirstOrderDerivative(0, exp_icrop);
+            return (de_dx/e).imag();
+        };
+    case DifferentialOperator::GradientY:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dy = this->FirstOrderDerivative(1, exp_icrop);
+            return (de_dy/e).imag();
+        };
+    case DifferentialOperator::GradientZ:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dz = this->FirstOrderDerivative(2, exp_icrop);
+            return (de_dz/e).imag();
+        };
+    case DifferentialOperator::GradientXX:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dx = this->FirstOrderDerivative(0, exp_icrop);
+            std::complex<double> d2e_dx2 = this->SecondOrderDerivative(0, exp_icrop);
+            return (d2e_dx2/e - de_dx*de_dx/e/e).imag();
+        };
+    case DifferentialOperator::GradientYY:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dy = this->FirstOrderDerivative(1, exp_icrop);
+            std::complex<double> d2e_dy2 = this->SecondOrderDerivative(1, exp_icrop);
+            return (d2e_dy2/e - de_dy*de_dy/e/e).imag();
+        };
+    case DifferentialOperator::GradientZZ:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dz = this->FirstOrderDerivative(2, exp_icrop);
+            std::complex<double> d2e_dz2 = this->SecondOrderDerivative(2, exp_icrop);
+            return (d2e_dz2/e - de_dz*de_dz/e/e).imag();
+        };
+    case DifferentialOperator::Laplacian:
+        return [&](const std::vector<double> &crop) -> double {
+            auto exp_icrop = ExpIVector(crop);
+            std::complex<double> e = this->ZeroOrderDerivative(exp_icrop);
+            std::complex<double> de_dx = this->FirstOrderDerivative(0, exp_icrop);
+            std::complex<double> de_dy = this->FirstOrderDerivative(1, exp_icrop);
+            std::complex<double> de_dz = this->FirstOrderDerivative(2, exp_icrop);
+            std::complex<double> lapl_e = this->Laplacian(exp_icrop);
+            return (lapl_e/e - (de_dx*de_dx + de_dy*de_dy + de_dz*de_dz)/e/e).imag();
+        };
+    default:
+        return [ ](const std::vector<double> &crop) -> double {
+            return 0.0;
+        };
+    };
+}
+
+eptlib::EPTlibError eptlib::filter::SavitzkyGolay::
+ApplyWrappedPhase(const eptlib::filter::DifferentialOperator differential_operator, eptlib::Image<double> *dst, const eptlib::Image<double> &src) const {
+    auto filter = GetFilterWrappedPhase(differential_operator);
+    return MovingWindow(dst, src, window_, filter);
 }

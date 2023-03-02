@@ -248,7 +248,7 @@ PhaseEPTConvReact() {
         filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = sg_filter_.Apply(diff_op, &beta[d], *GetTRxPhase(0,0)); // ApplyWrappedPhase
+            error = sg_filter_.ApplyWrappedPhase(diff_op, &beta[d], *GetTRxPhase(0,0));
         } else {
             error = sg_filter_.Apply(diff_op, &beta[d], *GetTRxPhase(0,0));
         }
@@ -262,7 +262,7 @@ PhaseEPTConvReact() {
         filter::DifferentialOperator diff_op = filter::DifferentialOperator::GradientZZ;
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = sg_filter_.Apply(diff_op, &beta[2], *GetTRxPhase(0,0)); // ApplyWrappedPhase
+            error = sg_filter_.ApplyWrappedPhase(diff_op, &beta[2], *GetTRxPhase(0,0));
         } else {
             error = sg_filter_.Apply(diff_op, &beta[2], *GetTRxPhase(0,0));
         }

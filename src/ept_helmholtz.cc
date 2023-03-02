@@ -133,7 +133,7 @@ PhaseEPTHelm() {
     }
     // compute the laplacian
     if (PhaseIsWrapped() && !ComputeVariance()) {
-        sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0)); // ApplyWrappedPhase
+        sg_filter_.ApplyWrappedPhase(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
     } else if (!ComputeVariance()) {
         sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
     } else {
