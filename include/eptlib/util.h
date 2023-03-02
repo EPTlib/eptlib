@@ -198,7 +198,7 @@ namespace eptlib {
      * @return the maximum absolute value of all the elements in `v'.
      */
     template <typename T>
-    inline typename auto MaxAbs(const T &v) {
+    inline auto MaxAbs(const T &v) {
         using type = typename T::value_type;
         return std::abs(
             *std::max_element(v.begin(),v.end(),
@@ -219,7 +219,7 @@ namespace eptlib {
      * @return the minimum absolute value of all the elements in `v'.
      */
     template <typename T>
-    inline typename auto MinAbs(const T &v) {
+    inline auto MinAbs(const T &v) {
         using type = typename T::value_type;
         return std::abs(
             *std::min_element(v.begin(),v.end(),
