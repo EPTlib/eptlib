@@ -226,7 +226,7 @@ namespace {
         std::vector<std::complex<double> > exp_iphi(phi.size());
         std::transform(phi.begin(), phi.end(), exp_iphi.begin(),
             [](const double &phi) -> std::complex<double> {
-                std::exp(1.0i * phi);
+                return std::exp(1.0i * phi);
             }
         );
         return exp_iphi;
