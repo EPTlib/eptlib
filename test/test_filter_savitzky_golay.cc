@@ -243,3 +243,101 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
         }
     }
 }
+
+TEST(FilterSavitzkyGolayGTest,WrappedPhase) {
+    const double d0 = 1.0e-3;
+    const double d1 = 1.0e-3;
+    const double d2 = 1.0e-3;
+
+    eptlib::Shape window = eptlib::shapes::Cross(1,1,1);
+    eptlib::filter::SavitzkyGolay sg_filter(d0,d1,d2, window, 2);
+    std::vector<double> crop(window.GetVolume());
+    
+    size_t idx = 0;
+    for (size_t k = 0; k<window.GetSize(2); ++k) {
+        for (size_t j = 0; j<window.GetSize(1); ++j) {
+            for (size_t i = 0; i<window.GetSize(0); ++i) {
+                if (window(i, j, k)) {
+                    double x = i*d0;
+                    double y = j*d1;
+                    double z = k*d2;
+                    crop[idx] = std::arg(std::exp(std::complex<double>(0.0, x*x + y*y + z*z)));
+                    ++idx;
+                }
+            }
+        }
+    }
+
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::Field)(crop), crop[3], 1e-15);
+    
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientX)(crop), 2.0*d0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientY)(crop), 2.0*d1, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientZ)(crop), 2.0*d2, 1e-14);
+
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientXX)(crop), 2.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientYY)(crop), 2.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientZZ)(crop), 2.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian)(crop),  6.0, 1e-10);
+}
+
+TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApplyWrappedPhase) {
+    const size_t n0 = 10;
+    const size_t n1 = 10;
+    const size_t n2 = 10;
+
+    const double d0 = 1.0e-3;
+    const double d1 = 1.0e-3;
+    const double d2 = 1.0e-3;
+
+    eptlib::Image<double> constant_field (n0,n1,n2);
+    eptlib::Image<double> linear_field   (n0,n1,n2);
+    eptlib::Image<double> quadratic_field(n0,n1,n2);
+
+    for (int k = 0; k<n2; ++k) {
+        for (int j = 0; j<n1; ++j) {
+            for (int i = 0; i<n0; ++i) {
+                double x = i*d0;
+                double y = j*d1;
+                double z = k*d2;
+
+                constant_field (i,j,k) = 1.0;
+                linear_field   (i,j,k) = x + y + z;
+                quadratic_field(i,j,k) = x*x + y*y + z*z;
+            }
+        }
+    }
+
+    const eptlib::Shape window = eptlib::shapes::Cross(2,2,2);
+    const size_t degree = 3;
+    eptlib::filter::SavitzkyGolay sg_filter(d0,d1,d2, window, degree);
+
+    eptlib::Image<double> lapl_constant_field (n0,n1,n2);
+    eptlib::Image<double> lapl_linear_field   (n0,n1,n2);
+    eptlib::Image<double> lapl_quadratic_field(n0,n1,n2);
+
+    eptlib::EPTlibError error;
+
+    error = sg_filter.ApplyWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    error = sg_filter.ApplyWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    error = sg_filter.ApplyWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    for (int k = 0; k<n2; ++k) {
+        for (int j = 0; j<n1; ++j) {
+            for (int i = 0; i<n0; ++i) {
+                ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-10);
+                ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-10);
+                if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1 ||
+                    i==1 || i==n0-2 || j==1 || j==n1-2 || k==1 || k==n2-2) {
+                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-8);
+                } else {
+                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-8);
+                }
+            }
+        }
+    }
+}

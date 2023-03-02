@@ -240,7 +240,7 @@ GetFilterWrappedPhase(const eptlib::filter::DifferentialOperator differential_op
     switch (differential_operator) {
     case DifferentialOperator::Field:
         return [&](const std::vector<double> &crop) -> double {
-            return std::log(this->ZeroOrderDerivative(ExpIVector(crop))).imag();
+            return std::arg(this->ZeroOrderDerivative(ExpIVector(crop)));
         };
     case DifferentialOperator::GradientX:
         return [&](const std::vector<double> &crop) -> double {
