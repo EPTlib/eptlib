@@ -36,7 +36,6 @@ set(EPTLIB_SRC
     ept_helmholtz_chi2.cc
     ept_helmholtz.cc
     ept_interface.cc
-    finite_difference.cc
     shape.cc
     filter/savitzky_golay.cc
     io/io_hdf5.cc

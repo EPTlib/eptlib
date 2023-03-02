@@ -102,17 +102,21 @@ if(build_docs)
         set(DOCS_SRC
             include/eptlib/ept_convreact.h
             include/eptlib/ept_gradient.h
+            include/eptlib/ept_helmholtz_chi2.h
             include/eptlib/ept_helmholtz.h
             include/eptlib/ept_interface.h
             include/eptlib/ept_methods.h
-            include/eptlib/finite_difference.h
             include/eptlib/image.h
-            include/eptlib/median_filter.h
             include/eptlib/shape.h
             include/eptlib/util.h
+            include/eptlib/filter/moving_window.h
+            include/eptlib/filter/savitzky_golay.h
             include/eptlib/io/io_hdf5.h
             include/eptlib/io/io_toml.h
-            include/eptlib/io/io_util.h)
+            include/eptlib/io/io_util.h
+            include/eptlib/linalg/linalg_householder.h
+            include/eptlib/linalg/linalg_eq.h
+            include/eptlib/linalg/linalg_util.h)
         # set custom doxygen options
         set(DOXYGEN_OUTPUT_DIRECTORY docs)
         set(DOXYGEN_PROJECT_BRIEF "An open-source, extensible C++ library of electric properties tomography methods.")
