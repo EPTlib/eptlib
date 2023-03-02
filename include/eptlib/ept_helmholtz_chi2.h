@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -35,11 +35,8 @@
 
 #include "eptlib/ept_interface.h"
 
-#include <array>
 #include <vector>
 
-#include "eptlib/ept_helmholtz.h"
-#include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
@@ -54,67 +51,111 @@ namespace eptlib {
  * on unwrapped phase maps.
  */
 class EPTHelmholtzChi2 : public EPTInterface {
-public:
-    /**
-     * @brief Constructor
-     * 
-     * @param freq operative frequency of the MRI scanner.
-     * @param nn number of voxels in each direction.
-     * @param dd voxels sizes in each direction.
-     * @param shapes list of masks over which apply the finite difference scheme.
-     * @param degree degree of the interpolating polynomial for the finite
-     *     difference scheme (default: 2).
-     * 
-     * The number of Tx and Rx channels is fixed equal to one.
-     */
-    EPTHelmholtzChi2(const double freq,const std::array<int,NDIM> &nn,
-        const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes,
-        const int degree = 2);
-    /**
-     * @brief Virtual destructor.
-     */
-    virtual ~EPTHelmholtzChi2();
-    /**
-     * @brief Perform the Helmholtz-based EPT with pixel-wise optimised kernel shape.
-     * 
-     * @return an error index about the state of the tomography.
-     */
-    virtual EPTlibError Run() override;
-    /**
-     * @brief Get the result variance.
-     * 
-     * @param[out] var pointer to the variance destination.
-     * 
-     * @return a Success or MissingData error.
-     */
-    EPTlibError GetVar(Image<double> *var);
-    /**
-     * @brief Get the pixel-wise selected kernel shape.
-     * 
-     * @param[out] shape_index pointer to the selected shape destination.
-     * 
-     * @return a Success or MissingData error.
-     */
-    EPTlibError GetShapeIndex(Image<int> *shape_index);
-    /**
-     * Set/unset unphysical values as admittable.
-     * 
-     * @return if unphysical values are admittable.
-     */
-    bool ToggleUnphysicalValues();
-private:
-    /// Frequency of the MRI scanner.
-    double freq_;
-    /// List of masks over which apply the finite difference scheme.
-    std::vector<Shape> shapes_;
-    /// Degree of the interpolating polynomial for the finite difference scheme.
-    int degree_;
-    /// Quality map.
-    Image<double> var_;
-    /// Pixel-wise selected kernel shape.
-    Image<int> shape_index_;
-    /// Unphysical values flag.
-    bool unphysical_values_;
+    public:
+        /**
+         * @brief Constructor
+         * 
+         * @param n0 number of voxels along direction x.
+         * @param n1 number of voxels along direction y.
+         * @param n2 number of voxels along direction z.
+         * @param d0 resolution in meter along direction x.
+         * @param d1 resolution in meter along direction y.
+         * @param d2 resolution in meter along direction z.
+         * @param freq operative frequency of the MRI scanner.
+         * @param windows list of masks over which apply the finite difference scheme.
+         * @param degree degree of the interpolating polynomial for the finite
+         *     difference scheme (default: 2).
+         * @param admit_unphysical_values if true, unphysical results are admitted in the maps.
+         * 
+         * The number of Tx and Rx channels is fixed equal to one.
+        */
+        EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
+            const double d0, const double d1, const double d2,
+            const double freq, const std::vector<Shape> &windows,
+            const int degree = 2, const bool admit_unphysical_values = false);
+
+        /**
+         * @brief Virtual destructor.
+         */
+        virtual ~EPTHelmholtzChi2();
+
+        /**
+         * @brief Perform the Helmholtz-based EPT with pixel-wise optimised kernel shape.
+         * 
+         * @return an error index about the state of the tomography.
+         * 
+         * Only the phase-based approximation of Helmholtz-based EPT is implemented.
+         * The TRx phase must be provided.
+         */
+        virtual EPTlibError Run() override;
+
+        /**
+         * @brief Get the computed variance map.
+         * 
+         * @return reference of the pointer to the computed variance map.
+         */
+        inline std::unique_ptr<Image<double> >& GetVariance() {
+            return variance_;
+        }
+
+        /**
+         * @brief Check if the variance is set.
+         * 
+         * @return true if the variance is set.
+         * @return false if the variance is not set.
+         */
+        inline bool ThereIsVariance() const {
+            return variance_!=nullptr;
+        }
+
+        /**
+         * @brief Get the index map of the selected kernel shapes.
+         * 
+         * @return reference of the pointer to the index map.
+         */
+        inline std::unique_ptr<Image<int> >& GetIndex() {
+            return index_;
+        }
+
+        /**
+         * @brief Check if the index map is set.
+         * 
+         * @return true if the index map is set.
+         * @return false if the index map is not set.
+         */
+        inline bool ThereIsIndex() const {
+            return index_!=nullptr;
+        }
+
+        /**
+         * @brief Set/unset unphysical values as admittable.
+         * 
+         * @return if unphysical values are admittable.
+         */
+        inline bool ToggleAdmitUnphysicalValues() {
+            admit_unphysical_values_ = !admit_unphysical_values_;
+            return admit_unphysical_values_;
+        }
+
+        /**
+         * @brief Get the admit unphysical values flag.
+         * 
+         * @return the admit unphysical values flag.
+         */
+        inline bool AdmitUnphysicalValues() const {
+            return admit_unphysical_values_;
+        }
+    private:
+        /// List of masks over which apply the finite difference scheme.
+        std::vector<Shape> windows_;
+        /// Degree of the interpolating polynomial for the finite difference scheme.
+        int degree_;
+        /// Quality map.
+        std::unique_ptr<Image<double> > variance_;
+        /// Pixel-wise selected kernel shape.
+        std::unique_ptr<Image<int> > index_;
+        /// Unphysical values flag.
+        bool admit_unphysical_values_;
 };
 
 }  // namespace eptlib

@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -34,32 +34,47 @@
 
 #include "eptlib/io/io_toml.h"
 
-#include "eptlib/util.h"
-
-using namespace eptlib;
-using namespace eptlib::io;
+#include <string>
 
 TEST(IOtomlGTest,ReadFile) {
+    std::string fname = "test/input/test_input.toml";
+    const eptlib::io::IOtoml ifile(fname, eptlib::io::Mode::In);
+
+    char character;
     std::string string;
     int integer;
     double floating;
-    std::array<int,NDIM> array;
-    std::string var;
+    std::array<int, eptlib::N_DIM> array;
 
-    std::string fname = "test/input/test_input.toml";
-    IOtoml ifile(fname, Mode::In);
+    eptlib::EPTlibError error = ifile.GetValue(&character, "character");
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+    ASSERT_EQ(character, 'c');
 
-    ifile.GetValue<std::string>(string, "string");
-    ifile.GetValue<int>(integer,"integer");
-    ifile.GetValue<double>(floating,"floating");
-    ifile.GetArrayOf<int>(array,"array");
-    ifile.GetValue<std::string>(var,"group.var");
+    error = ifile.GetValue(&string, "string");
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+    ASSERT_STREQ(string.c_str(), "string");
+    
+    error = ifile.GetValue(&integer, "integer");
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+    ASSERT_EQ(integer, 5);
 
-    ASSERT_STREQ(string.c_str(),"string");
-    ASSERT_EQ(integer,5);
+    error = ifile.GetValue(&floating, "floating");
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
     ASSERT_DOUBLE_EQ(floating,0.5);
-    for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(array[d],d);
-    }
-    ASSERT_STREQ(var.c_str(),"var in group");
+
+    error = ifile.GetArrayOf(&array, "array");
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+    ASSERT_EQ(array[0], 0);
+    ASSERT_EQ(array[1], 1);
+    ASSERT_EQ(array[2], 2);
+
+    error = ifile.GetValue(&string,"group.var");
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+    ASSERT_STREQ(string.c_str(),"var in group");
+
+    error = ifile.GetValue(&string, "not-existent-var");
+    ASSERT_EQ(error, eptlib::EPTlibError::MissingData);
+
+    error = ifile.GetValue(&string, "integer");
+    ASSERT_EQ(error, eptlib::EPTlibError::WrongDataFormat);
 }

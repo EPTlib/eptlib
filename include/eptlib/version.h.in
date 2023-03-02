@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -35,6 +35,12 @@
 
 #include <string>
 
+#ifdef NDEBUG
+#   define EPTLIB_BUILD_TYPE "Release"
+#else
+#   define EPTLIB_BUILD_TYPE "Debug"
+#endif
+
 namespace eptlib {
 
 struct project {
@@ -57,7 +63,7 @@ struct compiler {
     inline static std::string str() {
         std::string target_name;
         if (target==32) {
-            target_name = "Intel";
+            target_name = "x86";
         } else if (target==64) {
             target_name = "AMD64";
         }
@@ -66,7 +72,7 @@ struct compiler {
 };
 
 struct build {
-    static constexpr char type[] = "@CMAKE_BUILD_TYPE@";
+    static constexpr char type[] = EPTLIB_BUILD_TYPE;
     static constexpr char time[] = "@BUILD_TIME@";
 
     inline static std::string str() {

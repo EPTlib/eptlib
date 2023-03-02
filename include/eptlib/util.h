@@ -33,172 +33,237 @@
 #ifndef EPTLIB_UTIL_H_
 #define EPTLIB_UTIL_H_
 
+#include <algorithm>
 #include <functional>
 #include <numeric>
 #include <string>
+#include <type_traits>
 
-/// Number of spatial dimensions.
-constexpr int NDIM = 3;
-/// Pi.
-constexpr double PI = 3.14159265358979323846;
-/// Speed of light [m/s].
-constexpr double C0 = 299792458.0;
-/// Vacuum permeability [H/m].
-constexpr double MU0 = 4.0e-7*PI;
-/// Vacuum permittivity [F/m].
-constexpr double EPS0 = 1.0/MU0/C0/C0;
+namespace eptlib {
 
-/**
- * Error codes that can be provided by EPTlib functions and methods.
- */
-enum EPTlibError {
-  /// Success.
-  Success = 0,
-  /// Missing data error.
-  MissingData,
-  /// Out of range error.
-  OutOfRange,
-  /// Wrong data format error.
-  WrongDataFormat,
-  /// Unknown error.
-  Unknown,
-};
-/**
- * Translates in a human-readable string the input EPTlibError symbol.
- *
- * @param error is an EPTlibError symbol.
- * @return the human-readable description of the input EPTlibError symbol.
- */
-const std::string ToString(const EPTlibError error);
+    /// Number of spatial dimensions.
+    constexpr int N_DIM = 3;
+    /// Pi.
+    constexpr double PI = 3.14159265358979323846;
+    /// Speed of light [m/s].
+    constexpr double C0 = 299792458.0;
+    /// Vacuum permeability [H/m].
+    constexpr double MU0 = 4.0e-7*PI;
+    /// Vacuum permittivity [F/m].
+    constexpr double EPS0 = 1.0/MU0/C0/C0;
 
-/**
- * Return the license boilerplate as a string.
- * 
- * @return the license boilerplate.
- */
-const std::string LicenseBoilerplate();
+    /**
+     * Error codes that can be provided by EPTlib functions and methods.
+     */
+    enum class EPTlibError {
+        /// Success.
+        Success = 0,
+        /// Missing data error.
+        MissingData,
+        /// Out of range error.
+        OutOfRange,
+        /// Wrong data format error.
+        WrongDataFormat,
+        /// Unknown error.
+        Unknown,
+    };
+    /**
+     * Translates in a human-readable string the input EPTlibError symbol.
+     *
+     * @param error is an EPTlibError symbol.
+     * @return the human-readable description of the input EPTlibError symbol.
+     */
+    inline const std::string ToString(const EPTlibError error) {
+        switch (error) {
+            case EPTlibError::Success:
+                return "Success";
+            case EPTlibError::MissingData:
+                return "Missing data";
+            case EPTlibError::OutOfRange:
+                return "Out of range";
+            case EPTlibError::WrongDataFormat:
+                return "Wrong data format";
+            case EPTlibError::Unknown:
+                return "Unknown error";
+        }
+        return "";
+    };
 
-/**
- * Compute the sum of all the elements in a container.
- * 
- * @tparam T container typename.
- * 
- * @param v container of elements.
- * 
- * @return the sum of all the elements in `v'.
- */
-template <typename T>
-inline typename T::value_type Sum(const T &v) {
-    using type = typename T::value_type;
-    return std::accumulate(v.begin(),v.end(),static_cast<type>(0),std::plus<type>());
-}
-/**
- * Compute the products of all the elements in a container.
- * 
- * @tparam T container typename.
- * 
- * @param v container of elements.
- * 
- * @return the products of all the elements in `v'.
- */
-template <typename T>
-inline typename T::value_type Prod(const T &v) {
-    using type = typename T::value_type;
-    return std::accumulate(v.begin(),v.end(),static_cast<type>(1),std::multiplies<type>());
-}
+    /**
+     * Return the license boilerplate as a string.
+     * 
+     * @return the license boilerplate.
+     */
+    inline const std::string LicenseBoilerplate() {
+        const std::string boilerplate = "MIT License\n"
+            "Copyright (c) 2020-2023  Alessandro Arduino\n"
+            "Istituto Nazionale di Ricerca Metrologica (INRiM)\n"
+            "\n"
+            "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
+            "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
+            "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
+            "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
+            "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
+            "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
+            "SOFTWARE.\n";
+        return boilerplate;
+    };
 
-/**
- * Translates from multi-index to index assuming the first index the fastest.
- * 
- * @tparam T,U iterator typenames.
- * 
- * @param ii multi-index to the voxel.
- * @param nn number of voxels in each direction.
- * 
- * @return the single index to the voxel.
- * 
- * Arguments `ii' and `nn' must have the methods `begin', `end', `size' and
- * `operator[]' (any sequence containers from STL works fine).
- * 
- * @deprecated
- */
-template <typename T, typename U>
-int MultiIdxToIdx(const T &ii, const U &nn);
-/**
- * Translates from index to multi-index assuming the first index the fastest.
- * 
- * @tparam T,U iterator typenames.
- * 
- * @param[out] ii multi-index to the voxel.
- * @param[in] idx single index to the voxel
- * @param[in] nn number of voxels in each direction.
- * 
- * Arguments `ii' and `nn' must have the methods `begin', `end', `size' and
- * `operator[]' (any sequence containers from STL works fine).
- * 
- * @decrecated
- */
-template <typename T, typename U>
-void IdxToMultiIdx(T &ii, int idx, const U &nn);
-
-// ---------------------------------------------------------------------------
-// -------------------------  Implementation detail  -------------------------
-// ---------------------------------------------------------------------------
-
-// Translates in a human-readable string the input EPTlibError symbol.
-inline const std::string ToString(const EPTlibError error) {
-    switch (error) {
-        case EPTlibError::Success:
-            return "Success";
-        case EPTlibError::MissingData:
-            return "Missing data";
-        case EPTlibError::OutOfRange:
-            return "Out of range";
-        case EPTlibError::WrongDataFormat:
-            return "Wrong data format";
-        case EPTlibError::Unknown:
-            return "Unknown error";
+    /**
+     * Compute the sum of all the elements in a container.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the sum of all the elements in `v'.
+     */
+    template <typename T>
+    inline typename T::value_type Sum(const T &v) {
+        using type = typename T::value_type;
+        return std::accumulate(v.begin(),v.end(),static_cast<type>(0),std::plus<type>());
     }
-    return "";
-}
 
-// Return the license boilerplate as a string.
-inline const std::string LicenseBoilerplate() {
-    const std::string boilerplate = "MIT License\n"
-        "Copyright (c) 2020-2022  Alessandro Arduino\n"
-        "Istituto Nazionale di Ricerca Metrologica (INRiM)\n"
-        "\n"
-        "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
-        "IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,\n"
-        "FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE\n"
-        "AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER\n"
-        "LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,\n"
-        "OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE\n"
-        "SOFTWARE.\n";
-    return boilerplate;
-}
+    /**
+     * Compute the products of all the elements in a container.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the products of all the elements in `v'.
+     */
+    template <typename T>
+    inline typename T::value_type Prod(const T &v) {
+        using type = typename T::value_type;
+        return std::accumulate(v.begin(),v.end(),static_cast<type>(1),std::multiplies<type>());
+    }
 
-// Multi-index to index
-template <typename T, typename U>
-int MultiIdxToIdx(const T &ii, const U &nn) {
-    assert(ii.size()==nn.size());
-    auto n_dim = ii.size();
-    int idx = 0;
-    for (decltype(n_dim) d = n_dim; d>0; --d) {
-        idx = ii[d-1] + idx*nn[d-1];
+    /**
+     * Compute the arithmetic mean of all the elements in a container.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the arithmetic mean of all the elements in `v'.
+     * 
+     * Works only if the container elements are floating points.
+     */
+    template <typename T, std::enable_if_t<std::is_floating_point_v<typename T::value_type>, bool> = true>
+    inline typename T::value_type ArithmeticMean(const T &v) {
+        using type = typename T::value_type;
+        return std::accumulate(v.begin(),v.end(),static_cast<type>(0),
+            [&] (const type &partial_sum, const type &new_element) -> type {
+                return partial_sum + new_element/static_cast<type>(v.size());
+            }
+        );
     }
-    return idx;
-}
-// Index to multi-index
-template <typename T, typename U>
-void IdxToMultiIdx(T &ii, int idx, const U &nn) {
-    assert(ii.size()==nn.size());
-    auto n_dim = ii.size();
-    for (decltype(n_dim) d = 0; d<n_dim; ++d) {
-        ii[d] = idx%nn[d];
-        idx = idx/nn[d];
+
+    /**
+     * Compute the algebraic maximum of all the elements in a containes.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the algebraic maximum of all the elements in `v'.
+     */
+    template <typename T>
+    inline typename T::value_type Max(const T &v) {
+        return *std::max_element(v.begin(),v.end());
     }
-    return;
-}
+
+    /**
+     * Compute the algebraic minimum of all the elements in a containes.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the algebraic minimum of all the elements in `v'.
+     */
+    template <typename T>
+    inline typename T::value_type Min(const T &v) {
+        return *std::min_element(v.begin(),v.end());
+    }
+
+    /**
+     * Compute the maximum absolute value of all the elements in a containes.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the maximum absolute value of all the elements in `v'.
+     */
+    template <typename T>
+    inline auto MaxAbs(const T &v) {
+        using type = typename T::value_type;
+        return std::abs(
+            *std::max_element(v.begin(),v.end(),
+                [] (const type &a, const type &b) -> bool {
+                    return std::abs(a) < std::abs(b);
+                }
+            )
+        );
+    }
+
+    /**
+     * Compute the minimum absolute value of all the elements in a containes.
+     * 
+     * @tparam T container typename.
+     * 
+     * @param v container of elements.
+     * 
+     * @return the minimum absolute value of all the elements in `v'.
+     */
+    template <typename T>
+    inline auto MinAbs(const T &v) {
+        using type = typename T::value_type;
+        return std::abs(
+            *std::min_element(v.begin(),v.end(),
+                [] (const type &a, const type &b) -> bool {
+                    return std::abs(a) < std::abs(b);
+                }
+            )
+        );
+    }
+
+    /**
+     * Move from indices i,j,k to index idx.
+     * 
+     * @param i index along direction x.
+     * @param j index along direction y.
+     * @param k index along direction z.
+     * @param n0 number of voxels along direction x.
+     * @param n1 number of voxels along direction y.
+     * 
+     * @return the index idx.
+     */
+    inline size_t IJKToIdx(const size_t i, const size_t j, const size_t k,
+    const size_t n0, const size_t n1) {
+        return i + n0*(j + n1*k);
+    }
+
+    /**
+     * Move from index idx to indices i,j,k.
+     * 
+     * @param[out] i index along direction x.
+     * @param[out] j index along direction y.
+     * @param[out] k index along direction z.
+     * @param[in] idx index of the voxel.
+     * @param[in] n0 number of voxels along direction x.
+     * @param[in] n1 number of voxels along direction y.
+     */
+    inline void IdxToIJK(size_t &i, size_t &j, size_t &k, size_t idx,
+    const size_t n0, const size_t n1) {
+        i = idx%n0;
+        idx /= n0;
+        j = idx%n1;
+        k = idx/n1;
+    }
+
+}  // eptlib
 
 #endif  // EPTLIB_UTIL_H_

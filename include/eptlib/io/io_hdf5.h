@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -43,7 +43,7 @@
 namespace eptlib {
 
 namespace io {
-    
+
     /**
      * Class for interacting with .h5 files.
      */
@@ -56,14 +56,37 @@ namespace io {
              * @param mode file opening mode.
              */
             IOh5(const std::string &fname, const Mode mode);
+            
             /**
              * Destructor.
              */
-            ~IOh5();
+            virtual ~IOh5();
+
+            /**
+             * @brief Get the address of the file.
+             * 
+             * @return the address of the file.
+             */
+            std::string GetFileName() const;
+
+            /**
+             * @brief Get the size of the file in byte.
+             * 
+             * @return the size of the file in byte.
+             */
+            size_t GetFileSize() const;
+
+            /**
+             * @brief Get a description of the file with address and size.
+             * 
+             * @return a string describing the file.
+             */
+            std::string GetFileDescription() const;
+
             /**
              * Read a dataset from the .h5 file.
              * 
-             * @tparam T scalar typename.
+             * @tparam T scalar typename. It can only be: float, double, int or long.
              * 
              * @param img pointer to the destination image.
              * @param url url of the dataset.
@@ -72,11 +95,12 @@ namespace io {
              * @return the IO state.
              */
             template <typename T>
-            State ReadDataset(Image<T> *img, const std::string &url, const std::string &urn);
+            State ReadDataset(Image<T> *img, const std::string &url, const std::string &urn) const;
+
             /**
              * Write a datates into the .h5 file.
              * 
-             * @tparam T scalar typename.
+             * @tparam T scalar typename. It can only be: float, double, int or long.
              * 
              * @param img source image.
              * @param url url of the dataset.
@@ -86,13 +110,29 @@ namespace io {
              */
             template <typename T>
             State WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const;
+
         private:
-            /// Address of the file to open.
-            std::string fname_;
-            /// File opening mode.
-            Mode mode_;
             /// HDF5 file.
             H5::H5File file_;
+            
+            /**
+             * Provide the uri, given url and urn.
+             * 
+             * @param url url
+             * @param urn urn
+             * 
+             * @return uri
+             */
+            std::string URI(const std::string &url, const std::string &urn) const;
+            
+            /**
+             * Create an hdf5 group, given an url.
+             * 
+             * @param url url
+             * 
+             * @return hdf5 group
+             */
+            H5::Group CreateGroup(const std::string &url) const;
     };
 
 }  // namespace io

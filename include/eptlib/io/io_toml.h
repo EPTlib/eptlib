@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -33,12 +33,12 @@
 #ifndef IO_TOML_H_
 #define IO_TOML_H_
 
-#include <array>
-
-#include <iostream>
-
 #include <toml/toml.h>
 
+#include <array>
+#include <string>
+
+#include "eptlib/util.h"
 #include "eptlib/io/io_util.h"
 
 namespace eptlib {
@@ -57,95 +57,88 @@ namespace io {
              * @param mode file opening mode.
              */
             IOtoml(const std::string &fname, const Mode mode);
+
             /**
              * Destructor.
              */
-            ~IOtoml();
+            virtual ~IOtoml();
+
             /**
              * Extract a value from the TOML file content.
              * 
              * @tparam T typename of the value.
              * 
-             * @param value where the value is stored.
-             * @param uri address to the array in the toml file.
+             * @param value pointer to the destination of the value.
+             * @param uri address to the value in the toml file.
              * 
              * @return a Success, a MissingData if the value is not found, or
-             *     a WrongDataFormat if the value is found but it is not `T'.
+             *     a WrongDataFormat if the value is found but it is not of type `T'.
              */
             template <typename T>
-            EPTlibError GetValue(T &value, const std::string &uri) const;
+            EPTlibError GetValue(T *value, const std::string &uri) const {
+                const toml::Value* x = content_.find(uri);
+                if (!x) {
+                    return EPTlibError::MissingData;
+                }
+                if (!x->is<T>()) {
+                    return EPTlibError::WrongDataFormat;
+                }
+                *value = x->as<T>();
+                return EPTlibError::Success;
+            }
+
             /**
-             * Extract a value from the TOML file content.
+             * Extract a `char' from the TOML file content.
+             * 
+             * @param value pointer to the destination of the value.
+             * @param uri address to the value in the toml file.
+             * 
+             * @return a Success, a MissingData if the value is not found, or
+             *     a WrongDataFormat if the value is found but it is not a `char'.
+             */
+            template <>
+            EPTlibError GetValue<char>(char *value, const std::string &uri) const {
+                std::string tmp;
+                EPTlibError error = GetValue<std::string>(&tmp, uri);
+                if (error==EPTlibError::Success) {
+                    *value = tmp[0];
+                }
+                return error;
+            }
+
+            /**
+             * Extract an array from the TOML file content.
              * 
              * @tparam T typename of the values in the array.
              * 
-             * @param array where the array is stored.
+             * @param array pointer to the destination of the array.
              * @param uri address to the array in the toml file.
              * 
-             * @return a Success, a MissingData if the value is not found, or
-             *     a WrongDataFormat if the value is found but it is not `T'.
+             * @return a Success, a MissingData if the array is not found, or
+             *     a WrongDataFormat if the array is found but its values are not of type `T'.
+             * 
+             * @deprecated
              */
             template <typename T>
-            EPTlibError GetArrayOf(std::array<T,NDIM> &array, const std::string &uri) const;
+            EPTlibError GetArrayOf(std::array<T,N_DIM> *array, const std::string &uri) const {
+                toml::Array a;
+                EPTlibError error = GetValue<toml::Array>(&a, uri);
+                if (error==EPTlibError::Success) {
+                    if (!a[0].is<T>()) {
+                        return EPTlibError::WrongDataFormat;
+                    }
+                    for (int d = 0; d<N_DIM; ++d) {
+                        (*array)[d] = a[d].as<T>();
+                    }
+                }
+                return error;
+            }
         private:
-            /// Address of the file to open.
-            std::string fname_;
-            /// File opening mode.
-            Mode mode_;
             /// TOML file.
             std::ifstream file_;
             /// TOML file content.
             toml::Value content_;
     };
-
-    // ---------------------------------------------------------------------------
-    // -------------------------  Implementation detail  -------------------------
-    // ---------------------------------------------------------------------------
-
-    // IOtoml get value
-    template <typename T>
-    EPTlibError IOtoml::
-    GetValue(T &value, const std::string &uri) const {
-        const toml::Value* x = content_.find(uri);
-        if (!x) {
-            return EPTlibError::MissingData;
-        }
-        if (!x->is<T>()) {
-            return EPTlibError::WrongDataFormat;
-        }
-        value = x->as<T>();
-        return EPTlibError::Success;
-    }
-    template <>
-    EPTlibError IOtoml::
-    GetValue<char>(char &value, const std::string &uri) const {
-        std::string tmp;
-        EPTlibError error = GetValue<std::string>(tmp, uri);
-        if (error==EPTlibError::Success) {
-            value = tmp[0];
-        }
-        return error;
-    }
-    // IOtoml get array
-    template <typename T>
-    EPTlibError IOtoml::
-    GetArrayOf(std::array<T,NDIM> &array, const std::string &uri) const {
-        const toml::Value* x = content_.find(uri);
-        if (!x) {
-            return EPTlibError::MissingData;
-        }
-        if (!x->is<toml::Array>()) {
-            return EPTlibError::WrongDataFormat;
-        }
-        const toml::Array& a = x->as<toml::Array>();
-        if (!a[0].is<T>()) {
-            return EPTlibError::WrongDataFormat;
-        }
-        for (int d = 0; d<NDIM; ++d) {
-            array[d] = a[d].as<T>();
-        }
-        return EPTlibError::Success;
-    }
 
 }  // io
 

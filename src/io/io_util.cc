@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -31,3 +31,29 @@
 *****************************************************************************/
 
 #include "eptlib/io/io_util.h"
+
+// Deduce the filename and the uri from a given address
+void eptlib::io::GetAddress(const std::string &address, std::string &fname, std::string &uri) {
+    size_t snip = 0;
+    size_t snap = address.find_last_of(":");
+    fname = address.substr(snip,snap);
+    snip = ++snap;
+    uri = address.substr(snip);
+    return;
+}
+
+std::string eptlib::io::BytesWithSuffix(size_t size) {
+    char prefixes[] = "KMGT";
+    std::string result;
+    if (size < 1024) {
+        result = std::to_string(size) + " bytes";
+    } else {
+        int i = -1;
+        while (size >= 1024 && i < 3) {
+            size >>= 10;
+            ++i;
+        }
+        result = std::to_string(size) + " " + prefixes[i] + "iB";
+    }
+    return result;
+}

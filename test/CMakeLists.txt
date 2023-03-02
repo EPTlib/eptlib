@@ -5,7 +5,7 @@
 #
 #  MIT License
 #
-#  Copyright (c) 2020-2022  Alessandro Arduino
+#  Copyright (c) 2020-2023  Alessandro Arduino
 #  Istituto Nazionale di Ricerca Metrologica (INRiM)
 #  Strada delle cacce 91, 10135 Torino
 #  ITALY
@@ -33,13 +33,17 @@
 set(EPTlib_TEST_SRC
     main.cc
     test_ept_interface.cc
-    test_finite_difference.cc
+    test_filter_moving_window.cc
+    test_filter_savitzky_golay.cc
+    test_image.cc
     test_io_hdf5.cc
     test_io_toml.cc
+    test_io_util.cc
     test_linalg_util.cc
     test_linalg_householder.cc
-    test_median_filter.cc
-    test_shape.cc)
+    test_shape.cc
+    test_util.cc
+)
 
 add_executable(EPTlib_test ${EPTlib_TEST_SRC})
 
