@@ -37,9 +37,10 @@
 
 #include <optional>
 
-#include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
+
+#include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
 
@@ -58,7 +59,7 @@ class EPTConvReact : public EPTInterface {
          * @param d1 resolution in meter along direction y.
          * @param d2 resolution in meter along direction z.
          * @param freq operative frequency of the MRI scanner.
-         * @param shape mask over which apply the finite difference scheme.
+         * @param window mask over which apply the finite difference scheme.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
          * 
@@ -66,7 +67,7 @@ class EPTConvReact : public EPTInterface {
          */
         EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
-            const double freq, const Shape &shape, const int degree = 2);
+            const double freq, const Shape &window, const int degree = 2);
 
         /**
          * Virtual destructor.
@@ -156,7 +157,7 @@ class EPTConvReact : public EPTInterface {
         /// Dirichlet condition of electric conductivity.
         double dirichlet_sigma_;
         /// Filter for the derivatives computation.
-        FDSavitzkyGolayFilter fd_filter_;
+        filter::SavitzkyGolay sg_filter_;
 
         /// The number of iterations to solve the linear system.
         std::ptrdiff_t solver_iterations_;

@@ -48,13 +48,13 @@ namespace {
 EPTConvReact::
 EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
-    const double freq, const Shape &shape, const int degree) :
+    const double freq, const Shape &window, const int degree) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, false),
     slice_index_(),
     artificial_diffusion_(),
     dirichlet_epsr_(1.0),
     dirichlet_sigma_(0.0),
-    fd_filter_(shape,degree),
+    sg_filter_(d0,d1,d2, window, degree),
     solver_iterations_(0),
     solver_residual_(0.0) {
     return;
@@ -85,15 +85,15 @@ namespace { // details
 
     template <typename Scalar>
     void FillDoF(std::vector<int> *dof, int *idx_dof, int *n_dof, int *n_dop,
-        const int n_dim, const size_t i2, const std::array<int,N_DIM> &step,
-        const std::vector<Scalar> &beta) {
+        const int n_dim, const size_t i2, const std::array<std::ptrdiff_t, N_DIM> &step,
+        const Image<Scalar> &beta) {
         int idx = step[2]*i2;
         for (size_t idx_out = 0; idx_out<step[2]; ++idx_out) {
-            if (beta[idx]==beta[idx]) {
+            if (beta(idx)==beta(idx)) {
                 // if beta is not a NaN, it could be a DoF...
                 (*dof)[(*idx_dof)++] = ++(*n_dof);
                 for (size_t d = 0; d<n_dim; ++d) {
-                    if (beta[idx+step[d]]!=beta[idx+step[d]] || beta[idx-step[d]]!=beta[idx-step[d]]) {
+                    if (beta(idx+step[d])!=beta(idx+step[d]) || beta(idx-step[d])!=beta(idx-step[d])) {
                         // ...unless it is near to a NaN
                         (*dof)[*idx_dof-1] = --(*n_dop);
                         --(*n_dof);
@@ -113,35 +113,36 @@ namespace { // details
 // EPTConvReact complete EPT
 EPTlibError EPTConvReact::
 CompleteEPTConvReact() {
-    const std::array<int,N_DIM> nn{nn_[0],nn_[1],nn_[2]};
-    const std::array<int,N_DIM> step{1, nn[0], nn[0]*nn[1]};
+    const std::array<std::ptrdiff_t, N_DIM> step{1, nn_[0], nn_[0]*nn_[1]};
     size_t n_dim = VolumeTomography() ? N_DIM : N_DIM-1;
     size_t n_vox = GetTRxPhase(0,0)->GetNVox();
     size_t n_out = sigma_->GetNVox();
     std::complex<double> dirichlet_x = 1.0/std::complex<double>(dirichlet_epsr_*EPS0, -dirichlet_sigma_/omega_);
     // compute the gradient
-    std::vector<std::complex<double> > tx_sens_c(n_vox);
-    std::array<std::vector<std::complex<double> >, N_DIM> beta;
+    Image<std::complex<double> > tx_sens_c(nn_[0], nn_[1], nn_[2]);
+    std::array<Image<std::complex<double> >, N_DIM> beta;
     for (size_t idx = 0; idx<n_vox; ++idx) {
         std::complex<double> exponent = std::complex<double>(0.0, 0.5 * GetTRxPhase(0,0)->At(idx));
-        tx_sens_c[idx] = GetTxSens(0)->At(idx) * std::exp(exponent);
+        tx_sens_c(idx) = GetTxSens(0)->At(idx) * std::exp(exponent);
     }
     for (size_t d = 0; d<n_dim; ++d) {
-        beta[d].resize(n_vox, ::nand);
-        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
-        EPTlibError error = fd_filter_.Apply(diff_op, beta[d].data(), tx_sens_c.data(), nn, dd_);
+        beta[d] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
+        beta[d].GetData().assign(n_vox, ::nand);
+        filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
+        EPTlibError error = sg_filter_.Apply(diff_op, &beta[d], tx_sens_c);
         if (error!=EPTlibError::Success) {
             return error;
         }
     }
     for (size_t idx = 0; idx<n_vox; ++idx) {
-        beta[0][idx] = beta[0][idx] - std::complex<double>(0.0, 1.0) * beta[1][idx];
-        beta[1][idx] = std::complex<double>(0.0, 1.0) * beta[0][idx];
+        beta[0](idx) = beta[0](idx) - std::complex<double>(0.0, 1.0) * beta[1](idx);
+        beta[1](idx) = std::complex<double>(0.0, 1.0) * beta[0](idx);
     }
     if (!VolumeTomography()) {
-        beta[2].resize(n_vox, ::nand);
-        DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
-        EPTlibError error = fd_filter_.Apply(diff_op, beta[2].data(), tx_sens_c.data(), nn, dd_);
+        beta[2] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
+        beta[2].GetData().assign(n_vox, ::nand);
+        filter::DifferentialOperator diff_op = filter::DifferentialOperator::GradientZZ;
+        EPTlibError error = sg_filter_.Apply(diff_op, &beta[2], tx_sens_c);
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -176,12 +177,12 @@ CompleteEPTConvReact() {
                 int jdx = idx+step[d];
                 int jdof = dof[jdx_out];
                 if (jdof > 0) {
-                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,beta[d][jdx]/2.0/dd_[d]));
+                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,beta[d](jdx)/2.0/dd_[d]));
                     if (ThereIsArtificialDiffusion()) {
                         A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, jdof-1, -artificial_diffusion_.value()/dd_[d]/dd_[d]));
                     }
                 } else {
-                    b[idof-1] += -dirichlet_x*beta[d][jdx]/2.0/dd_[d];
+                    b[idof-1] += -dirichlet_x*beta[d](jdx)/2.0/dd_[d];
                     if (ThereIsArtificialDiffusion()) {
                         b[idof-1] += dirichlet_x*artificial_diffusion_.value()/dd_[d]/dd_[d];
                     }
@@ -190,22 +191,22 @@ CompleteEPTConvReact() {
                 jdx = idx-step[d];
                 jdof = dof[jdx_out];
                 if (jdof > 0) {
-                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,-beta[d][jdx]/2.0/dd_[d]));
+                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,-beta[d](jdx)/2.0/dd_[d]));
                     if (ThereIsArtificialDiffusion()) {
                         A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, jdof-1, -artificial_diffusion_.value()/dd_[d]/dd_[d]));
                     }
                 } else {
-                    b[idof-1] += dirichlet_x*beta[d][jdx]/2.0/dd_[d];
+                    b[idof-1] += dirichlet_x*beta[d](jdx)/2.0/dd_[d];
                     if (ThereIsArtificialDiffusion()) {
                         b[idof-1] += dirichlet_x*artificial_diffusion_.value()/dd_[d]/dd_[d];
                     }
                 }
             }
             if (!VolumeTomography()) {
-                A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,idof-1,beta[2][idx]));
+                A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,idof-1,beta[2](idx)));
             }
             // forcing term
-            b[idof-1] += -omega_*omega_*MU0*tx_sens_c[idx];
+            b[idof-1] += -omega_*omega_*MU0*tx_sens_c(idx);
         }
     }
     A.setFromTriplets(A_trip.begin(),A_trip.end());
@@ -234,35 +235,36 @@ CompleteEPTConvReact() {
 // EPTConvReact phase-based EPT
 EPTlibError EPTConvReact::
 PhaseEPTConvReact() {
-    const std::array<int,N_DIM> nn{nn_[0],nn_[1],nn_[2]};
-    const std::array<int,N_DIM> step{1, nn[0], nn[0]*nn[1]};
+    const std::array<std::ptrdiff_t, N_DIM> step{1, nn_[0], nn_[0]*nn_[1]};
     size_t n_dim = VolumeTomography() ? N_DIM : N_DIM-1;
     size_t n_vox = GetTRxPhase(0,0)->GetNVox();
     size_t n_out = sigma_->GetNVox();
     double dir_x = 1.0/dirichlet_sigma_;
     // compute the gradient
-    std::array<std::vector<double>, N_DIM> beta;
+    std::array<Image<double>, N_DIM> beta;
     for (size_t d = 0; d<n_dim; ++d) {
-        beta[d].resize(n_vox, ::nand);
-        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
+        beta[d] = Image<double>(nn_[0], nn_[1], nn_[2]);
+        beta[d].GetData().assign(n_vox, ::nand);
+        filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = fd_filter_.ApplyWrappedPhase(diff_op, beta[d].data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+            error = sg_filter_.Apply(diff_op, &beta[d], *GetTRxPhase(0,0)); // ApplyWrappedPhase
         } else {
-            error = fd_filter_.Apply(diff_op, beta[d].data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+            error = sg_filter_.Apply(diff_op, &beta[d], *GetTRxPhase(0,0));
         }
         if (error!=EPTlibError::Success) {
             return error;
         }
     }
     if (!VolumeTomography()) {
-        beta[2].resize(n_vox, ::nand);
-        DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
+        beta[2] = Image<double>(nn_[0], nn_[1], nn_[2]);
+        beta[2].GetData().assign(n_vox, ::nand);
+        filter::DifferentialOperator diff_op = filter::DifferentialOperator::GradientZZ;
         EPTlibError error;
         if (PhaseIsWrapped()) {
-            error = fd_filter_.ApplyWrappedPhase(diff_op, beta[2].data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+            error = sg_filter_.Apply(diff_op, &beta[2], *GetTRxPhase(0,0)); // ApplyWrappedPhase
         } else {
-            error = fd_filter_.Apply(diff_op, beta[2].data(), GetTRxPhase(0,0)->GetData().data(), nn, dd_);
+            error = sg_filter_.Apply(diff_op, &beta[2], *GetTRxPhase(0,0));
         }
         if (error!=EPTlibError::Success) {
             return error;
@@ -301,12 +303,12 @@ PhaseEPTConvReact() {
                     int jdx = idx+sides[s]*step[d];
                     int jdof = dof[jdx_out];
                     // convection
-                    if (beta[d][idx]*beta[d][jdx]>0) {
-                        if (sides[s]*beta[d][idx]>0) {
-                            double A_tmp = sides[s]*beta[d][idx]/dd_[d];
+                    if (beta[d](idx)*beta[d](jdx)>0) {
+                        if (sides[s]*beta[d](idx)>0) {
+                            double A_tmp = sides[s]*beta[d](idx)/dd_[d];
                             A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,A_tmp));
                         } else {
-                            double A_tmp = sides[s]*beta[d][jdx]/dd_[d];
+                            double A_tmp = sides[s]*beta[d](jdx)/dd_[d];
                             if (jdof > 0) {
                                 A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,A_tmp));
                             } else {
@@ -314,9 +316,9 @@ PhaseEPTConvReact() {
                             }
                         }
                     } else {
-                        double A_tmp = sides[s]*beta[d][idx]/dd_[d]/2.0;
+                        double A_tmp = sides[s]*beta[d](idx)/dd_[d]/2.0;
                         A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,A_tmp));
-                        A_tmp = sides[s]*beta[d][jdx]/dd_[d]/2.0;
+                        A_tmp = sides[s]*beta[d](jdx)/dd_[d]/2.0;
                         if (jdof > 0) {
                             A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,A_tmp));
                         } else {
@@ -334,7 +336,7 @@ PhaseEPTConvReact() {
                 }
             }
             if (!VolumeTomography()) {
-                A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,beta[2][idx]));
+                A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,beta[2](idx)));
             }
             // forcing term
             b[idof-1] += 2*omega_*MU0;
