@@ -39,6 +39,7 @@
 #include <Eigen/Sparse>
 
 using namespace eptlib;
+using namespace std::literals::complex_literals;
 
 namespace {
     static double nand = std::numeric_limits<double>::quiet_NaN();
@@ -49,7 +50,7 @@ namespace {
 EPTGradient::
 EPTGradient(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
-    const double freq, const Shape &shape, const size_t n_tx_ch,
+    const double freq, const Shape &window, const size_t n_tx_ch,
     const int degree, const EPTGradientRun run_mode) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, n_tx_ch,1, false),
     slice_index_(),
@@ -57,7 +58,7 @@ EPTGradient(const size_t n0, const size_t n1, const size_t n2,
     lambda_(0.0),
     gradient_tolerance_(0.0),
     mask_(0),
-    fd_filter_(shape,degree),
+    sg_filter_(d0,d1,d2, window, degree),
     run_mode_(run_mode),
     epsc_(0),
     g_plus_(0),
@@ -101,15 +102,17 @@ Run() {
             g_z_.assign(n_out, 0.0);
         }
         // For each transmit channel as reference...
-        size_t m2 = fd_filter_.GetShape().GetSize(2);
+        size_t m2 = sg_filter_.GetWindow().GetSize(2);
         size_t r2 = m2/2;
-        size_t n_int = VolumeTomography() ? n_out : n_out*m2;
+        std::array<size_t, N_DIM> nn{nn_[0], nn_[1], VolumeTomography() ? nn_[2] : m2};
+        size_t n_int = nn[0]*nn[1]*nn[2];
         std::vector<double> totweight(n_out, 0.0);
         for (size_t tx_ch_ref = 0; tx_ch_ref<n_tx_ch_; ++tx_ch_ref) {
             // ...allocate memory for auxiliary quantities
-            std::array<std::vector<double>, N_DIM> grad_phi0;
+            std::array<Image<double>, N_DIM> grad_phi0;
             for (size_t d = 0; d<N_DIM; ++d) {
-                grad_phi0[d].assign(n_int, ::nand);
+                grad_phi0[d] = Image<double>(nn[0], nn[1], nn[2]);
+                grad_phi0[d].GetData().assign(n_int, ::nand);
             }
             std::vector<std::complex<double> > g_plus(n_int, ::nancd);
             std::vector<std::complex<double> > g_z   (n_int, ::nancd);
@@ -165,7 +168,7 @@ namespace { //details
     void FillLocalMatrix(Eigen::MatrixXd *A, Eigen::VectorXd *b,
         const std::vector<std::vector<std::complex<double> > > &field_crop,
         const std::vector<std::complex<double> > &field_mid_values,
-        const FDSavitzkyGolayFilter &fd_filter,
+        const filter::SavitzkyGolay &sg_filter,
         const std::array<double,N_DIM> &dd, const int tx_ch, const bool is_2d) {
         int n_col = is_2d?6:9;
         *A = Eigen::MatrixXd::Zero(2*tx_ch,n_col);
@@ -174,11 +177,11 @@ namespace { //details
         for (int itx = 0; itx<tx_ch; ++itx) {
             int row = 2*itx;
             // ...laplacian
-            std::complex<double> tmp = fd_filter.Laplacian(field_crop[itx],dd);
+            std::complex<double> tmp = sg_filter.Laplacian(field_crop[itx]);
             (*b)[row  ] = tmp.real();
             (*b)[row+1] = tmp.imag();
             // ...grad_x
-            tmp = fd_filter.FirstOrder(0,field_crop[itx],dd);
+            tmp = sg_filter.FirstOrderDerivative(0, field_crop[itx]);
             (*A)(row  , col_phi    ) =  tmp.imag()*2.0;
             (*A)(row+1, col_phi    ) = -tmp.real()*2.0;
             (*A)(row  , col_gplus  ) =  tmp.real();
@@ -186,7 +189,7 @@ namespace { //details
             (*A)(row  , col_gplus+1) = -tmp.imag();
             (*A)(row+1, col_gplus+1) =  tmp.real();
             // ...grad_y
-            tmp = fd_filter.FirstOrder(1,field_crop[itx],dd);
+            tmp = sg_filter.FirstOrderDerivative(1, field_crop[itx]);
             (*A)(row  , col_phi+1  )  =  tmp.imag()*2.0;
             (*A)(row+1, col_phi+1  )  = -tmp.real()*2.0;
             (*A)(row  , col_gplus  ) +=  tmp.imag();
@@ -195,7 +198,7 @@ namespace { //details
             (*A)(row+1, col_gplus+1) +=  tmp.imag();
             // ...grad_z
             if (!is_2d) {
-                tmp = fd_filter.FirstOrder(2,field_crop[itx],dd);
+                tmp = sg_filter.FirstOrderDerivative(2, field_crop[itx]);
                 (*A)(row  , col_phi+2) =  tmp.imag()*2.0;
                 (*A)(row+1, col_phi+2) = -tmp.real()*2.0;
                 (*A)(row  , col_gz   ) =  tmp.real();
@@ -238,12 +241,12 @@ namespace { //details
 
 // Perform the pixel-by-pixel recovery
 void EPTGradient::
-LocalRecovery(std::array<std::vector<double>,N_DIM> *grad_phi0,
+LocalRecovery(std::array<Image<double>, N_DIM> *grad_phi0,
     std::vector<std::complex<double> > *g_plus,
     std::vector<std::complex<double> > *g_z,
     std::vector<std::complex<double> > *theta,
     const int iref) {
-    size_t r2 = fd_filter_.GetShape().GetSize(2)/2;
+    size_t r2 = sg_filter_.GetWindow().GetSize(2)/2;
     if (!VolumeTomography()) {
         for (size_t i2 = slice_index_.value()-r2; i2<=slice_index_.value()+r2; ++i2) {
             LocalRecoverySlice(grad_phi0,g_plus,g_z,theta,iref,i2);
@@ -258,21 +261,22 @@ LocalRecovery(std::array<std::vector<double>,N_DIM> *grad_phi0,
 
 // Perform pixel-by-pixel recovery in a slice.
 void EPTGradient::
-LocalRecoverySlice(std::array<std::vector<double>,N_DIM> *grad_phi0,
+LocalRecoverySlice(std::array<Image<double>, N_DIM> *grad_phi0,
     std::vector<std::complex<double> > *g_plus,
     std::vector<std::complex<double> > *g_z,
     std::vector<std::complex<double> > *theta,
     const int iref, const int i2) {
+    const Shape& window = sg_filter_.GetWindow();
     std::array<int, N_DIM> rr;
     for (size_t d = 0; d<N_DIM; ++d) {
-        rr[d] = fd_filter_.GetShape().GetSize(d)/2;
+        rr[d] = window.GetSize(d)/2;
     }
     std::array<size_t, N_DIM> ii;
     std::array<size_t, N_DIM> m_inc;
-    size_t m_vox = fd_filter_.GetShape().GetNVox();
+    size_t m_vox = window.GetNVox();
     m_inc[0] = 1;
-    m_inc[1] = nn_[0]-fd_filter_.GetShape().GetSize(0);
-    m_inc[2] = nn_[0]*(nn_[1]-fd_filter_.GetShape().GetSize(1));
+    m_inc[1] = nn_[0] - window.GetSize(0);
+    m_inc[2] = nn_[0] * (nn_[1] - window.GetSize(1));
     ii[2] = i2;
     for (ii[1] = rr[1]; ii[1]<nn_[1]-rr[1]; ++ii[1]) {
         for (ii[0] = rr[0]; ii[0]<nn_[0]-rr[0]; ++ii[0]) {
@@ -280,7 +284,7 @@ LocalRecoverySlice(std::array<std::vector<double>,N_DIM> *grad_phi0,
             std::vector<std::vector<std::complex<double> > > field_crop(n_tx_ch_);
             std::vector<std::complex<double> > field_mid_values(n_tx_ch_, 0.0);
             for (int tx_ch = 0; tx_ch<n_tx_ch_; ++tx_ch) {
-                field_crop[tx_ch].assign(fd_filter_.GetShape().GetVolume(), 0.0);
+                field_crop[tx_ch].assign(window.GetVolume(), 0.0);
             }
             // inner loop over the kernel voxels
             int idx_f = 0;
@@ -295,7 +299,7 @@ LocalRecoverySlice(std::array<std::vector<double>,N_DIM> *grad_phi0,
                                 field_mid_values[tx_ch] = GetTxSens(tx_ch)->At(idx_g) * std::exp(exponent);
                             }
                         }
-                        if (fd_filter_.GetShape()(idx_l)) {
+                        if (window(idx_l)) {
                             // set the field value
                             for (int tx_ch = 0; tx_ch<n_tx_ch_; ++tx_ch) {
                                 std::complex<double> exponent = std::complex<double>(0.0, GetTRxPhase(tx_ch,0)->At(idx_g) - GetTRxPhase(iref,0)->At(idx_g));
@@ -313,7 +317,7 @@ LocalRecoverySlice(std::array<std::vector<double>,N_DIM> *grad_phi0,
             // fill the matrix
             Eigen::MatrixXd A;
             Eigen::VectorXd b;
-            ::FillLocalMatrix(&A,&b, field_crop,field_mid_values, fd_filter_,dd_,n_tx_ch_,!VolumeTomography());
+            ::FillLocalMatrix(&A,&b, field_crop,field_mid_values, sg_filter_,dd_,n_tx_ch_,!VolumeTomography());
             // solve the system
             int idx = ii[0] + nn_[0]*ii[1];
             if (!VolumeTomography()) {
@@ -321,9 +325,9 @@ LocalRecoverySlice(std::array<std::vector<double>,N_DIM> *grad_phi0,
             } else {
                 idx += nn_[0]*nn_[1]*ii[2];
             }
-            ::SolveLocalSystem(&((*grad_phi0)[0][idx]),&((*grad_phi0)[1][idx]),
-                &((*grad_phi0)[2][idx]),&((*g_plus)[idx]),&((*g_z)[idx]),
-                &((*theta)[idx]), A,b, !VolumeTomography());
+            ::SolveLocalSystem(&((*grad_phi0)[0](idx)), &((*grad_phi0)[1](idx)),
+                &((*grad_phi0)[2](idx)), &((*g_plus)[idx]), &((*g_z)[idx]),
+                &((*theta)[idx]), A, b, !VolumeTomography());
         }
     }
     return;
@@ -335,36 +339,35 @@ LocalRecoverySlice(std::array<std::vector<double>,N_DIM> *grad_phi0,
 // Estimate the complex permittivity from theta local recovery.
 EPTlibError EPTGradient::
 Theta2Epsc(std::vector<std::complex<double> > *theta,
-    const std::array<std::vector<double>,N_DIM> &grad_phi0,
+    const std::array<Image<double>, N_DIM> &grad_phi0,
     const std::vector<std::complex<double> > &g_plus,
     const std::vector<std::complex<double> > &g_z) {
     int n_dim = VolumeTomography() ? 3 : 2;
-    int r2 = fd_filter_.GetShape().GetSize(2);
-    std::array<int,N_DIM> nn{nn_[0], nn_[1], VolumeTomography() ? nn_[2] : r2};
+    size_t m2 = sg_filter_.GetWindow().GetSize(2);
+    std::array<size_t, N_DIM> nn{nn_[0], nn_[1], VolumeTomography() ? nn_[2] : m2};
     int n_vox = nn[0]*nn[1]*nn[2];
-    int offset = VolumeTomography() ? 0 : nn[0]*nn[1]*(r2/2);
+    int offset = VolumeTomography() ? 0 : nn[0]*nn[1]*(m2/2);
     // grad_phi0 laplacian...
     for (int d = 0; d<n_dim; ++d) {
-        std::vector<double> lapl_phi0(n_vox);
-        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
-        EPTlibError error = fd_filter_.Apply(diff_op,lapl_phi0.data(),
-            grad_phi0[d].data(),nn,dd_);
+        Image<double> lapl_phi0(nn[0], nn[1], nn[2]);
+        filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
+        EPTlibError error = sg_filter_.Apply(diff_op, &lapl_phi0, grad_phi0[d]);
         if (error!=EPTlibError::Success) {
             return error;
         }
         std::transform(theta->begin()+offset,
             theta->end()-offset,
-            lapl_phi0.begin()+offset,
+            lapl_phi0.GetData().begin()+offset,
             theta->begin()+offset,
             [](const std::complex<double> &a,const double &b)->std::complex<double>{
-                return a + std::complex<double>(0.0,b);
+                return a + 1.0i*b;
             });
     }
     // grad_phi0 magnitude...
     for (int d = 0; d<n_dim; ++d) {
         std::vector<double> tmp(n_vox);
-        std::transform(grad_phi0[d].begin()+offset,
-            grad_phi0[d].end()-offset,
+        std::transform(grad_phi0[d].GetData().begin()+offset,
+            grad_phi0[d].GetData().end()-offset,
             tmp.begin()+offset,
             [](const double &a)->double{
                 return a*a;
@@ -380,8 +383,8 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
     // grad_phi0, g inner product...
     std::vector<std::complex<double> > tmp(n_vox);
     // ...component 0
-    std::transform(grad_phi0[0].begin()+offset,
-        grad_phi0[0].end()-offset,
+    std::transform(grad_phi0[0].GetData().begin()+offset,
+        grad_phi0[0].GetData().end()-offset,
         g_plus.begin()+offset,
         tmp.begin()+offset,
         [](const double &a,const std::complex<double> &b)->std::complex<double>{
@@ -393,8 +396,8 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
         theta->begin()+offset,
         std::minus<std::complex<double> >());
     // ...component 1
-    std::transform(grad_phi0[1].begin()+offset,
-        grad_phi0[1].end()-offset,
+    std::transform(grad_phi0[1].GetData().begin()+offset,
+        grad_phi0[1].GetData().end()-offset,
         g_plus.begin()+offset,
         tmp.begin()+offset,
         [](const double &a,const std::complex<double> &b)->std::complex<double>{
@@ -407,8 +410,8 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
         std::minus<std::complex<double> >());
     if (VolumeTomography()) {
         // ...component 2
-        std::transform(grad_phi0[2].begin()+offset,
-            grad_phi0[2].end()-offset,
+        std::transform(grad_phi0[2].GetData().begin()+offset,
+            grad_phi0[2].GetData().end()-offset,
             g_z.begin()+offset,
             tmp.begin()+offset,
             [](const double &a,const std::complex<double> &b)->std::complex<double>{

@@ -42,9 +42,10 @@
 
 #include <boost/dynamic_bitset.hpp>
 
-#include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
+
+#include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
 
@@ -87,7 +88,7 @@ class EPTGradient : public EPTInterface {
          * @param d1 resolution in meter along direction y.
          * @param d2 resolution in meter along direction z.
          * @param freq operative frequency of the MRI scanner.
-         * @param shape mask over which apply the finite difference scheme.
+         * @param window mask over which apply the finite difference scheme.
          * @param n_tx_ch number of transmit channels.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
@@ -97,7 +98,7 @@ class EPTGradient : public EPTInterface {
          */
         EPTGradient(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
-            const double freq, const Shape &shape, const size_t n_tx_ch,
+            const double freq, const Shape &window, const size_t n_tx_ch,
             const int degree = 2, const EPTGradientRun run_mode = EPTGradientRun::FULL);
 
         /**
@@ -255,7 +256,7 @@ class EPTGradient : public EPTInterface {
         /// Mask of the homogeneous regions (used if seed points are unset).
         boost::dynamic_bitset<> mask_;
         /// Filter for the derivative computation.
-        FDSavitzkyGolayFilter fd_filter_;
+        filter::SavitzkyGolay sg_filter_;
         /// Gradient EPT run flag.
         EPTGradientRun run_mode_;
 
@@ -275,21 +276,21 @@ class EPTGradient : public EPTInterface {
 
         /// Perform the pixel-by-pixel recovery.
         void LocalRecovery(
-            std::array<std::vector<double>,N_DIM> *grad_phi0,
+            std::array<Image<double>, N_DIM> *grad_phi0,
             std::vector<std::complex<double> > *g_plus,
             std::vector<std::complex<double> > *g_z,
             std::vector<std::complex<double> > *theta,
             const int iref);
         /// Perform pixel-by-pixel recovery in a slice.
         void LocalRecoverySlice(
-            std::array<std::vector<double>,N_DIM> *grad_phi0,
+            std::array<Image<double>, N_DIM> *grad_phi0,
             std::vector<std::complex<double> > *g_plus,
             std::vector<std::complex<double> > *g_z,
             std::vector<std::complex<double> > *theta,
             const int iref, const int i2);
         /// Estimate the complex permittivity from theta local recovery.
         EPTlibError Theta2Epsc(std::vector<std::complex<double> > *theta,
-            const std::array<std::vector<double>,N_DIM> &grad_phi0,
+            const std::array<Image<double>, N_DIM> &grad_phi0,
             const std::vector<std::complex<double> > &g_plus,
             const std::vector<std::complex<double> > &g_z);
         /// Select the degrees of freedom.
