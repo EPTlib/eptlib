@@ -262,7 +262,6 @@ namespace filter {
             template <typename Scalar>
             inline double ComputeVariance(const DifferentialOperator differential_operator, const std::vector<Scalar> &crop) const {
                 const size_t n_row = residuals_.size();
-                const size_t n_col = residuals_[0].size();
                 std::vector<Scalar> residual(n_row, 0.0);
                 for (size_t k = 0; k<n_row; ++k) {
                     for (size_t row = 0; row<n_row; ++row) {
