@@ -59,10 +59,20 @@ target_include_directories(EPTlib
         ${PROJECT_SOURCE_DIR}/src)
 
 target_link_libraries(EPTlib PRIVATE Eigen3::Eigen)
+
 if(HDF5_LIBRARIES)
     target_link_libraries(EPTlib PUBLIC ${HDF5_LIBRARIES})
 else()
     target_link_libraries(EPTlib PUBLIC hdf5 hdf5_cpp)
+endif()
+
+if(OpenMP_FOUND)
+    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
+        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -openmp:llvm")
+    else()
+        target_link_libraries(EPTlib PUBLIC OpenMP::OpenMP_CXX)
+    endif()
 endif()
 
 target_compile_features(EPTlib PUBLIC cxx_std_17)

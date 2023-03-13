@@ -77,6 +77,13 @@ include_directories("${Boost_INCLUDE_DIRS}")
 # eigen3
 VerboseFindPackage(Eigen3 REQUIRED)
 
+# openmp
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    VerboseFindPackage(OpenMP)
+else()
+    VerboseFindPackage(OpenMP 3.0)
+endif()
+
 # Enable testing with GoogleTest
 include(GoogleTest)
 VerboseFindPackage(GTest)
@@ -136,7 +143,9 @@ if(build_docs)
 endif(build_docs)
 
 # ----- Installing -----
-include(InstallRequiredSystemLibraries)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    include(InstallRequiredSystemLibraries)
+endif()
 
 set(CMAKE_INSTALL_MFC_LIBRARIES ON)
 

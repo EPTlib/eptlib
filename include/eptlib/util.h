@@ -34,6 +34,7 @@
 #define EPTLIB_UTIL_H_
 
 #include <algorithm>
+#include <complex>
 #include <functional>
 #include <numeric>
 #include <string>

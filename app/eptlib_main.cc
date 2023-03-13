@@ -45,6 +45,8 @@
 
 #include "eptlib_main.h"
 
+#include <omp.h>
+
 #define LOADMANDATORY(what,io_toml,data,T) { \
     EPTlibError MACRO_error = io_toml->what<T>(&data.first,data.second); \
     if (MACRO_error!=EPTlibError::Success) { \
@@ -189,6 +191,7 @@ int main(int argc, char **argv) {
         cout<<"FATAL ERROR in config file: "<<e.what()<<endl;
         return 1;
     }
+    cout<<"Number of available threads: "<<omp_get_max_threads()<<endl;
     // declare the input variables
     //   mandatory input
     cfgdata<string> title; title.second = "title";

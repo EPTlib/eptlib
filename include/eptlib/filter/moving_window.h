@@ -71,6 +71,7 @@ namespace filter {
         const size_t r1 = m1/2;
         const size_t r2 = m2/2;
         // loop over the destination voxels
+        #pragma omp parallel for collapse(3)
         for (size_t i2 = r2; i2<n2-r2; ++i2) {
             for (size_t i1 = r1; i1<n1-r1; ++i1) {
                 for (size_t i0 = r0; i0<n0-r0; ++i0) {
@@ -88,7 +89,7 @@ namespace filter {
                         }
                     }
                     // apply the filter
-                    dst->At(i0, i1, i2) = filter(src_crop);
+                    dst->At(i0, i1, i2) = std::invoke(filter, src_crop);
                 }
             }
         }

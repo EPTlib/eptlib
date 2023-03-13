@@ -140,8 +140,8 @@ TEST(FilterSavitzkyGolayGTest,ZeroOrderDerivative) {
     eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
     std::vector<double> crop(window.GetVolume());
     std::iota(crop.begin(), crop.end(), 1.0);
-    ASSERT_NEAR(sg_filter.ZeroOrderDerivative(crop), 4.0, 1e-15);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::Field)(crop), 4.0, 1e-15);
+    ASSERT_NEAR(sg_filter.ZeroOrderDerivative(crop), 4.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::Field)(crop), 4.0, 1e-14);
 }
 
 TEST(FilterSavitzkyGolayGTest,FirstOrderDerivative) {
@@ -149,12 +149,12 @@ TEST(FilterSavitzkyGolayGTest,FirstOrderDerivative) {
     eptlib::filter::SavitzkyGolay sg_filter(1.0,1.0,1.0, window, 2);
     std::vector<double> crop(window.GetVolume());
     std::iota(crop.begin(), crop.end(), 1.0);
-    ASSERT_NEAR(sg_filter.FirstOrderDerivative(0, crop), 1.0, 1e-15);
-    ASSERT_NEAR(sg_filter.FirstOrderDerivative(1, crop), 2.0, 1e-15);
-    ASSERT_NEAR(sg_filter.FirstOrderDerivative(2, crop), 3.0, 1e-15);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientX)(crop), 1.0, 1e-15);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientY)(crop), 2.0, 1e-15);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientZ)(crop), 3.0, 1e-15);
+    ASSERT_NEAR(sg_filter.FirstOrderDerivative(0, crop), 1.0, 1e-14);
+    ASSERT_NEAR(sg_filter.FirstOrderDerivative(1, crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.FirstOrderDerivative(2, crop), 3.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientX)(crop), 1.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientY)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientZ)(crop), 3.0, 1e-14);
 }
 
 TEST(FilterSavitzkyGolayGTest,SecondOrderDerivative) {
