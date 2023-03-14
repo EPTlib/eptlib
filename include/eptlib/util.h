@@ -111,6 +111,14 @@ namespace eptlib {
     };
 
     /**
+     * Define at compile-time the return type of an unambiguous function.
+     * 
+     * @tparam Function the function typename.
+     */
+    template <typename Function>
+    using FunctionReturnType = typename decltype(std::function{std::declval<Function>()})::result_type;
+
+    /**
      * Compute the sum of all the elements in a container.
      * 
      * @tparam T container typename.

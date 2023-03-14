@@ -65,7 +65,7 @@ namespace filter {
     EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter,
         Image<double> *variance = nullptr) {
         // define compile-time variables about the Filter function
-        constexpr bool filter_with_variance = !std::is_same_v<decltype(std::function{std::declval<Filter>()})::result_type, Scalar>;
+        constexpr bool filter_with_variance = !std::is_same_v<FunctionReturnType<Filter>, Scalar>;
         // initialize the runtime variables
         const size_t n0 = src.GetSize(0);
         const size_t n1 = src.GetSize(1);
