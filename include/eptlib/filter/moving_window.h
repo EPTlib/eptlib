@@ -33,6 +33,9 @@
 #ifndef EPTLIB_FILTER_MOVING_WINDOW_H_
 #define EPTLIB_FILTER_MOVING_WINDOW_H_
 
+#include <functional>
+#include <tuple>
+#include <type_traits>
 #include <vector>
 
 #include "eptlib/image.h"
@@ -53,11 +56,17 @@ namespace filter {
      * @param src image to which the filter is applied.
      * @param window mask over which apply the filter.
      * @param filter filter to be applied.
+     * @param variance optional image where the second filter result (if it exists) is written.
+     *     If variance is a `nullptr', the second filter result is not written anywhere. (Default: `nullptr')
      * 
      * @return a Success or a WrongDataFormat if the argument sizes are inconsistent.
      */
     template <typename Scalar, typename Filter>
-    EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter) {
+    EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter,
+        Image<double> *variance = nullptr) {
+        // define compile-time variables about the Filter function
+        constexpr bool filter_with_variance = !std::is_same_v<decltype(std::function{std::declval<Filter>()})::result_type, Scalar>;
+        // initialize the runtime variables
         const size_t n0 = src.GetSize(0);
         const size_t n1 = src.GetSize(1);
         const size_t n2 = src.GetSize(2);
@@ -88,8 +97,16 @@ namespace filter {
                             }
                         }
                     }
-                    // apply the filter
-                    dst->At(i0, i1, i2) = std::invoke(filter, src_crop);
+                    // apply the filter (checking at compile-time the Filter function)
+                    if constexpr (!filter_with_variance) {
+                        dst->At(i0, i1, i2) = std::invoke(filter, src_crop);
+                    } else {
+                        if (variance) {
+                            std::tie(dst->At(i0, i1, i2), variance->At(i0, i1, i2)) = std::invoke(filter, src_crop);
+                        } else {
+                            std::tie(dst->At(i0, i1, i2), std::ignore) = std::invoke(filter, src_crop);
+                        }
+                    }
                 }
             }
         }

@@ -36,6 +36,7 @@
 #include <array>
 #include <functional>
 #include <numeric>
+#include <tuple>
 #include <vector>
 
 #include "eptlib/image.h"
@@ -304,14 +305,13 @@ namespace filter {
             template <typename Scalar>
             EPTlibError Apply(const DifferentialOperator differential_operator, Image<Scalar> *dst,
                 Image<double> *variance, const Image<Scalar> &src) const {
-                // apply the filter
-                EPTlibError error = Apply(differential_operator, dst, src);
-                if (error != EPTlibError::Success) return error;
-                // compute the variance
-                auto compute_variance = [&](const std::vector<Scalar> &crop) -> Scalar {
-                    return this->ComputeVariance(differential_operator, crop);
+                auto filter = [&](const std::vector<Scalar> &crop) -> std::tuple<Scalar, double> {
+                    auto compute_derivative = this->GetFilter<Scalar>(differential_operator);
+                    Scalar derivative = compute_derivative(crop);
+                    double variance = this->ComputeVariance(differential_operator, crop);
+                    return {derivative, variance};
                 };
-                return MovingWindow(variance, src, window_, compute_variance);
+                return MovingWindow(dst, src, window_, filter, variance);
             }
 
             /**
