@@ -37,6 +37,7 @@
 #include <complex>
 #include <functional>
 #include <numeric>
+#include <optional>
 #include <string>
 #include <type_traits>
 
@@ -117,6 +118,25 @@ namespace eptlib {
      */
     template <typename Function>
     using FunctionReturnType = typename decltype(std::function{std::declval<Function>()})::result_type;
+
+    /**
+     * Define a constexpr ternary operator.
+     * 
+     * @tparam Condition the condition of the ternary operator.
+     * @tparam Then the output type if Condition is true.
+     * @tparam Otherwise the output type if Condition is false.
+     * 
+     * @param then the output if Condition is true.
+     * @param otherwise the output if Condition is false.
+     */
+    template <bool Condition, typename Then, typename Otherwise>
+    inline constexpr decltype(auto) ConstexprIf(Then&& then, Otherwise&& otherwise) {
+        if constexpr (Condition) {
+            return std::forward<Then>(then);
+        } else {
+            return std::forward<Otherwise>(otherwise);
+        }
+    };
 
     /**
      * Compute the sum of all the elements in a container.
