@@ -81,7 +81,7 @@ namespace filter {
     class SavitzkyGolay {
         public:
             /**
-             * @brief Construct a new Savitzky Golay object.
+             * @brief Construct a new Savitzky-Golay object.
              * 
              * @param d0 resolution in meter along direction x.
              * @param d1 resolution in meter along direction y.
