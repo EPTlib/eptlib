@@ -30,48 +30,29 @@
 *
 *****************************************************************************/
 
-#ifndef LINALG_QR_H_
-#define LINALG_QR_H_
+#include "eptlib/linalg/qr.h"
 
-#include "eptlib/util.h"
-#include "eptlib/linalg/linalg_util.h"
-
-namespace eptlib {
-
-namespace linalg {
-
-    /**
-     * @brief Perform the QR decomposition of a vertical full-rank matrix.
-     * 
-     * @param qr compact form of the QR decomposition (column-wise matrix).
-     * @param A vertical full-rank matrix to be decomposed (column-wise matrix).
-     * @param m number of rows in the matrix.
-     * @param n number of columns in the matrix.
-     * 
-     * The upper triangular part of `qr' stores the matrix R. The lower triangular
-     * part of `qr' stores the elementary reflections describing the application
-     * of the transponse of matrix Q.
-     */
-    void HouseholderQR(MatrixReal *qr,const MatrixReal &A,const size_t m,const size_t n);
-
-    /**
-     * @brief Solve a linear system using the QR decomposition.
-     * 
-     * @tparam NumType numeric typename.
-     * 
-     * @param x vector of the system solution.
-     * @param qr compact form of the QR decomposition (output of HouseholderQR).
-     * @param b vector of the forcing term.
-     * @param m number of rows in the matrix.
-     * @param n numer of columns in the matrix.
-     * 
-     * @return reduced chi squared statistic.
-     */
-    template <typename NumType>
-    double QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n);
-
-}  // namespace linalg
-
-}  // namespace eptlib
-
-#endif  // LINALG_QR_H_
+// Perform the QR decomposition of a vertical full-rank matrix
+eptlib::linalg::Matrix<double> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
+    const size_t n_row = A.GetNRow();
+    const size_t n_col = A.GetNCol();
+    // initialise matrix QR
+    eptlib::linalg::Matrix<double> QR(n_row+2, n_col);
+    for (size_t row = 0; row < n_row; ++row) {
+        for (size_t col = 0; col < n_col; ++col) {
+            QR(row+1, col) = A(row, col);
+        }
+    }
+    // perform the decomposition
+    for (size_t col = 0; col < n_col; ++col) {
+        HouseholderReflector(&QR(col+1, col), &QR(n_row+1, col));
+        for (size_t row = 0; row<col; ++row) {
+            QR(row, col) = QR(row+1, col);
+        }
+        QR(col, col) = -QR(n_row+1, col) / QR(col+1, col);
+        for (size_t col2 = col+1; col2 < n_col; ++col2) {
+            HouseholderLeft(&QR(col+1, col2), &QR(n_row+1, col2), &QR(col+1, col), QR(n_row+1, col));
+        }
+    }
+    return QR;
+}

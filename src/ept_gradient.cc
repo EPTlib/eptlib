@@ -350,7 +350,7 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
     // grad_phi0 laplacian...
     for (int d = 0; d<n_dim; ++d) {
         Image<double> lapl_phi0(nn[0], nn[1], nn[2]);
-        filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
         EPTlibError error = sg_filter_.Apply(diff_op, &lapl_phi0, grad_phi0[d]);
         if (error!=EPTlibError::Success) {
             return error;

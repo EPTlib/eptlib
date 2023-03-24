@@ -30,20 +30,49 @@
 *
 *****************************************************************************/
 
-#include "eptlib/filter/anatomical_savitzky_golay.h"
+#include "gtest/gtest.h"
 
-eptlib::filter::AnatomicalSavitzkyGolay::
-AnatomicalSavitzkyGolay(const double d0, const double d1, const double d2,
-    const eptlib::Shape &window, const size_t degree) :
-    window_(window),
-    degree_(degree) {
-    dd_[0] = d0;
-    dd_[1] = d1;
-    dd_[2] = d2;
-    return;
+#include "eptlib/linalg/qr.h"
+
+#include <cmath>
+#include <complex>
+#include <vector>
+
+TEST(LinalgQRGTest, HouseholderReflector) {
+    const size_t n = 10;
+    std::vector<double> x(n+1);
+    std::iota(x.begin(), x.end()-1, 1.0);
+
+    eptlib::linalg::HouseholderReflector(x.begin(), x.end());
+
+    ASSERT_NEAR(x[0], std::sqrt(385.0)+1.0, 1e-12);
+    for (size_t i = 1; i<n; ++i) {
+        ASSERT_NEAR(x[i], i+1.0, 1e-12);
+    }
+    ASSERT_NEAR(x[n], 385.0+std::sqrt(385.0), 1e-12);
 }
 
-eptlib::filter::AnatomicalSavitzkyGolay::
-~AnatomicalSavitzkyGolay() {
-    return;
+TEST(LinalgQRGTest, HouseholderLeft) {
+    const size_t n = 10;
+    std::vector<double> u(n+1);
+    std::iota(u.begin(), u.end()-1, 1.0);
+
+    std::vector<double> x(n);
+    std::copy(u.begin(), u.end()-1, x.begin());
+
+    std::vector<std::complex<double> > x_c(n);
+    std::copy(u.begin(), u.end()-1, x_c.begin());
+
+    eptlib::linalg::HouseholderReflector(u.begin(), u.end());
+    eptlib::linalg::HouseholderLeft(x.begin(), x.end(), u.begin(), u[n]);
+    eptlib::linalg::HouseholderLeft(x_c.begin(), x_c.end(), u.begin(), u[n]);
+
+    ASSERT_NEAR(x[0], -std::sqrt(385.0), 1e-12);
+    ASSERT_NEAR(x_c[0].real(), -std::sqrt(385.0), 1e-12);
+    ASSERT_NEAR(x_c[0].imag(), 0.0, 1e-12);
+    for (size_t i = 1; i<n; ++i) {
+        ASSERT_NEAR(x[i], 0.0, 1e-12);
+        ASSERT_NEAR(x_c[i].real(), 0.0, 1e-12);
+        ASSERT_NEAR(x_c[i].imag(), 0.0, 1e-12);
+    }
 }

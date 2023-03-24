@@ -99,7 +99,7 @@ CompleteEPTHelm() {
         eps_c(idx) = ::nancd;
     }
     // compute the laplacian
-    sg_filter_.Apply(filter::DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
+    sg_filter_.Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
     // extract the output
     for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
         eps_c(idx) /= -MU0*omega_*omega_*tx_sens_c(idx);
@@ -115,7 +115,7 @@ MagnitudeEPTHelm() {
     // setup the input
     epsr_->GetData().assign(epsr_->GetNVox(), ::nand);
     // compute the laplacian
-    sg_filter_.Apply(filter::DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
+    sg_filter_.Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
     // extract the output
     for (int idx = 0; idx<epsr_->GetNVox(); ++idx) {
         epsr_->At(idx) /= -EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
@@ -133,11 +133,11 @@ PhaseEPTHelm() {
     }
     // compute the laplacian
     if (PhaseIsWrapped() && !ComputeVariance()) {
-        sg_filter_.ApplyWrappedPhase(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
+        sg_filter_.ApplyWrappedPhase(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
     } else if (!ComputeVariance()) {
-        sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
+        sg_filter_.Apply(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
     } else {
-        sg_filter_.Apply(filter::DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0));
+        sg_filter_.Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0));
     }
     // extract the output
     for (int idx = 0; idx<sigma_->GetNVox(); ++idx) {

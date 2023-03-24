@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,48 +30,49 @@
 *
 *****************************************************************************/
 
-#ifndef LINALG_QR_H_
-#define LINALG_QR_H_
+#ifndef EPTLIB_LINALG_VECTOR_H_
+#define EPTLIB_LINALG_VECTOR_H_
 
-#include "eptlib/util.h"
-#include "eptlib/linalg/linalg_util.h"
+#include <iterator>
+#include <limits>
+#include <type_traits>
 
 namespace eptlib {
 
 namespace linalg {
 
-    /**
-     * @brief Perform the QR decomposition of a vertical full-rank matrix.
-     * 
-     * @param qr compact form of the QR decomposition (column-wise matrix).
-     * @param A vertical full-rank matrix to be decomposed (column-wise matrix).
-     * @param m number of rows in the matrix.
-     * @param n number of columns in the matrix.
-     * 
-     * The upper triangular part of `qr' stores the matrix R. The lower triangular
-     * part of `qr' stores the elementary reflections describing the application
-     * of the transponse of matrix Q.
-     */
-    void HouseholderQR(MatrixReal *qr,const MatrixReal &A,const size_t m,const size_t n);
+    template <typename ForwardIt, typename = std::enable_if_t<std::is_floating_point_v<typename std::iterator_traits<ForwardIt>::value_type> > >
+    double MaxAbs(ForwardIt first, ForwardIt last) {
+        double eta = 0;
+        while (first != last) {
+            double tmp = std::abs(*first++);
+            if (std::isnan(tmp)) {
+                return std::numeric_limits<double>::quiet_NaN();
+            }
+            eta = std::max(eta, tmp);
+        }
+        return eta;
+    }
 
-    /**
-     * @brief Solve a linear system using the QR decomposition.
-     * 
-     * @tparam NumType numeric typename.
-     * 
-     * @param x vector of the system solution.
-     * @param qr compact form of the QR decomposition (output of HouseholderQR).
-     * @param b vector of the forcing term.
-     * @param m number of rows in the matrix.
-     * @param n numer of columns in the matrix.
-     * 
-     * @return reduced chi squared statistic.
-     */
-    template <typename NumType>
-    double QRSolve(NumType *x,const MatrixReal &qr,const NumType *b,const size_t m,const size_t n);
+    template <typename ForwardIt>
+    double Norm2(ForwardIt first, ForwardIt last) {
+        double eta = MaxAbs(first, last);
+        if (eta == 0.0) {
+            return eta;
+        }
+        double sigma = 0;
+        while (first != last) {
+            double tmp = std::abs(*first++);
+            if (tmp >= std::sqrt(std::numeric_limits<double>::epsilon())*eta) {
+                sigma += tmp*tmp/eta/eta;
+            }
+        }
+        sigma = std::sqrt(sigma)*eta;
+        return sigma;
+    }
 
 }  // namespace linalg
 
 }  // namespace eptlib
 
-#endif  // LINALG_QR_H_
+#endif  // EPTLIB_LINALG_VECTOR_H_
