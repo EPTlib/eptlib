@@ -102,13 +102,13 @@ namespace linalg {
             }
 
             /**
-             * Get a constant reference to the idx-th entry of the matrix.
+             * Get a copy of the idx-th entry of the matrix.
              * 
              * @param idx single index of the entry.
              * 
-             * @return a constant reference to the idx-th entry.
+             * @return a copy of the idx-th entry.
              */
-            inline const Scalar& operator()(const size_t idx) const {
+            inline Scalar operator()(const size_t idx) const {
                 return data_[idx];
             }
 
@@ -125,15 +125,95 @@ namespace linalg {
             }
 
             /**
-             * Get a constant reference to the entry of the matrix at given row and column.
+             * Get a copy of the entry of the matrix at given row and column.
              * 
              * @param row row of the entry.
              * @param col column of the entry.
              * 
-             * @return a constant reference to the entry.
+             * @return a copy of the entry.
              */
             inline Scalar operator()(const size_t row, const size_t col) const {
                 return column_[col][row];
+            }
+
+            /**
+             * @brief Get an iterator to the first element of the matrix.
+             * 
+             * @return an iterator to the first element of the matrix.
+             */
+            inline typename std::vector<Scalar>::iterator begin() {
+                return data_.begin();
+            }
+
+            /**
+             * @brief Get an iterator to the first element of the matrix.
+             * 
+             * @return an iterator to the first element of the matrix.
+             */
+            inline typename std::vector<Scalar>::const_iterator begin() const {
+                return data_.begin();
+            }
+
+            /**
+             * @brief Get an iterator following the last element of the matrix.
+             * 
+             * @return an iterator following the last element of the matrix.
+             */
+            inline typename std::vector<Scalar>::iterator end() {
+                return data_.end();
+            }
+
+            /**
+             * @brief Get an iterator following the last element of the matrix.
+             * 
+             * @return an iterator following the last element of the matrix.
+             */
+            inline typename std::vector<Scalar>::const_iterator end() const {
+                return data_.end();
+            }
+
+            /**
+             * @brief Get an iterator to the first element of a column of the matrix.
+             * 
+             * @param col column of interest.
+             * 
+             * @return an iterator to the first element of a column of the matrix.
+             */
+            inline typename std::vector<Scalar>::iterator begin(const size_t col) {
+                return this->begin() + col*n_row_;
+            }
+
+            /**
+             * @brief Get an iterator to the first element of a column of the matrix.
+             * 
+             * @param col column of interest.
+             * 
+             * @return an iterator to the first element of a column of the matrix.
+             */
+            inline typename std::vector<Scalar>::const_iterator begin(const size_t col) const {
+                return this->begin() + col*n_row_;
+            }
+
+            /**
+             * @brief Get an iterator following the last element of a column of the matrix.
+             * 
+             * @param col column of interest.
+             * 
+             * @return an iterator following the last element of a column of the matrix.
+             */
+            inline typename std::vector<Scalar>::iterator end(const size_t col) {
+                return this->begin(col+1);
+            }
+
+            /**
+             * @brief Get an iterator following the last element of a column of the matrix.
+             * 
+             * @param col column of interest.
+             * 
+             * @return an iterator following the last element of a column of the matrix.
+             */
+            inline typename std::vector<Scalar>::const_iterator end(const size_t col) const {
+                return this->begin(col+1);
             }
         private:
             /// Matrix entries ordered by columns.
@@ -144,6 +224,17 @@ namespace linalg {
             size_t n_row_;
     };
 
+    /**
+     * @brief Solve a square diagonal system.
+     * 
+     * @tparam ScalarMatrix numeric typename of the matrix entries.
+     * @tparam ScalarVector numeric typename of the vector entries.
+     * 
+     * @param A matrix of the coefficients (non-diagonal elements assumed null).
+     * @param b vector of the forcing terms.
+     * 
+     * @return vector of the solution. 
+     */
     template <typename ScalarMatrix, typename ScalarVector>
     auto SolveDiag(const Matrix<ScalarMatrix> &A, const std::vector<ScalarVector> &b) {
         using ScalarOutput = decltype(A(0,0) * b[0]);
@@ -155,6 +246,17 @@ namespace linalg {
         return x;
     }
 
+    /**
+     * @brief Solve an upper triangolar square system.
+     * 
+     * @tparam ScalarMatrix numeric typename of the matrix entries.
+     * @tparam ScalarVector numeric typename of the vector entries.
+     * 
+     * @param A matrix of the coefficients (non-upper triangular elements assumed null).
+     * @param b vector of the forcing terms.
+     * 
+     * @return vector of the solution. 
+     */
     template <typename ScalarMatrix, typename ScalarVector>
     auto SolveTriU(const Matrix<ScalarMatrix> &A, const std::vector<ScalarVector> &b) {
         using ScalarOutput = decltype(A(0,0) * b[0]);
@@ -173,6 +275,17 @@ namespace linalg {
         return x;
     }
 
+    /**
+     * @brief Solve a lower triangolar square system.
+     * 
+     * @tparam ScalarMatrix numeric typename of the matrix entries.
+     * @tparam ScalarVector numeric typename of the vector entries.
+     * 
+     * @param A matrix of the coefficients (non-lower triangular elements assumed null).
+     * @param b vector of the forcing terms.
+     * 
+     * @return vector of the solution. 
+     */
     template <typename ScalarMatrix, typename ScalarVector>
     auto SolveTriL(const Matrix<ScalarMatrix> &A, const std::vector<ScalarVector> &b) {
         using ScalarOutput = decltype(A(0,0) * b[0]);

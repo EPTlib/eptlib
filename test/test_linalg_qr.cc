@@ -76,3 +76,40 @@ TEST(LinalgQRGTest, HouseholderLeft) {
         ASSERT_NEAR(x_c[i].imag(), 0.0, 1e-12);
     }
 }
+
+TEST(LinalgQRGTest, QRSolve) {
+    const size_t n = 5;
+
+    eptlib::linalg::Matrix<double> A(n, n);
+    A(0,0) = 82; A(0,1) = 91; A(0,2) = 13; A(0,3) = 92; A(0,4) = 64;
+    A(1,0) = 10; A(1,1) = 28; A(1,2) = 55; A(1,3) = 96; A(1,4) = 97;
+    A(2,0) = 16; A(2,1) = 98; A(2,2) = 96; A(2,3) = 49; A(2,4) = 81;
+    A(3,0) = 15; A(3,1) = 43; A(3,2) = 92; A(3,3) = 80; A(3,4) = 96;
+    A(4,0) = 66; A(4,1) = 4;  A(4,2) = 85; A(4,3) = 94; A(4,4) = 68;
+
+    std::vector<double> u(n);
+    std::iota(u.begin(), u.end(), 1.0);
+
+    std::vector<double> b(n);
+    for (size_t row = 0; row < n; ++row) {
+        b[row] = 0.0;
+        for (size_t col = 0; col < n; ++col) {
+            b[row] += A(row, col) * u[col];
+        }
+    }
+
+    std::vector<std::complex<double> > b_c(n);
+    std::copy(b.begin(), b.end(), b_c.begin());
+
+    eptlib::linalg::Matrix<double> QR = eptlib::linalg::QRDecomposition(A);
+    auto [x, chi2] = eptlib::linalg::QRSolve(QR, b);
+    auto [x_c, chi2_c] = eptlib::linalg::QRSolve(QR, b_c);
+
+    ASSERT_DOUBLE_EQ(chi2, 0.0);
+    ASSERT_DOUBLE_EQ(chi2_c, 0.0);
+    for (size_t col = 0; col < n; ++col) {
+        ASSERT_NEAR(x[col], u[col], 1e-12);
+        ASSERT_NEAR(x_c[col].real(), u[col], 1e-12);
+        ASSERT_NEAR(x_c[col].imag(), 0.0, 1e-12);
+    }
+}

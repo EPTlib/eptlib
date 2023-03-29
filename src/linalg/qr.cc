@@ -38,20 +38,16 @@ eptlib::linalg::Matrix<double> eptlib::linalg::QRDecomposition(const eptlib::lin
     const size_t n_col = A.GetNCol();
     // initialise matrix QR
     eptlib::linalg::Matrix<double> QR(n_row+2, n_col);
-    for (size_t row = 0; row < n_row; ++row) {
-        for (size_t col = 0; col < n_col; ++col) {
-            QR(row+1, col) = A(row, col);
-        }
+    for (size_t col = 0; col < n_col; ++col) {
+        std::copy(A.begin(col), A.end(col), QR.begin(col)+1);
     }
     // perform the decomposition
     for (size_t col = 0; col < n_col; ++col) {
-        HouseholderReflector(&QR(col+1, col), &QR(n_row+1, col));
-        for (size_t row = 0; row<col; ++row) {
-            QR(row, col) = QR(row+1, col);
-        }
+        HouseholderReflector(QR.begin(col)+col+1, QR.end(col));
+        std::copy(QR.begin(col)+1, QR.begin(col)+col+1, QR.begin(col));
         QR(col, col) = -QR(n_row+1, col) / QR(col+1, col);
         for (size_t col2 = col+1; col2 < n_col; ++col2) {
-            HouseholderLeft(&QR(col+1, col2), &QR(n_row+1, col2), &QR(col+1, col), QR(n_row+1, col));
+            HouseholderLeft(QR.begin(col2)+col+1, QR.end(col2)-1, QR.begin(col)+col+1, QR(n_row+1,col));
         }
     }
     return QR;

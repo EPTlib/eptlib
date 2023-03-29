@@ -41,7 +41,7 @@ namespace eptlib {
 
 namespace linalg {
 
-    template <typename ForwardIt, typename = std::enable_if_t<std::is_floating_point_v<typename std::iterator_traits<ForwardIt>::value_type> > >
+    template <typename ForwardIt>
     double MaxAbs(ForwardIt first, ForwardIt last) {
         double eta = 0;
         while (first != last) {

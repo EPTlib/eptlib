@@ -105,12 +105,12 @@ namespace linalg {
         std::vector<Scalar> c(n_row);
         std::memcpy(c.data(), b.data(), n_row*sizeof(Scalar));
         for (size_t col = 0; col < n_col; ++col) {
-            HouseholderLeft(c.begin()+col, c.end(), &QR(col+1, col), QR(n_row+1, col));
+            HouseholderLeft(c.begin()+col, c.end(), QR.begin(col)+col+1, QR(n_row+1,col));
         }
         // solve R * x = c
         std::vector<Scalar> x = SolveTriU(QR, c);
         // compute the residual
-        double chi2 = Norm2(c.begin()+col, c.end());
+        double chi2 = Norm2(c.begin()+n_col, c.end());
         return {x, chi2};
     }
 
