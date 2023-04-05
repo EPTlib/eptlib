@@ -54,3 +54,17 @@ TEST(LinalgVectorGTest,MaxAbs) {
     double maxabs = eptlib::linalg::MaxAbs(x.begin(), x.end());
     ASSERT_NEAR(maxabs, 10.0, 1e-12);
 }
+
+TEST(LinalgVectorGTest,Permute) {
+    const int n = 10;
+    std::vector<double> x(n);
+    std::vector<size_t> p(n);
+    for (int i = 0; i<n; ++i) {
+        x[i] = -(i+1);
+        p[i] = n-1-i;
+    }
+    eptlib::linalg::Permute(x.begin(), x.end(), p);
+    for (int i = 0; i<n; ++i) {
+        ASSERT_EQ(x[i], -n+i);
+    }
+}

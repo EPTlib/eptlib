@@ -41,6 +41,15 @@ namespace eptlib {
 
 namespace linalg {
 
+    /**
+     * @brief Look for the maximum absolute value in a vector.
+     * 
+     * @tparam ForwardIt forward iterator typename.
+     * 
+     * @param first,last range of elements.
+     * 
+     * @return the maximum absolute value in the vector.
+     */
     template <typename ForwardIt>
     double MaxAbs(ForwardIt first, ForwardIt last) {
         double eta = 0;
@@ -54,6 +63,15 @@ namespace linalg {
         return eta;
     }
 
+    /**
+     * @brief Compute the Euclidean norm of a vector.
+     * 
+     * @tparam ForwardIt forward iterator typename.
+     * 
+     * @param first,last range of elements.
+     * 
+     * @return the Euclidean norm of the vector.
+     */
     template <typename ForwardIt>
     double Norm2(ForwardIt first, ForwardIt last) {
         double eta = MaxAbs(first, last);
@@ -69,6 +87,29 @@ namespace linalg {
         }
         sigma = std::sqrt(sigma)*eta;
         return sigma;
+    }
+
+    /**
+     * @brief Change the order of the elements according to a given permutation.
+     * 
+     * @tparam ForwardIt forward iterator typename.
+     * 
+     * @param first,last range of elements.
+     * @param p permutation vector.
+     */
+    template <typename ForwardIt>
+    void Permute(ForwardIt first, ForwardIt last, std::vector<size_t> p) {
+        size_t i = 0;
+        while (i < p.size()) {
+            if (p[i] != i) {
+                std::iter_swap(first, first+(p[i]-i));
+                std::swap(p[i], p[p[i]]);
+            } else {
+                ++i;
+                ++first;
+            }
+        }
+        return;
     }
 
 }  // namespace linalg
