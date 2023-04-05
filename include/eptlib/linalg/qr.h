@@ -97,6 +97,32 @@ namespace linalg {
      */
     Matrix<double> QRDecomposition(const Matrix<double> &A);
 
+    /**
+     * @brief Perform the QR decomposition with column pivoting.
+     * 
+     * The upper triangular part of the output stores the matrix R. The lower triangular
+     * part of the output stores the elementary reflectors describing the transpose of Q.
+     * 
+     * @param A matrix to be decomposed (column-major).
+     * 
+     * @return a std::tuple with:
+     *     1) a matrix containing the QR decomposition;
+     *     2) a vector of indices defining the permutation.
+     */
+    std::tuple<Matrix<double>, std::vector<size_t> > QRDecompositionWithColumnPivoting(const Matrix<double> &A);
+
+    /**
+     * @brief Solve a linear system in the least square sense using the QR decomposition.
+     * 
+     * @tparam Scalar numerical type of the forcing term entries.
+     * 
+     * @param QR QR decomposition of the coefficient matrix of the linear system.
+     * @param b forcing term of the linear system.
+     * 
+     * @return a std::tuple with:
+     *     1) a vector solving the linear system in the least square sense;
+     *     2) the Euclidean norm of the residual.
+     */
     template <typename Scalar>
     std::tuple<std::vector<Scalar>, double> QRSolve(const Matrix<double> &QR, const std::vector<Scalar> &b) {
         const size_t n_row = b.size();
@@ -110,8 +136,8 @@ namespace linalg {
         // solve R * x = c
         std::vector<Scalar> x = SolveTriU(QR, c);
         // compute the residual
-        double chi2 = Norm2(c.begin()+n_col, c.end());
-        return {x, chi2};
+        double chi = Norm2(c.begin()+n_col, c.end());
+        return {x, chi};
     }
 
 }  // namespace linalg

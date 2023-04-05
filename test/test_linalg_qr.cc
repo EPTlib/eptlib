@@ -102,14 +102,22 @@ TEST(LinalgQRGTest, QRSolve) {
     std::copy(b.begin(), b.end(), b_c.begin());
 
     eptlib::linalg::Matrix<double> QR = eptlib::linalg::QRDecomposition(A);
-    auto [x, chi2] = eptlib::linalg::QRSolve(QR, b);
-    auto [x_c, chi2_c] = eptlib::linalg::QRSolve(QR, b_c);
+    auto [x, chi] = eptlib::linalg::QRSolve(QR, b);
+    auto [x_c, chi_c] = eptlib::linalg::QRSolve(QR, b_c);
 
-    ASSERT_DOUBLE_EQ(chi2, 0.0);
-    ASSERT_DOUBLE_EQ(chi2_c, 0.0);
+    eptlib::linalg::Matrix<double> QR_cp(0,0);
+    std::vector<size_t> p_cp(0);
+    std::tie(QR_cp, p_cp) = eptlib::linalg::QRDecompositionWithColumnPivoting(A);
+    auto [x_cp, chi_cp] = eptlib::linalg::QRSolve(QR_cp, b);
+    eptlib::linalg::Permute(x_cp.begin(), x_cp.end(), p_cp);
+
+    ASSERT_DOUBLE_EQ(chi, 0.0);
+    ASSERT_DOUBLE_EQ(chi_c, 0.0);
+    ASSERT_DOUBLE_EQ(chi_cp, 0.0);
     for (size_t col = 0; col < n; ++col) {
         ASSERT_NEAR(x[col], u[col], 1e-12);
         ASSERT_NEAR(x_c[col].real(), u[col], 1e-12);
         ASSERT_NEAR(x_c[col].imag(), 0.0, 1e-12);
+        ASSERT_NEAR(x_cp[col], u[col], 1e-12);
     }
 }
