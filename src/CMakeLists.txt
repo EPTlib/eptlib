@@ -41,11 +41,7 @@ set(EPTLIB_SRC
     io/io_hdf5.cc
     io/io_toml.cc
     io/io_util.cc
-    linalg/linalg_householder.cc
-    linalg/linalg_qr.cc
-    linalg/linalg_util.cc
     linalg/qr.cc
-    linalg/regression.cc
     polynomial/fitting.cc
 )
 
