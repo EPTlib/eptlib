@@ -50,6 +50,13 @@ namespace linalg {
     class Matrix {
         public:
             /**
+             * Construct a matrix with zero rows and columns.
+             */
+            Matrix() : Matrix(0,0) {
+                return;
+            }
+            
+            /**
              * Construct a matrix with given rows and columns.
              * 
              * @param n_row number of rows.

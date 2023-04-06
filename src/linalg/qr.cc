@@ -35,29 +35,8 @@
 #include <algorithm>
 #include <cmath>
 
-// Perform the QR decomposition of a vertical full-rank matrix
-eptlib::linalg::Matrix<double> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
-    const size_t n_row = A.GetNRow();
-    const size_t n_col = A.GetNCol();
-    // initialise matrix QR
-    eptlib::linalg::Matrix<double> QR(n_row+2, n_col);
-    for (size_t col = 0; col < n_col; ++col) {
-        std::copy(A.begin(col), A.end(col), QR.begin(col)+1);
-    }
-    // perform the decomposition
-    for (size_t col = 0; col < n_col; ++col) {
-        HouseholderReflector(QR.begin(col)+col+1, QR.end(col));
-        std::copy(QR.begin(col)+1, QR.begin(col)+col+1, QR.begin(col));
-        QR(col, col) = -QR(n_row+1, col) / QR(col+1, col);
-        for (size_t col2 = col+1; col2 < n_col; ++col2) {
-            HouseholderLeft(QR.begin(col2)+col+1, QR.end(col2)-1, QR.begin(col)+col+1, QR(n_row+1,col));
-        }
-    }
-    return QR;
-}
-
 // Perform the QR decomposition with column pivoting
-std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::QRDecompositionWithColumnPivoting(const eptlib::linalg::Matrix<double> &A) {
+std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
     const size_t n_row = A.GetNRow();
     const size_t n_col = A.GetNCol();
     // initialise matrix QR
@@ -98,12 +77,12 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::
 }
 
 // Compute the numerical rank of a matrix given its rank-revealing QR decomposition
-size_t eptlib::linalg::QRGetRank(const eptlib::linalg::Matrix<double> &RRQR) {
-    const size_t n_row = RRQR.GetNRow()-2;
-    const size_t n_col = RRQR.GetNCol();
-    const double tol = (std::nextafter(RRQR(0,0), +INFINITY) - RRQR(0,0)) * std::max(n_row, n_col);
+size_t eptlib::linalg::QRGetRank(const eptlib::linalg::Matrix<double> &QR) {
+    const size_t n_row = QR.GetNRow()-2;
+    const size_t n_col = QR.GetNCol();
+    const double tol = (std::nextafter(QR(0,0), +INFINITY) - QR(0,0)) * std::max(n_row, n_col);
     for (size_t rank = 0; rank < n_col; ++rank) {
-        if (RRQR(rank,rank) < tol) {
+        if (std::abs(QR(rank,rank)) < tol) {
             return rank;
         }
     }
