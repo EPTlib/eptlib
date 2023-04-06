@@ -107,9 +107,20 @@ namespace linalg {
      * 
      * @return a std::tuple with:
      *     1) a matrix containing the QR decomposition;
-     *     2) a vector of indices defining the permutation.
+     *     2) a vector of indices defining the permutation;
      */
-    std::tuple<Matrix<double>, std::vector<size_t> > QRDecompositionWithColumnPivoting(const Matrix<double> &A);
+    std::tuple<Matrix<double>, std::vector<size_t>> QRDecompositionWithColumnPivoting(const Matrix<double> &A);
+
+    /**
+     * @brief Compute the numerical rank of a matrix given its rank-revealing QR decomposition.
+     * 
+     * For most cases, QR decomposition with column pivoting works as a rank-revealing QR decomposition.
+     * 
+     * @param RRQR a rank revealing QR decomposition of the matrix.
+     * 
+     * @return the numerical rank of the matrix.
+     */
+    size_t QRGetRank(const Matrix<double> &RRQR);
 
     /**
      * @brief Solve a linear system in the least square sense using the QR decomposition.

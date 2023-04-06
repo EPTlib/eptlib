@@ -77,6 +77,19 @@ TEST(LinalgQRGTest, HouseholderLeft) {
     }
 }
 
+TEST(LinalgQRGTest, QRGetRank) {
+    const size_t n = 4;
+    eptlib::linalg::Matrix<double> A(n+2, n);
+    A(0,0) = 34; A(0,1) = 0; A(0,2) = 0; A(0,3) = 0;
+    A(1,0) = 0; A(1,1) = 25; A(1,2) = 0; A(1,3) = 0;
+    A(2,0) = 0; A(2,1) = 0; A(2,2) = 10; A(2,3) = 0;
+    A(3,0) = 0; A(3,1) = 0; A(3,2) = 0; A(3,3) = 1e-15;
+    A(4,0) = 0; A(4,1) = 0; A(4,2) = 0; A(4,3) = 0;
+    A(5,0) = 0; A(5,1) = 0; A(5,2) = 0; A(5,3) = 0;
+    size_t rank = eptlib::linalg::QRGetRank(A);
+    ASSERT_EQ(rank, 3);
+}
+
 TEST(LinalgQRGTest, QRSolve) {
     const size_t n = 5;
 

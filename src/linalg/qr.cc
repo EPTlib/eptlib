@@ -33,6 +33,7 @@
 #include "eptlib/linalg/qr.h"
 
 #include <algorithm>
+#include <cmath>
 
 // Perform the QR decomposition of a vertical full-rank matrix
 eptlib::linalg::Matrix<double> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
@@ -55,7 +56,8 @@ eptlib::linalg::Matrix<double> eptlib::linalg::QRDecomposition(const eptlib::lin
     return QR;
 }
 
-std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t> > eptlib::linalg::QRDecompositionWithColumnPivoting(const eptlib::linalg::Matrix<double> &A) {
+// Perform the QR decomposition with column pivoting
+std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::QRDecompositionWithColumnPivoting(const eptlib::linalg::Matrix<double> &A) {
     const size_t n_row = A.GetNRow();
     const size_t n_col = A.GetNCol();
     // initialise matrix QR
@@ -93,4 +95,17 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t> > eptlib::linalg:
         }
     }
     return {QR, p};
+}
+
+// Compute the numerical rank of a matrix given its rank-revealing QR decomposition
+size_t eptlib::linalg::QRGetRank(const eptlib::linalg::Matrix<double> &RRQR) {
+    const size_t n_row = RRQR.GetNRow()-2;
+    const size_t n_col = RRQR.GetNCol();
+    const double tol = (std::nextafter(RRQR(0,0), +INFINITY) - RRQR(0,0)) * std::max(n_row, n_col);
+    for (size_t rank = 0; rank < n_col; ++rank) {
+        if (RRQR(rank,rank) < tol) {
+            return rank;
+        }
+    }
+    return n_col;
 }
