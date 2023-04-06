@@ -33,6 +33,45 @@
 #ifndef EPTLIB_LINALG_REGRESSION_H_
 #define EPTLIB_LINALG_REGRESSION_H_
 
+#include <tuple>
 
+#include "eptlib/linalg/qr.h"
+#include "eptlib/linalg/matrix.h"
+#include "eptlib/linalg/vector.h"
+
+namespace eptlib {
+
+namespace linalg {
+
+    /**
+     * @brief Solve a linear regression problem using the QR decomposition.
+     * 
+     * @tparam Scalar numerical type of the forcing term entries.
+     * 
+     * @param A design matrix of the regression problem.
+     * @param b forcing term of the regression problem.
+     * 
+     * @return a std::tuple with:
+     *     1) a vector solving the linear regression;
+     *     2) the normalized chi-squared statistic of the linear regression.
+     */
+    template <typename Scalar>
+    std::tuple<std::vector<Scalar>, double> LinearRegression(const eptlib::linalg::Matrix<double> &A, const std::vector<Scalar> &b) {
+        eptlib::linalg::Matrix<double> QR;
+        std::vector<size_t> p;
+        std::vector<Scalar> x;
+        double chi;
+        std::tie(QR, p) = eptlib::linalg::QRDecomposition(A);
+        std::tie(x, chi) = eptlib::linalg::QRSolve(QR, b);
+        eptlib::linalg::Permute(x.begin(), x.end(), p);
+        size_t m = A.GetNRow();
+        size_t n = A.GetNCol();
+        double chi2n = chi*chi/(m-n);
+        return {x, chi2n};
+    }
+
+}  // namespace linalg
+
+}  // namespace eptlib
 
 #endif  // EPTLIB_LINALG_REGRESSION_H_

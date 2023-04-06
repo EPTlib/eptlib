@@ -38,9 +38,9 @@
 
 #include "eptlib/shape.h"
 
-#include "eptlib/linalg/linalg_householder.h"
-#include "eptlib/linalg/linalg_qr.h"
-#include "eptlib/linalg/linalg_util.h"
+#include "eptlib/linalg/matrix.h"
+#include "eptlib/linalg/regression.h"
+#include "eptlib/linalg/vector.h"
 
 namespace eptlib {
 
@@ -77,10 +77,9 @@ namespace polynomial {
     /**
      * @brief Fill the design matrix for polynomial fitting with a basis of monomials.
      * 
-     * @param d0 resolution in meter along direction x.
-     * @param d1 resolution in meter along direction y.
-     * @param d2 resolution in meter along direction z.
-     * @param window mask over which the basis is evaluated.
+     * @param x x-coordinates where the polynomial is evaluated.
+     * @param y y-coordinates where the polynomial is evaluated.
+     * @param z z-coordinates where the polynomial is evaluated.
      * @param degree degree of the fitting polynomial.
      * 
      * @return the design matrix.
@@ -88,70 +87,31 @@ namespace polynomial {
      * The columns of the matrix are ordered as follow,
      * (1, x, y, z, x^2, x*y, y^2, x*z, y*z, z^2, x^3, x^2*y, ...).
      */
-    eptlib::linalg::MatrixReal DesignMatrixWithMonomialsBasis(const double d0, const double d1, const double d2,
-        const eptlib::Shape &window, const size_t degree);
+    eptlib::linalg::Matrix<double> DesignMatrixWithMonomialsBasis(const std::vector<double> &x,
+        const std::vector<double> &y, const std::vector<double> &z, const size_t degree);
 
     /**
-     * @brief Permute the columns of a matrix to have all the null columns at the end.
+     * @brief Compute the coefficients of the polynomial function fitting the data.
      * 
-     * @param A matrix to be permuted.
-     * @param n_row number of rows of the matrix.
-     * @param n_col number of columns of the matrix.
+     * @param x x-coordinates where the data are provided.
+     * @param y y-coordinates where the data are provided.
+     * @param z z-coordinates where the data are provided.
+     * @param degree degree of the fitting polynomial.
+     * @param values values of the provided data.
      * 
      * @return a std::tuple with:
-     *     1) a vector of indices defining the permutation;
-     *     2) the number of non-null columns in the matrix.
-     */
-    std::tuple<std::vector<size_t>, size_t> PermuteColumns(eptlib::linalg::MatrixReal *A, const size_t n_row, const size_t n_col);
-    
-    /**
-     * @brief 
-     * permutation matrix P
-     *   F * x = b
-     *   (F*P) * (P*x) = b
-     *   F_ = F*P, matrix with permuted columns
-     *   x_ = P*x, vector with permuted rows
-     *   F_ * x_ = b
-     * From column c, F_ has null columns
-     *   F' = F_(:, 1:c), shrinked matrix
-     * From now on, the actual algorithm
-     *   F' * x' = b <- I solve this full rank problem
-     *   x_ = [x'; zeros(length(x)-c,1)] <-
-     *   x = P*x_ <- original solution vector
-     * 
-     * The last three steps are the one actually computed.
-     * I need to know P (which I use to get F_, so I just
-     * have to store it) and c.
-     * 
-     * It is more convenient to store P as a vector of
-     * indices p such that x = x_(p). So, p(1) is the index
-     * where the first column of the original problem is moved
-     * in the permuted problem, p(2) is the index for the second
-     * column, and so on.
+     *     1) a vector with the polynomial coefficients;
+     *     2) the normalized chi-squared statistic of the fitting.
      */
     template <typename Scalar>
-    std::tuple<std::vector<Scalar>, double> PolynomialFitting(const double d0, const double d1, const double d2,
-        const eptlib::Shape &window, const size_t degree, const std::vector<Scalar> &values
-//        , const std::vector<double> &weight
-        )
-        {
-        eptlib::linalg::MatrixReal F = DesignMatrixWithMonomialsBasis(d0,d1,d2, window, degree);
-        size_t n_col = F.size();
-        size_t n_row = F[0].size();
-        // permute and shrink the design matrix
-        auto [p, n_col_shrinked] = PermuteColumns(&F, n_row,n_col);
-        // compute the QR decomposition of F
-        eptlib::linalg::MatrixReal QR;
-        eptlib::linalg::HouseholderQR(&QR, F ,n_row ,n_col_shrinked);
-        // solve the linear system
-        std::vector<Scalar> x(n_col, 0.0);
-        double chi2n = eptlib::linalg::QRSolve(x.data(), QR, values.data(), n_row, n_col_shrinked);
-        // permute the solution
-        std::vector<Scalar> y(n_col);
-        for (size_t idx = 0; idx<n_col; ++idx) {
-            y[p[idx]] = x[idx];
-        }
-        return {y, chi2n};
+    std::tuple<std::vector<Scalar>, double> Fitting(const std::vector<double> &x,
+        const std::vector<double> &y, const std::vector<double> &z, const size_t degree,
+        const std::vector<Scalar> &values // , const std::vector<double> &weights
+        ) {
+        eptlib::linalg::Matrix<double> F = DesignMatrixWithMonomialsBasis(x, y, z, degree);
+        size_t n_col = F.GetNCol();
+        size_t n_row = F.GetNRow();
+        return eptlib::linalg::LinearRegression(F, values);
     }
 
 }  // namespace polynomial

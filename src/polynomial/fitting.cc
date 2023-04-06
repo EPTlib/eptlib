@@ -64,52 +64,20 @@ std::vector<double> eptlib::polynomial::EvaluateMonomials(const double x, const 
 }
 
 // Fill the design matrix for polynomial fitting with a basis of monomials
-eptlib::linalg::MatrixReal eptlib::polynomial::DesignMatrixWithMonomialsBasis(const double d0, const double d1, const double d2,
-    const eptlib::Shape &window, const size_t degree) {
-    // initialize the matrix
-    size_t n_row = window.GetVolume();
+eptlib::linalg::Matrix<double> eptlib::polynomial::DesignMatrixWithMonomialsBasis(const std::vector<double> &x,
+    const std::vector<double> &y, const std::vector<double> &z, const size_t degree) {
+    size_t n_row = x.size();
     size_t n_col = eptlib::polynomial::GetNumberOfMonomials(degree);
-    eptlib::linalg::MatrixReal F(n_col, std::vector<double>(n_row));
-    // fill the matrix
-    double x0 = window.GetSize(0)/2*d0;
-    double y0 = window.GetSize(1)/2*d1;
-    double z0 = window.GetSize(2)/2*d2;
-    size_t row = 0;
-    for (size_t i2 = 0; i2<window.GetSize(2); ++i2) {
-        for (size_t i1 = 0; i1<window.GetSize(1); ++i1) {
-            for (size_t i0 = 0; i0<window.GetSize(0); ++i0) {
-                if (window(i0, i1, i2)) {
-                    double dx = i0*d0-x0;
-                    double dy = i1*d1-y0;
-                    double dz = i2*d2-z0;
-                    size_t col = 0;
-                    for (size_t n = 0; n<=degree; ++n) {
-                        std::vector<double> monomials = eptlib::polynomial::EvaluateMonomials(dx,dy,dz, n);
-                        for (double monomial : monomials) {
-                            F[col][row] = monomial;
-                            ++col;
-                        }
-                    }
-                    ++row;
-                }
+    eptlib::linalg::Matrix<double> F(n_row, n_col);
+    for (size_t row = 0; row < n_row; ++row) {
+        size_t col = 0; 
+        for (size_t n = 0; n <= degree; ++n) {
+            std::vector<double> monomials = eptlib::polynomial::EvaluateMonomials(x[row], y[row], z[row], n);
+            for (double monomial : monomials) {
+                F(row, col) = monomial;
+                ++col;
             }
         }
     }
     return F;
-}
-
-// Permute the columns of a matrix to have all the null columns at the end
-std::tuple<std::vector<size_t>, size_t> eptlib::polynomial::PermuteColumns(eptlib::linalg::MatrixReal *A, const size_t n_row, const size_t n_col) {
-    std::vector<size_t> p(n_col);
-    std::iota(p.begin(), p.end(), 0);
-    size_t n_col_shrinked = n_col;
-    for (size_t col = 0; col<n_col_shrinked; ++col) {
-        if (eptlib::linalg::Norm2(A->at(col).data(), n_row) == 0.0) {
-            --n_col_shrinked;
-            std::swap(A->at(col), A->at(n_col_shrinked));
-            std::swap(p[col], p[n_col_shrinked]);
-            --col;
-        }
-    }
-    return {p, n_col_shrinked};
 }
