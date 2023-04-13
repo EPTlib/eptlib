@@ -44,9 +44,10 @@
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
-#include "eptlib/filter/moving_window.h"
+#include "eptlib/linalg/matrix.h"
+#include "eptlib/linalg/vector.h"
 
-#include "eptlib/linalg/linalg_util.h"
+#include "eptlib/filter/moving_window.h"
 
 namespace eptlib {
 
@@ -271,14 +272,16 @@ namespace filter {
              */
             template <typename Scalar>
             inline double ComputeVariance(const DifferentialOperator differential_operator, const std::vector<Scalar> &crop) const {
-                const size_t n_row = residuals_.size();
+                const size_t n_row = residuals_.GetNRow();
+                const size_t n_col = residuals_.GetNCol();
                 std::vector<Scalar> residual(n_row, 0.0);
-                for (size_t k = 0; k<n_row; ++k) {
+                for (size_t col = 0; col<n_col; ++col) {
                     for (size_t row = 0; row<n_row; ++row) {
-                        residual[row] += crop[k] * residuals_[k][row];
+                        residual[row] += residuals_(row, col) * crop[col];
                     }
                 }
-                return variance_coefficients_[static_cast<size_t>(differential_operator)] * eptlib::linalg::Norm2(residual.data(), n_row);
+                double norm = eptlib::linalg::Norm2(residual.begin(), residual.end());
+                return variance_coefficients_[static_cast<size_t>(differential_operator)] * norm * norm;
             }
 
             /**
@@ -361,7 +364,7 @@ namespace filter {
             std::array<std::vector<double>, N_DIM> second_order_derivative_;
 
             /// Residuals of the fitting, used to compute the variance.
-            linalg::MatrixReal residuals_;
+            linalg::Matrix<double> residuals_;
             /// Coefficients to rescale the output variance.
             std::array<double, static_cast<size_t>(DifferentialOperator::END)> variance_coefficients_;
     };

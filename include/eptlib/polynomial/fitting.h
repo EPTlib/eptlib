@@ -109,8 +109,6 @@ namespace polynomial {
         const std::vector<Scalar> &values // , const std::vector<double> &weights
         ) {
         eptlib::linalg::Matrix<double> F = DesignMatrixWithMonomialsBasis(x, y, z, degree);
-        size_t n_col = F.GetNCol();
-        size_t n_row = F.GetNRow();
         return eptlib::linalg::LinearRegression(F, values);
     }
 
