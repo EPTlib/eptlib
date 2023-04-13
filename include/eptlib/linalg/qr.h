@@ -36,7 +36,6 @@
 #include "eptlib/linalg/matrix.h"
 #include "eptlib/linalg/vector.h"
 
-#include <cstring>
 #include <numeric>
 #include <tuple>
 
@@ -140,7 +139,7 @@ namespace linalg {
         }
         // solve R * x1 = c1 (stored in x)
         std::vector<Scalar> c1(rank);
-        std::memcpy(c1.data(), b.data(), rank*sizeof(Scalar));
+        std::copy(b.begin(), b.begin()+rank, c1.begin());
         std::vector<Scalar> x = SolveTriU(QR, c1);
         // add to x the free parameters as zeros
         x.resize(n_col, 0.0);

@@ -39,6 +39,7 @@
 std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
     const size_t n_row = A.GetNRow();
     const size_t n_col = A.GetNCol();
+    const size_t rank_max = std::min(n_row, n_col);
     // initialise matrix QR
     eptlib::linalg::Matrix<double> QR(n_row+2, n_col);
     for (size_t col = 0; col < n_col; ++col) {
@@ -54,7 +55,7 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::
     std::vector<size_t> p(n_col);
     std::iota(p.begin(), p.end(), 0);
     // perform the decomposition
-    for (size_t col = 0; col < n_col; ++col) {
+    for (size_t col = 0; col < rank_max; ++col) {
         // permute the columns
         auto max_norm = std::max_element(column_norm.begin()+col, column_norm.end());
         auto max_norm_col = std::distance(column_norm.begin(), max_norm);
