@@ -244,6 +244,63 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
     }
 }
 
+TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply2D) {
+    const size_t n0 = 10;
+    const size_t n1 = 10;
+    const size_t n2 = 1;
+
+    const double d0 = 1.0;
+    const double d1 = 1.0;
+    const double d2 = 1.0;
+
+    eptlib::Image<double> constant_field (n0,n1,n2);
+    eptlib::Image<double> linear_field   (n0,n1,n2);
+    eptlib::Image<double> quadratic_field(n0,n1,n2);
+
+    for (int j = 0; j<n1; ++j) {
+        for (int i = 0; i<n0; ++i) {
+            double x = i*d0;
+            double y = j*d1;
+
+            constant_field (i,j,0) = 1.0;
+            linear_field   (i,j,0) = x + y;
+            quadratic_field(i,j,0) = x*x + y*y;
+        }
+    }
+
+    const eptlib::Shape window = eptlib::shapes::Cross(2,2,0);
+    const size_t degree = 3;
+    eptlib::filter::SavitzkyGolay sg_filter(d0,d1,d2, window, degree);
+
+    eptlib::Image<double> lapl_constant_field (n0,n1,n2);
+    eptlib::Image<double> lapl_linear_field   (n0,n1,n2);
+    eptlib::Image<double> lapl_quadratic_field(n0,n1,n2);
+
+    eptlib::EPTlibError error;
+
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    for (int j = 0; j<n1; ++j) {
+        for (int i = 0; i<n0; ++i) {
+            ASSERT_NEAR(lapl_constant_field(i,j,0), 0.0, 1e-13);
+            ASSERT_NEAR(lapl_linear_field  (i,j,0), 0.0, 1e-13);
+            if (i==0 || i==n0-1 || j==0 || j==n1-1 ||
+                i==1 || i==n0-2 || j==1 || j==n1-2) {
+                ASSERT_NEAR(lapl_quadratic_field(i,j,0), 0.0, 1e-13);
+            } else {
+                ASSERT_NEAR(lapl_quadratic_field(i,j,0), 4.0, 1e-12);
+            }
+        }
+    }
+}
+
 TEST(FilterSavitzkyGolayGTest,WrappedPhase) {
     const double d0 = 1.0e-3;
     const double d1 = 1.0e-3;
