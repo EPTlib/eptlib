@@ -64,7 +64,7 @@ std::vector<double> eptlib::polynomial::EvaluateMonomials(const double x, const 
 }
 
 // Fill the design matrix for polynomial fitting with a basis of monomials
-eptlib::linalg::Matrix<double> eptlib::polynomial::DesignMatrixWithMonomialsBasis(const std::vector<double> &x,
+eptlib::linalg::Matrix<double> eptlib::polynomial::DesignMatrixWithMonomialBasis(const std::vector<double> &x,
     const std::vector<double> &y, const std::vector<double> &z, const size_t degree) {
     size_t n_row = x.size();
     size_t n_col = eptlib::polynomial::GetNumberOfMonomials(degree);

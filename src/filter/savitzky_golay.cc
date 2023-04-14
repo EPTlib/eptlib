@@ -96,7 +96,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         }
     }
     // compute the design matrix
-    const eptlib::linalg::Matrix<double> F = eptlib::polynomial::DesignMatrixWithMonomialsBasis(x, y, z, degree_);
+    const eptlib::linalg::Matrix<double> F = eptlib::polynomial::DesignMatrixWithMonomialBasis(x, y, z, degree_);
     const size_t n_row = F.GetNRow();
     const size_t n_col = F.GetNCol();
     // factorize the design matrix

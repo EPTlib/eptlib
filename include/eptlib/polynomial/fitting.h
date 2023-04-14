@@ -87,7 +87,7 @@ namespace polynomial {
      * The columns of the matrix are ordered as follow,
      * (1, x, y, z, x^2, x*y, y^2, x*z, y*z, z^2, x^3, x^2*y, ...).
      */
-    eptlib::linalg::Matrix<double> DesignMatrixWithMonomialsBasis(const std::vector<double> &x,
+    eptlib::linalg::Matrix<double> DesignMatrixWithMonomialBasis(const std::vector<double> &x,
         const std::vector<double> &y, const std::vector<double> &z, const size_t degree);
 
     /**
@@ -108,7 +108,7 @@ namespace polynomial {
         const std::vector<double> &y, const std::vector<double> &z, const size_t degree,
         const std::vector<Scalar> &values // , const std::vector<double> &weights
         ) {
-        eptlib::linalg::Matrix<double> F = DesignMatrixWithMonomialsBasis(x, y, z, degree);
+        eptlib::linalg::Matrix<double> F = DesignMatrixWithMonomialBasis(x, y, z, degree);
         return eptlib::linalg::LinearRegression(F, values);
     }
 
