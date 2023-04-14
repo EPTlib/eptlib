@@ -141,7 +141,7 @@ TEST(FilterSavitzkyGolayGTest,ZeroOrderDerivative) {
     std::vector<double> crop(window.GetVolume());
     std::iota(crop.begin(), crop.end(), 1.0);
     ASSERT_NEAR(sg_filter.ZeroOrderDerivative(crop), 4.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::Field)(crop), 4.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::Field)(crop), 4.0, 1e-14);
 }
 
 TEST(FilterSavitzkyGolayGTest,FirstOrderDerivative) {
@@ -152,9 +152,9 @@ TEST(FilterSavitzkyGolayGTest,FirstOrderDerivative) {
     ASSERT_NEAR(sg_filter.FirstOrderDerivative(0, crop), 1.0, 1e-14);
     ASSERT_NEAR(sg_filter.FirstOrderDerivative(1, crop), 2.0, 1e-14);
     ASSERT_NEAR(sg_filter.FirstOrderDerivative(2, crop), 3.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientX)(crop), 1.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientY)(crop), 2.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientZ)(crop), 3.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::GradientX)(crop), 1.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::GradientY)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::GradientZ)(crop), 3.0, 1e-14);
 }
 
 TEST(FilterSavitzkyGolayGTest,SecondOrderDerivative) {
@@ -176,10 +176,10 @@ TEST(FilterSavitzkyGolayGTest,SecondOrderDerivative) {
     ASSERT_NEAR(sg_filter.SecondOrderDerivative(1, crop), 2.0, 1e-14);
     ASSERT_NEAR(sg_filter.SecondOrderDerivative(2, crop), 2.0, 1e-14);
     ASSERT_NEAR(sg_filter.Laplacian(crop), 6.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientXX)(crop), 2.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientYY)(crop), 2.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::GradientZZ)(crop), 2.0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::filter::DifferentialOperator::Laplacian)(crop), 6.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::GradientXX)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::GradientYY)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::GradientZZ)(crop), 2.0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilter<double>(eptlib::DifferentialOperator::Laplacian)(crop), 6.0, 1e-14);
 }
 
 TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
@@ -219,13 +219,13 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
 
     eptlib::EPTlibError error;
 
-    error = sg_filter.Apply(eptlib::filter::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
-    error = sg_filter.Apply(eptlib::filter::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
-    error = sg_filter.Apply(eptlib::filter::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
     for (int k = 0; k<n2; ++k) {
@@ -239,6 +239,63 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
                 } else {
                     ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-13);
                 }
+            }
+        }
+    }
+}
+
+TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply2D) {
+    const size_t n0 = 10;
+    const size_t n1 = 10;
+    const size_t n2 = 1;
+
+    const double d0 = 1.0;
+    const double d1 = 1.0;
+    const double d2 = 1.0;
+
+    eptlib::Image<double> constant_field (n0,n1,n2);
+    eptlib::Image<double> linear_field   (n0,n1,n2);
+    eptlib::Image<double> quadratic_field(n0,n1,n2);
+
+    for (int j = 0; j<n1; ++j) {
+        for (int i = 0; i<n0; ++i) {
+            double x = i*d0;
+            double y = j*d1;
+
+            constant_field (i,j,0) = 1.0;
+            linear_field   (i,j,0) = x + y;
+            quadratic_field(i,j,0) = x*x + y*y;
+        }
+    }
+
+    const eptlib::Shape window = eptlib::shapes::Cross(2,2,0);
+    const size_t degree = 3;
+    eptlib::filter::SavitzkyGolay sg_filter(d0,d1,d2, window, degree);
+
+    eptlib::Image<double> lapl_constant_field (n0,n1,n2);
+    eptlib::Image<double> lapl_linear_field   (n0,n1,n2);
+    eptlib::Image<double> lapl_quadratic_field(n0,n1,n2);
+
+    eptlib::EPTlibError error;
+
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    error = sg_filter.Apply(eptlib::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
+    ASSERT_EQ(error, eptlib::EPTlibError::Success);
+
+    for (int j = 0; j<n1; ++j) {
+        for (int i = 0; i<n0; ++i) {
+            ASSERT_NEAR(lapl_constant_field(i,j,0), 0.0, 1e-13);
+            ASSERT_NEAR(lapl_linear_field  (i,j,0), 0.0, 1e-13);
+            if (i==0 || i==n0-1 || j==0 || j==n1-1 ||
+                i==1 || i==n0-2 || j==1 || j==n1-2) {
+                ASSERT_NEAR(lapl_quadratic_field(i,j,0), 0.0, 1e-13);
+            } else {
+                ASSERT_NEAR(lapl_quadratic_field(i,j,0), 4.0, 1e-12);
             }
         }
     }
@@ -268,16 +325,16 @@ TEST(FilterSavitzkyGolayGTest,WrappedPhase) {
         }
     }
 
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::Field)(crop), crop[3], 1e-15);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::Field)(crop), crop[3], 1e-15);
     
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientX)(crop), 2.0*d0, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientY)(crop), 2.0*d1, 1e-14);
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientZ)(crop), 2.0*d2, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::GradientX)(crop), 2.0*d0, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::GradientY)(crop), 2.0*d1, 1e-14);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::GradientZ)(crop), 2.0*d2, 1e-14);
 
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientXX)(crop), 2.0, 1e-10);
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientYY)(crop), 2.0, 1e-10);
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::GradientZZ)(crop), 2.0, 1e-10);
-    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian)(crop),  6.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::GradientXX)(crop), 2.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::GradientYY)(crop), 2.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::GradientZZ)(crop), 2.0, 1e-10);
+    ASSERT_NEAR(sg_filter.GetFilterWrappedPhase(eptlib::DifferentialOperator::Laplacian)(crop),  6.0, 1e-10);
 }
 
 TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApplyWrappedPhase) {
@@ -317,13 +374,13 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApplyWrappedPhase) {
 
     eptlib::EPTlibError error;
 
-    error = sg_filter.ApplyWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
+    error = sg_filter.ApplyWrappedPhase(eptlib::DifferentialOperator::Laplacian, &lapl_constant_field, constant_field);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
-    error = sg_filter.ApplyWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
+    error = sg_filter.ApplyWrappedPhase(eptlib::DifferentialOperator::Laplacian, &lapl_linear_field, linear_field);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
-    error = sg_filter.ApplyWrappedPhase(eptlib::filter::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
+    error = sg_filter.ApplyWrappedPhase(eptlib::DifferentialOperator::Laplacian, &lapl_quadratic_field, quadratic_field);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
 
     for (int k = 0; k<n2; ++k) {

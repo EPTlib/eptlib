@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,36 +30,48 @@
 *
 *****************************************************************************/
 
-#include "eptlib/linalg/linalg_householder.h"
+#ifndef EPTLIB_LINALG_REGRESSION_H_
+#define EPTLIB_LINALG_REGRESSION_H_
 
-#include <cmath>
-#include <complex>
-#include <limits>
+#include <tuple>
 
-#include "eptlib/linalg/linalg_util.h"
+#include "eptlib/linalg/qr.h"
+#include "eptlib/linalg/matrix.h"
+#include "eptlib/linalg/vector.h"
 
-using namespace eptlib;
-using namespace eptlib::linalg;
+namespace eptlib {
 
-// Compute the elementary reflector
-void eptlib::linalg::HouseholderReflector(double *x,const size_t n) {
-    double sigma = std::copysign(Norm2(x,n),x[0]);
-    // sum avoiding loss of significance
-    x[0] += sigma;
-    // store the factor pi
-    x[n] = sigma*x[0];
-    return;
-}
+namespace linalg {
 
-// Compute the product of the elementary reflector with a vector
-template <typename NumType>
-void eptlib::linalg::HouseholderLeft(NumType *x,const double *u,const size_t n) {
-    NumType tau = Dot(x,u,n)/u[n];
-    for (int i = 0; i<n; ++i) {
-        x[i] -= tau*u[i];
+    /**
+     * @brief Solve a linear regression problem using the QR decomposition.
+     * 
+     * @tparam Scalar numerical type of the forcing term entries.
+     * 
+     * @param A design matrix of the regression problem.
+     * @param b forcing term of the regression problem.
+     * 
+     * @return a std::tuple with:
+     *     1) a vector solving the linear regression;
+     *     2) the normalized chi-squared statistic of the linear regression.
+     */
+    template <typename Scalar>
+    std::tuple<std::vector<Scalar>, double> LinearRegression(const eptlib::linalg::Matrix<double> &A, const std::vector<Scalar> &b) {
+        eptlib::linalg::Matrix<double> QR;
+        std::vector<size_t> p;
+        std::vector<Scalar> x;
+        double chi;
+        std::tie(QR, p) = eptlib::linalg::QRDecomposition(A);
+        std::tie(x, chi) = eptlib::linalg::QRSolve(QR, b);
+        eptlib::linalg::Permute(x.begin(), x.end(), p);
+        size_t m = A.GetNRow();
+        size_t n = A.GetNCol();
+        double chi2n = chi*chi/(m-n);
+        return {x, chi2n};
     }
-    return;
-}
 
-template void eptlib::linalg::HouseholderLeft<double>(double *x,const double *u,const size_t n);
-template void eptlib::linalg::HouseholderLeft<std::complex<double> >(std::complex<double> *x,const double *u,const size_t n);
+}  // namespace linalg
+
+}  // namespace eptlib
+
+#endif  // EPTLIB_LINALG_REGRESSION_H_

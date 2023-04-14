@@ -128,7 +128,7 @@ CompleteEPTConvReact() {
     for (size_t d = 0; d<n_dim; ++d) {
         beta[d] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
         beta[d].GetData().assign(n_vox, ::nand);
-        filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
         EPTlibError error = sg_filter_.Apply(diff_op, &beta[d], tx_sens_c);
         if (error!=EPTlibError::Success) {
             return error;
@@ -141,7 +141,7 @@ CompleteEPTConvReact() {
     if (!VolumeTomography()) {
         beta[2] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
         beta[2].GetData().assign(n_vox, ::nand);
-        filter::DifferentialOperator diff_op = filter::DifferentialOperator::GradientZZ;
+        DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
         EPTlibError error = sg_filter_.Apply(diff_op, &beta[2], tx_sens_c);
         if (error!=EPTlibError::Success) {
             return error;
@@ -245,7 +245,7 @@ PhaseEPTConvReact() {
     for (size_t d = 0; d<n_dim; ++d) {
         beta[d] = Image<double>(nn_[0], nn_[1], nn_[2]);
         beta[d].GetData().assign(n_vox, ::nand);
-        filter::DifferentialOperator diff_op = static_cast<filter::DifferentialOperator>(d+1);
+        DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
         EPTlibError error;
         if (PhaseIsWrapped()) {
             error = sg_filter_.ApplyWrappedPhase(diff_op, &beta[d], *GetTRxPhase(0,0));
@@ -259,7 +259,7 @@ PhaseEPTConvReact() {
     if (!VolumeTomography()) {
         beta[2] = Image<double>(nn_[0], nn_[1], nn_[2]);
         beta[2].GetData().assign(n_vox, ::nand);
-        filter::DifferentialOperator diff_op = filter::DifferentialOperator::GradientZZ;
+        DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
         EPTlibError error;
         if (PhaseIsWrapped()) {
             error = sg_filter_.ApplyWrappedPhase(diff_op, &beta[2], *GetTRxPhase(0,0));

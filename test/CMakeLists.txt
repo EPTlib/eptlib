@@ -39,8 +39,10 @@ set(EPTlib_TEST_SRC
     test_io_hdf5.cc
     test_io_toml.cc
     test_io_util.cc
-    test_linalg_util.cc
-    test_linalg_householder.cc
+    test_linalg_matrix.cc
+    test_linalg_qr.cc
+    test_linalg_vector.cc
+    test_polynomial_fitting.cc
     test_shape.cc
     test_util.cc
 )

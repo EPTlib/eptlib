@@ -39,38 +39,19 @@
 #include <tuple>
 #include <vector>
 
+#include "eptlib/differential_operator.h"
 #include "eptlib/image.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
-#include "eptlib/filter/moving_window.h"
+#include "eptlib/linalg/matrix.h"
+#include "eptlib/linalg/vector.h"
 
-#include "eptlib/linalg/linalg_util.h"
+#include "eptlib/filter/moving_window.h"
 
 namespace eptlib {
 
 namespace filter {
-
-    enum class DifferentialOperator {
-        /// Zero order derivative (field approximation)
-        Field,
-        /// First order derivative along X
-        GradientX,
-        /// First order derivative along Y
-        GradientY,
-        /// First order derivative along Z
-        GradientZ,
-        /// Second order derivative along X
-        GradientXX,
-        /// Second order derivative along Y
-        GradientYY,
-        /// Second order derivative along Z
-        GradientZZ,
-        /// Laplacian
-        Laplacian,
-        /// Fictitious label to denote the end of differential operators
-        END,
-    };
 
     /**
      * @brief Class implementing the Savitzky-Golay filter.
@@ -104,6 +85,35 @@ namespace filter {
              */
             inline const Shape& GetWindow() const {
                 return window_;
+            }
+
+            /**
+             * @brief Get a constant reference to the filter resolution.
+             * 
+             * @return a constant reference to the resolution.
+             */
+            inline const std::array<double,N_DIM>& GetResolution() const {
+                return dd_;
+            }
+
+            /**
+             * @brief Get the filter resolution along dimension `d'.
+             * 
+             * @param d dimension of interest.
+             * 
+             * @return the resolution along dimension `d'.
+             */
+            inline double GetResolution(const size_t d) const {
+                return dd_[d];
+            }
+
+            /**
+             * @brief Get the degree of the fitting polynomial.
+             * 
+             * @return the degree of the fitting polynomial.
+             */
+            inline size_t GetDegree() const {
+                return degree_;
             }
 
             /**
@@ -262,14 +272,16 @@ namespace filter {
              */
             template <typename Scalar>
             inline double ComputeVariance(const DifferentialOperator differential_operator, const std::vector<Scalar> &crop) const {
-                const size_t n_row = residuals_.size();
+                const size_t n_row = residuals_.GetNRow();
+                const size_t n_col = residuals_.GetNCol();
                 std::vector<Scalar> residual(n_row, 0.0);
-                for (size_t k = 0; k<n_row; ++k) {
+                for (size_t col = 0; col<n_col; ++col) {
                     for (size_t row = 0; row<n_row; ++row) {
-                        residual[row] += crop[k] * residuals_[k][row];
+                        residual[row] += residuals_(row, col) * crop[col];
                     }
                 }
-                return variance_coefficients_[static_cast<size_t>(differential_operator)] * eptlib::linalg::Norm2(residual.data(), n_row);
+                double norm = eptlib::linalg::Norm2(residual.begin(), residual.end());
+                return variance_coefficients_[static_cast<size_t>(differential_operator)] * norm * norm;
             }
 
             /**
@@ -337,8 +349,12 @@ namespace filter {
              */
             EPTlibError ApplyWrappedPhase(const DifferentialOperator differential_operator, Image<double> *dst, const Image<double> &src) const;
         private:
+            /// Resolution in meter of the voxels along each direction.
+            std::array<double,N_DIM> dd_;
             /// Mask over which apply the filter.
             Shape window_;
+            /// Degree of the fitting polynomial.
+            size_t degree_;
 
             /// Coefficients of the zero order derivative (map approximation).
             std::vector<double> zero_order_derivative_;
@@ -348,7 +364,7 @@ namespace filter {
             std::array<std::vector<double>, N_DIM> second_order_derivative_;
 
             /// Residuals of the fitting, used to compute the variance.
-            linalg::MatrixReal residuals_;
+            linalg::Matrix<double> residuals_;
             /// Coefficients to rescale the output variance.
             std::array<double, static_cast<size_t>(DifferentialOperator::END)> variance_coefficients_;
     };

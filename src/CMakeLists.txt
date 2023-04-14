@@ -37,14 +37,12 @@ set(EPTLIB_SRC
     ept_helmholtz.cc
     ept_interface.cc
     shape.cc
-    filter/anatomical_savitzky_golay.cc
     filter/savitzky_golay.cc
     io/io_hdf5.cc
     io/io_toml.cc
     io/io_util.cc
-    linalg/linalg_householder.cc
-    linalg/linalg_qr.cc
-    linalg/linalg_util.cc
+    linalg/qr.cc
+    polynomial/fitting.cc
 )
 
 add_library(EPTlib SHARED ${EPTLIB_SRC})

@@ -30,20 +30,41 @@
 *
 *****************************************************************************/
 
-#include "eptlib/filter/anatomical_savitzky_golay.h"
+#include "gtest/gtest.h"
 
-eptlib::filter::AnatomicalSavitzkyGolay::
-AnatomicalSavitzkyGolay(const double d0, const double d1, const double d2,
-    const eptlib::Shape &window, const size_t degree) :
-    window_(window),
-    degree_(degree) {
-    dd_[0] = d0;
-    dd_[1] = d1;
-    dd_[2] = d2;
-    return;
+#include "eptlib/linalg/vector.h"
+
+#include <numeric>
+#include <vector>
+
+TEST(LinalgVectorGTest,Norm2) {
+    const int n = 10;
+    std::vector<double> x(n);
+    std::iota(x.begin(), x.end(), 1.0);
+    double norm = eptlib::linalg::Norm2(x.begin(), x.end());
+    ASSERT_NEAR(norm, std::sqrt(385.0), 1e-12);
 }
 
-eptlib::filter::AnatomicalSavitzkyGolay::
-~AnatomicalSavitzkyGolay() {
-    return;
+TEST(LinalgVectorGTest,MaxAbs) {
+    const int n = 10;
+    std::vector<double> x(n);
+    for (int i = 0; i<n; ++i) {
+        x[i] = -(i+1);
+    }
+    double maxabs = eptlib::linalg::MaxAbs(x.begin(), x.end());
+    ASSERT_NEAR(maxabs, 10.0, 1e-12);
+}
+
+TEST(LinalgVectorGTest,Permute) {
+    const int n = 10;
+    std::vector<double> x(n);
+    std::vector<size_t> p(n);
+    for (int i = 0; i<n; ++i) {
+        x[i] = -(i+1);
+        p[i] = n-1-i;
+    }
+    eptlib::linalg::Permute(x.begin(), x.end(), p);
+    for (int i = 0; i<n; ++i) {
+        ASSERT_EQ(x[i], -n+i);
+    }
 }

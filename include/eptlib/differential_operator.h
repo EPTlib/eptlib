@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,42 +30,32 @@
 *
 *****************************************************************************/
 
-#ifndef LINALG_HOUSEHOLDER_H_
-#define LINALG_HOUSEHOLDER_H_
-
-#include "eptlib/util.h"
+#ifndef EPTLIB_DIFFERENTIAL_OPERATOR_H_
+#define EPTLIB_DIFFERENTIAL_OPERATOR_H_
 
 namespace eptlib {
 
-namespace linalg {
-
-    /**
-     * @brief Compute the elementary reflector 
-     * 
-     * @param x vector for which the reflector is computed.
-     * @param n vector size.
-     * 
-     * The elementary reflector u is stored in place of `x', which should be
-     * larger than `n' to allow storing the factor pi.
-     */
-    void HouseholderReflector(double *x,const size_t n);
-
-    /**
-     * @brief Compute the product of the elementary reflector with a vector.
-     * 
-     * @tparam NumType numeric typename.
-     * 
-     * @param x vector to which the reflector is applied.
-     * @param u elementary reflector.
-     * @param n vector size.
-     * 
-     * The result of the application is stored in place of `x'.
-     */
-    template <typename NumType>
-    void HouseholderLeft(NumType *x,const double *u,const size_t n);
-
-}  // namespace linalg
+    enum class DifferentialOperator {
+        /// Zero order derivative (field approximation)
+        Field,
+        /// First order derivative along X
+        GradientX,
+        /// First order derivative along Y
+        GradientY,
+        /// First order derivative along Z
+        GradientZ,
+        /// Second order derivative along X
+        GradientXX,
+        /// Second order derivative along Y
+        GradientYY,
+        /// Second order derivative along Z
+        GradientZZ,
+        /// Laplacian
+        Laplacian,
+        /// Fictitious label to denote the end of differential operators
+        END,
+    };
 
 }  // namespace eptlib
 
-#endif  // LINALG_HOUSEHOLDER_H_
+#endif  // EPTLIB_DIFFERENTIAL_OPERATOR_H_
