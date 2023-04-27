@@ -55,6 +55,7 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::
     std::vector<size_t> p(n_col);
     std::iota(p.begin(), p.end(), 0);
     // perform the decomposition
+    double tol;
     for (size_t col = 0; col < rank_max; ++col) {
         // permute the columns
         auto max_norm = std::max_element(column_norm.begin()+col, column_norm.end());
@@ -62,6 +63,16 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::
         std::swap_ranges(QR.begin(col), QR.end(col), QR.begin(max_norm_col));
         std::swap(column_norm[col], column_norm[max_norm_col]);
         std::swap(p[col], p[max_norm_col]);
+        // check if the matrix rank has been reached
+        if (col == 0) {
+            const double tmp = std::sqrt(column_norm[col]);
+            tol = (std::nextafter(tmp, +INFINITY) - tmp) * std::max(n_row, n_col);
+            tol *= tol;
+        } else {
+            if (column_norm[col] < tol) {
+                break;
+            }
+        }
         // compute and apply the reflector
         HouseholderReflector(QR.begin(col)+col+1, QR.end(col));
         std::copy(QR.begin(col)+1, QR.begin(col)+col+1, QR.begin(col));
