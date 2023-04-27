@@ -81,11 +81,12 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::
 size_t eptlib::linalg::QRGetRank(const eptlib::linalg::Matrix<double> &QR) {
     const size_t n_row = QR.GetNRow()-2;
     const size_t n_col = QR.GetNCol();
+    const size_t max_rank = std::min(n_row, n_col);
     const double tol = (std::nextafter(QR(0,0), +INFINITY) - QR(0,0)) * std::max(n_row, n_col);
-    for (size_t rank = 0; rank < n_col; ++rank) {
+    for (size_t rank = 0; rank < max_rank; ++rank) {
         if (std::abs(QR(rank,rank)) < tol) {
             return rank;
         }
     }
-    return n_col;
+    return max_rank;
 }
