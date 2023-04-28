@@ -65,8 +65,8 @@ namespace linalg {
         std::tie(x, chi) = eptlib::linalg::QRSolve(QR, b);
         eptlib::linalg::Permute(x.begin(), x.end(), p);
         size_t m = A.GetNRow();
-        size_t n = A.GetNCol();
-        double chi2n = chi*chi/(m-n);
+        size_t r = eptlib::linalg::QRGetRank(QR);
+        double chi2n = chi>0.0 ? chi*chi/(m-r) : 0.0;
         return {x, chi2n};
     }
 
