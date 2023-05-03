@@ -114,9 +114,7 @@ TEST(LinalgQRGTest, QRSolve) {
     std::vector<std::complex<double> > b_c(n);
     std::copy(b.begin(), b.end(), b_c.begin());
 
-    eptlib::linalg::Matrix<double> QR;
-    std::vector<size_t> p;
-    std::tie(QR, p) = eptlib::linalg::QRDecomposition(A);
+    auto [QR, p] = eptlib::linalg::QRDecomposition(A);
 
     auto [x, chi] = eptlib::linalg::QRSolve(QR, b);
     eptlib::linalg::Permute(x.begin(), x.end(), p);

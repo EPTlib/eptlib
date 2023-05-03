@@ -80,6 +80,38 @@ namespace linalg {
             }
 
             /**
+             * Copy constructor.
+             * 
+             * @param o matrix to be copied.
+             */
+            Matrix(const Matrix<Scalar> &o) :
+            Matrix(o.GetNRow(), o.GetNCol()) {
+                std::copy(o.data_.begin(), o.data_.end(), data_.begin());
+                return;
+            }
+
+            /**
+             * Move constructor.
+             * 
+             * @param o matrix to be moved.
+             */
+            Matrix(Matrix<Scalar> &&o) noexcept :
+            Matrix() {
+                swap(*this, o);
+                return;
+            }
+
+            /**
+             * Copy assignment.
+             * 
+             * @param o matrix to be copied.
+             */
+            Matrix<Scalar>& operator=(Matrix<Scalar> o) {
+                swap(*this, o);
+                return *this;
+            }
+
+            /**
              * Get the number of rows in the matrix.
              * 
              * @return the number of rows in the matrix.
@@ -221,6 +253,19 @@ namespace linalg {
              */
             inline typename std::vector<Scalar>::const_iterator end(const size_t col) const {
                 return this->begin(col+1);
+            }
+
+            
+            /**
+             * Swap the content of two matrices.
+             * 
+             * @param first,second matrices to be swapped.
+             */
+            friend void swap(Matrix<Scalar> &first, Matrix<Scalar> &second) {
+                using std::swap;
+                swap(first.data_, second.data_);
+                swap(first.column_, second.column_);
+                swap(first.n_row_, second.n_row_);
             }
         private:
             /// Matrix entries ordered by columns.

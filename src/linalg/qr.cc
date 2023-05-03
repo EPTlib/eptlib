@@ -37,6 +37,7 @@
 
 // Perform the QR decomposition with column pivoting
 std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
+    using std::swap;
     const size_t n_row = A.GetNRow();
     const size_t n_col = A.GetNCol();
     const size_t rank_max = std::min(n_row, n_col);
@@ -60,9 +61,11 @@ std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::
         // permute the columns
         auto max_norm = std::max_element(column_norm.begin()+col, column_norm.end());
         auto max_norm_col = std::distance(column_norm.begin(), max_norm);
-        std::swap_ranges(QR.begin(col), QR.end(col), QR.begin(max_norm_col));
-        std::swap(column_norm[col], column_norm[max_norm_col]);
-        std::swap(p[col], p[max_norm_col]);
+        if (max_norm_col != col) {
+            std::swap_ranges(QR.begin(col), QR.end(col), QR.begin(max_norm_col));
+            swap(column_norm[col], column_norm[max_norm_col]);
+            swap(p[col], p[max_norm_col]);
+        }
         // check if the matrix rank has been reached
         if (col == 0) {
             const double tmp = std::sqrt(column_norm[col]);

@@ -100,9 +100,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
     const size_t n_row = F.GetNRow();
     const size_t n_col = F.GetNCol();
     // factorize the design matrix
-    eptlib::linalg::Matrix<double> QR;
-    std::vector<size_t> p;
-    std::tie(QR, p) = eptlib::linalg::QRDecomposition(F);
+    auto [QR, p] = eptlib::linalg::QRDecomposition(F);
     const size_t rank = eptlib::linalg::QRGetRank(QR);
     // compute the kernel coefficients
     residuals_ = eptlib::linalg::Matrix<double>(n_row - rank, n_row);
@@ -138,7 +136,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         std::fill(w.begin(), w.end(), 0.0);
         w[derivative_indices[der]] = 1.0;
         for (size_t col = 0; col < n_col; ++col) {
-            w_p[p[col]] = w[col];
+            w_p[col] = w[p[col]];
         }
         std::vector<double> r = RTSolve(QR, w_p);
         variance_coefficients_[der] = eptlib::linalg::Norm2(r.begin(), r.end());
@@ -148,7 +146,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         std::fill(w.begin(), w.end(), 0.0);
         w[derivative_indices[der]] = 2.0;
         for (size_t col = 0; col < n_col; ++col) {
-            w_p[p[col]] = w[col];
+            w_p[col] = w[p[col]];
         }
         std::vector<double> r = RTSolve(QR, w_p);
         variance_coefficients_[der] = eptlib::linalg::Norm2(r.begin(), r.end());
@@ -160,7 +158,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         w[derivative_indices[5]] = 2.0;
         w[derivative_indices[6]] = 2.0;
         for (size_t col = 0; col < n_col; ++col) {
-            w_p[p[col]] = w[col];
+            w_p[col] = w[p[col]];
         }
         std::vector<double> r = RTSolve(QR, w_p);
         variance_coefficients_[7] = eptlib::linalg::Norm2(r.begin(), r.end());

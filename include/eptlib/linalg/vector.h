@@ -99,11 +99,12 @@ namespace linalg {
      */
     template <typename ForwardIt>
     void Permute(ForwardIt first, ForwardIt last, std::vector<size_t> p) {
+        using std::swap;
         size_t i = 0;
         while (i < p.size()) {
             if (p[i] != i) {
                 std::iter_swap(first, first+(p[i]-i));
-                std::swap(p[i], p[p[i]]);
+                swap(p[i], p[p[i]]);
             } else {
                 ++i;
                 ++first;

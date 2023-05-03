@@ -57,12 +57,8 @@ namespace linalg {
      */
     template <typename Scalar>
     std::tuple<std::vector<Scalar>, double> LinearRegression(const eptlib::linalg::Matrix<double> &A, const std::vector<Scalar> &b) {
-        eptlib::linalg::Matrix<double> QR;
-        std::vector<size_t> p;
-        std::vector<Scalar> x;
-        double chi;
-        std::tie(QR, p) = eptlib::linalg::QRDecomposition(A);
-        std::tie(x, chi) = eptlib::linalg::QRSolve(QR, b);
+        auto [QR, p] = eptlib::linalg::QRDecomposition(A);
+        auto [x, chi] = eptlib::linalg::QRSolve(QR, b);
         eptlib::linalg::Permute(x.begin(), x.end(), p);
         size_t m = A.GetNRow();
         size_t r = eptlib::linalg::QRGetRank(QR);
