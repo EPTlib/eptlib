@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -36,7 +36,7 @@
 #include <cmath>
 
 // Perform the QR decomposition with column pivoting
-std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t>> eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
+std::tuple<eptlib::linalg::Matrix<double>, std::vector<size_t> > eptlib::linalg::QRDecomposition(const eptlib::linalg::Matrix<double> &A) {
     using std::swap;
     const size_t n_row = A.GetNRow();
     const size_t n_col = A.GetNCol();

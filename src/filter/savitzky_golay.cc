@@ -38,26 +38,6 @@
 
 #include "eptlib/polynomial/fitting.h"
 
-namespace {
-
-    // Solve a linear equation with R^T as matrix of coefficients.
-    template <typename Scalar>
-    std::vector<Scalar> RTSolve(const eptlib::linalg::Matrix<double> &QR, std::vector<Scalar> b) {
-        const size_t rank = eptlib::linalg::QRGetRank(QR);
-        std::vector<Scalar> x(rank);
-        x[0] = b[0] / QR(0,0);
-        for (size_t i = 1; i < rank; ++i) {
-            Scalar s = 0.0;
-            for (size_t j = 0; j < i; ++j) {
-                s += QR(j, i) * x[j];
-            }
-            x[i] = (b[i] - s) / QR(i, i);
-        }
-        return x;
-    }
-
-}  //
-
 // SavitzkyGolay constructor
 eptlib::filter::SavitzkyGolay::
 SavitzkyGolay(const double d0, const double d1, const double d2,
@@ -138,7 +118,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         for (size_t col = 0; col < n_col; ++col) {
             w_p[col] = w[p[col]];
         }
-        std::vector<double> r = RTSolve(QR, w_p);
+        std::vector<double> r = eptlib::linalg::RTransposeSolve(QR, w_p);
         variance_coefficients_[der] = eptlib::linalg::Norm2(r.begin(), r.end());
     }
     // compute the variance coefficients of second order derivatives
@@ -148,7 +128,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         for (size_t col = 0; col < n_col; ++col) {
             w_p[col] = w[p[col]];
         }
-        std::vector<double> r = RTSolve(QR, w_p);
+        std::vector<double> r = eptlib::linalg::RTransposeSolve(QR, w_p);
         variance_coefficients_[der] = eptlib::linalg::Norm2(r.begin(), r.end());
     }
     // compute the variance coefficients of laplacian
@@ -160,7 +140,7 @@ SavitzkyGolay(const double d0, const double d1, const double d2,
         for (size_t col = 0; col < n_col; ++col) {
             w_p[col] = w[p[col]];
         }
-        std::vector<double> r = RTSolve(QR, w_p);
+        std::vector<double> r = eptlib::linalg::RTransposeSolve(QR, w_p);
         variance_coefficients_[7] = eptlib::linalg::Norm2(r.begin(), r.end());
     }
     // reduce the variance coefficients

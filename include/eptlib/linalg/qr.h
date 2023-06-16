@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -96,7 +96,7 @@ namespace linalg {
      *     1) a matrix containing the QR decomposition;
      *     2) a vector of indices defining the permutation;
      */
-    std::tuple<Matrix<double>, std::vector<size_t>> QRDecomposition(const Matrix<double> &A);
+    std::tuple<Matrix<double>, std::vector<size_t> > QRDecomposition(const Matrix<double> &A);
 
     /**
      * @brief Compute the numerical rank of a matrix given its rank-revealing QR decomposition.
@@ -121,7 +121,6 @@ namespace linalg {
      *     1) a vector solving the linear system in the least square sense;
      *     2) the Euclidean norm of the residual.
      */
-
     template <typename Scalar>
     std::tuple<std::vector<Scalar>, double> QRSolve(const Matrix<double> &QR, std::vector<Scalar> b) {
         const size_t n_row = b.size();
@@ -146,6 +145,32 @@ namespace linalg {
         // compute the residual
         double chi = Norm2(b.begin()+rank, b.end());
         return {x, chi};
+    }
+
+    /**
+     * @brief Solve a linear system with the transpose of the invertible part of R as matrix of coefficients.
+     * 
+     * @tparam Scalar numeric typename of the forcing term entries.
+     * 
+     * @param QR QR decomposition of which the transpose of the invertible part of R is matrix of coefficients.
+     * @param b forcing term of the linear system.
+     * 
+     * @return a vector solving the linear system. The vector size is the rank of R.
+     */
+    template <typename Scalar>
+    std::vector<Scalar> RTransposeSolve(const Matrix<double> &QR, const std::vector<Scalar> &b) {
+        const size_t rank = QRGetRank(QR);
+        std::vector<Scalar> x(rank);
+        if (rank == 0) return x;
+        x[0] = b[0] / QR(0, 0);
+        for (size_t i = 1; i < rank; ++i) {
+            Scalar s = 0.0;
+            for (size_t j = 0; j < i; ++j) {
+                s += QR(j, i) * x[j];
+            }
+            x[i] = (b[i] - s) / QR(i, i);
+        }
+        return x;
     }
 
 }  // namespace linalg

@@ -299,7 +299,7 @@ namespace linalg {
     }
 
     /**
-     * @brief Solve an upper triangolar square system.
+     * @brief Solve an upper triangular square system.
      * 
      * @tparam ScalarMatrix numeric typename of the matrix entries.
      * @tparam ScalarVector numeric typename of the vector entries.
@@ -328,7 +328,7 @@ namespace linalg {
     }
 
     /**
-     * @brief Solve a lower triangolar square system.
+     * @brief Solve a lower triangular square system.
      * 
      * @tparam ScalarMatrix numeric typename of the matrix entries.
      * @tparam ScalarVector numeric typename of the vector entries.
