@@ -57,7 +57,7 @@ namespace filter {
      * @param window mask over which apply the filter.
      * @param filter filter to be applied.
      * @param variance optional image where the second filter result (if it exists) is written. (Default: `nullptr')
-     * @param ref_imgs optional vector of reference images to be used for an improved filter. (Default: `nullptr')
+     * @param ref_img optional reference image to be used for an improved filter. (Default: `nullptr')
      * 
      * @return a Success or a WrongDataFormat if the argument sizes are inconsistent.
      * 
@@ -67,23 +67,23 @@ namespace filter {
      * 
      *  - `std::tuple<Scalar,double> filter(const std::vector<Scalar>&)`, with `variance!=nullptr';
      * 
-     *  - `Scalar filter(const std::vector<Scalar>&, const std::vector<double>&)', with `ref_imgs!=nullptr';
+     *  - `Scalar filter(const std::vector<Scalar>&, const std::vector<double>&)', with `ref_img!=nullptr';
      * 
-     *  - `std::tuple<Scalar,double> filter(const std::vector<Scalar>&, const std::vector<double>&)', with `variance!=nullptr' and `ref_imgs!=nullptr'.
+     *  - `std::tuple<Scalar,double> filter(const std::vector<Scalar>&, const std::vector<double>&)', with `variance!=nullptr' and `ref_img!=nullptr'.
      * 
      * The filter always receives in input the image `src' cropped in the filter window
      * and provides in output the value to be assigned to image `dst'. Additionally,
-     * it can receive a set of reference images (`ref_imgs') and can provide a second
+     * it can receive a reference image (`ref_img') and can provide a second
      * output (`variance').
      */
     template <typename Scalar, typename Filter>
     EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter,
         Image<double> *variance = nullptr,
-        const std::vector<Image<double> > *ref_imgs = nullptr) {
+        const Image<double> *ref_img = nullptr) {
         // define compile-time variables about the Filter function
         constexpr bool filter_with_variance = std::is_same_v<FunctionReturnType<Filter>, std::tuple<Scalar, double> >;
-        constexpr bool filter_with_ref_imgs = std::is_invocable_v<Filter, const std::vector<Scalar>&, const std::vector<double>&>;
-        if ((filter_with_variance && !variance) || (filter_with_ref_imgs && !ref_imgs)) {
+        constexpr bool filter_with_ref_img  = std::is_invocable_v<Filter, const std::vector<Scalar>&, const std::vector<double>&>;
+        if ((filter_with_variance && !variance) || (filter_with_ref_img && !ref_img)) {
             return EPTlibError::WrongDataFormat;
         }
         // initialize the runtime variables
@@ -99,14 +99,14 @@ namespace filter {
         const size_t r0 = m0/2;
         const size_t r1 = m1/2;
         const size_t r2 = m2/2;
-        const size_t num_ref_imgs = filter_with_ref_imgs ? ref_imgs->size() : 0;
+        const size_t num_ref_imgs = filter_with_ref_img ? 1 : 0;
         // loop over the destination voxels
         #pragma omp parallel for collapse(3)
         for (size_t i2 = r2; i2<n2-r2; ++i2) {
             for (size_t i1 = r1; i1<n1-r1; ++i1) {
                 for (size_t i0 = r0; i0<n0-r0; ++i0) {
                     std::vector<Scalar> src_crop(window.GetVolume());
-                    std::vector<double> ref_imgs_crop(window.GetVolume() * num_ref_imgs);
+                    std::vector<double> ref_img_crop(window.GetVolume() * num_ref_imgs);
                     // loop over the window voxels
                     size_t idx_crop = 0;
                     for (size_t iw2 = 0; iw2<m2; ++iw2) {
@@ -114,10 +114,8 @@ namespace filter {
                             for (size_t iw0 = 0; iw0<m0; ++iw0) {
                                 if (window(iw0, iw1, iw2)) {
                                     src_crop[idx_crop] = src(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
-                                    if constexpr (filter_with_ref_imgs) {
-                                        for (size_t idx_ref_img = 0; idx_ref_img<num_ref_imgs; ++idx_ref_img) {
-                                            ref_imgs_crop[idx_ref_img + num_ref_imgs*idx_crop] = ref_imgs->at(idx_ref_img)(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
-                                        }
+                                    if constexpr (filter_with_ref_img) {
+                                        ref_img_crop[idx_crop] = ref_img->At(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
                                     }
                                     ++idx_crop;
                                 }
@@ -130,8 +128,8 @@ namespace filter {
                     //   2) the result is written by assigning an lvalue to output
                     using output_t = std::conditional_t<filter_with_variance, std::tuple<Scalar&,double&>, Scalar&>;
                     output_t output = ConstexprIf<filter_with_variance>(std::tie(dst->At(i0,i1,i2),variance->At(i0,i1,i2)), std::ref(dst->At(i0,i1,i2)));
-                    if constexpr (filter_with_ref_imgs) {
-                        output = std::invoke(filter, src_crop, ref_imgs_crop);
+                    if constexpr (filter_with_ref_img) {
+                        output = std::invoke(filter, src_crop, ref_img_crop);
                     } else {
                         output = std::invoke(filter, src_crop);
                     }
