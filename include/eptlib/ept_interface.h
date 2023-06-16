@@ -102,6 +102,15 @@ class EPTInterface {
             const size_t tx_ch = 0, const size_t rx_ch = 0);
 
         /**
+         * Set the reference image.
+         * 
+         * @param reference_image reference image.
+         * 
+         * @return Success, or WrongDataFormat error.
+         */
+        EPTlibError SetReferenceImage(const Image<double> &reference_image);
+
+        /**
          * @brief Get the pointer to the Tx sensitivity of the Tx channel tx_ch.
          * 
          * @param tx_ch index of the Tx channel.
@@ -123,6 +132,15 @@ class EPTInterface {
          */
         inline const Image<double> * GetTRxPhase(const size_t tx_ch, const size_t rx_ch) const {
             return trx_phase_[tx_ch+n_tx_ch_*rx_ch];
+        }
+
+        /**
+         * @brief Get the pointer to the reference image.
+         * 
+         * @return the pointer to the reference image.
+         */
+        inline const Image<double> * GetReferenceImage() const {
+            return reference_image_;
         }
 
         /**
@@ -223,6 +241,16 @@ class EPTInterface {
         }
 
         /**
+         * @brief Check if the reference image is set.
+         * 
+         * @return true if the reference image is set.
+         * @return false if the reference image is not set.
+         */
+        inline bool ThereIsReferenceImage() const {
+            return reference_image_!=nullptr;
+        }
+
+        /**
          * @brief Check if the electric conductivity is set.
          * 
          * @return true if the electric conductivity is set.
@@ -256,6 +284,8 @@ class EPTInterface {
         std::vector<const Image<double> *> tx_sens_;
         /// Collection of pointers to transceive phase distributions (tx_ch faster).
         std::vector<const Image<double> *> trx_phase_;
+        /// Reference image.
+        const Image<double> *reference_image_;
         /// Electric conductivity distribution.
         std::unique_ptr<Image<double> > sigma_;
         /// Relative permittivity distribution.

@@ -77,6 +77,7 @@ TEST(EPTInterfaceGTest,SettersGetters) {
     eptlib::Image<double> dummy(1,1,1);
     eptlib::Image<double> tx_sens(n0,n1,n2);
     eptlib::Image<double> trx_phase(n0,n1,n2);
+    eptlib::Image<double> reference_image(n0,n1,n2);
     std::iota(tx_sens.GetData().begin(),tx_sens.GetData().end(),1);
     std::transform(tx_sens.GetData().begin(),tx_sens.GetData().end(),trx_phase.GetData().begin(),
         [](const double a) -> double{
@@ -106,6 +107,11 @@ TEST(EPTInterfaceGTest,SettersGetters) {
     ASSERT_TRUE(ept.ThereIsTRxPhase(0,0));
     ASSERT_TRUE(ept.ThereAreAllTRxPhase());
     //
+    ASSERT_FALSE(ept.ThereIsReferenceImage());
+    ASSERT_EQ(ept.SetReferenceImage(dummy), eptlib::EPTlibError::WrongDataFormat);
+    ASSERT_EQ(ept.SetReferenceImage(reference_image), eptlib::EPTlibError::Success);
+    ASSERT_TRUE(ept.ThereIsReferenceImage());
+    //
     ASSERT_FALSE(ept.ThereIsSigma());
     ASSERT_FALSE(ept.ThereIsEpsr());
     ASSERT_EQ(ept.Run(), eptlib::EPTlibError::Success);
@@ -114,8 +120,10 @@ TEST(EPTInterfaceGTest,SettersGetters) {
     //
     auto tx_sens_ptr = ept.GetTxSens(0);
     auto trx_phase_ptr = ept.GetTRxPhase(0,0);
+    auto reference_image_ptr = ept.GetReferenceImage();
     ASSERT_EQ(tx_sens_ptr, &tx_sens);
     ASSERT_EQ(trx_phase_ptr, &trx_phase);
+    ASSERT_EQ(reference_image_ptr, &reference_image);
     //
     auto& sigma = ept.GetElectricConductivity();
     auto& epsr = ept.GetRelativePermittivity();

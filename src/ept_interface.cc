@@ -49,6 +49,7 @@ EPTInterface(const size_t n0, const size_t n1, const size_t n2,
     n_rx_ch_(n_rx_ch),
     tx_sens_(n_tx_ch,nullptr),
     trx_phase_(n_tx_ch*n_rx_ch,nullptr),
+    reference_image_(nullptr),
     sigma_(nullptr),
     epsr_(nullptr),
     trx_phase_is_wrapped_(trx_phase_is_wrapped) {
@@ -84,5 +85,15 @@ SetTRxPhase(const Image<double> &trx_phase, const size_t tx_ch, const size_t rx_
         return EPTlibError::WrongDataFormat;
     }
     trx_phase_[tx_ch+rx_ch*n_tx_ch_] = &trx_phase;
+    return EPTlibError::Success;
+}
+
+// EPTInterface set reference image
+EPTlibError EPTInterface::
+SetReferenceImage(const Image<double> &reference_image) {
+    if (!CheckSizes(reference_image.GetSize(),nn_)) {
+        return EPTlibError::WrongDataFormat;
+    }
+    reference_image_ = &reference_image;
     return EPTlibError::Success;
 }
