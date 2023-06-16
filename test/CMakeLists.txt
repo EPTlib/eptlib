@@ -33,6 +33,7 @@
 set(EPTlib_TEST_SRC
     main.cc
     test_ept_interface.cc
+    test_filter_anatomical_savitzky_golay.cc
     test_filter_moving_window.cc
     test_filter_savitzky_golay.cc
     test_image.cc

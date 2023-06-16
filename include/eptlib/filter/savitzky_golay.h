@@ -312,7 +312,7 @@ namespace filter {
              * @param variance image where the output variance is written
              * @param src image to which the filter is applied.
              * 
-             * @return a Success or a WrongDataFormat if the argument sizes are incosistent.
+             * @return a Success or a WrongDataFormat if the argument sizes are inconsistent.
              */
             template <typename Scalar>
             EPTlibError Apply(const DifferentialOperator differential_operator, Image<Scalar> *dst,
