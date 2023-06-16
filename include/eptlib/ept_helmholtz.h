@@ -35,9 +35,12 @@
 
 #include "eptlib/ept_interface.h"
 
+#include <variant>
+
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
+#include "eptlib/filter/anatomical_savitzky_golay.h"
 #include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
@@ -127,7 +130,12 @@ class EPTHelmholtz : public EPTInterface {
         }
     private:
         /// Savitzky-Golay filter for the derivative computation.
-        filter::SavitzkyGolay sg_filter_;
+        std::variant<std::monostate, filter::SavitzkyGolay, filter::AnatomicalSavitzkyGolay> sg_filter_;
+        /// Mask over which apply the Savitzky-Golay filter.
+        Shape sg_window_;
+        /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
+        int sg_degree_;
+        
         /// Quality map.
         std::unique_ptr<Image<double> > variance_;
         /// If true, compute the result variance.

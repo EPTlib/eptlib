@@ -270,7 +270,7 @@ int main(int argc, char **argv) {
     // load the input maps
     vector<Image<double> > txsens(0);
     vector<Image<double> > trxphase(0);
-    unique_ptr<Image<double> > refimg;
+    optional<Image<double> > refimg;
     //   look for alternative wildcards
     cfgdata<char> tx_wc('>',"input.wildcard.tx-character");
     cfgdata<char> rx_wc('<',"input.wildcard.rx-character");
@@ -326,7 +326,7 @@ int main(int argc, char **argv) {
     }
     if (thereis_refimg) {
         cout<<"Loading reference image:\n"<<flush;
-        refimg.reset(new Image<double>(nn.first[0],nn.first[1],nn.first[2]));
+        refimg.emplace(nn.first[0],nn.first[1],nn.first[2]);
         LOADMAP(*refimg,refimg_addr.first);
         cout<<"  '"<<refimg_addr.first<<"'\n"<<endl;
     }
@@ -743,6 +743,9 @@ int main(int argc, char **argv) {
                 ept->SetTRxPhase(trxphase[id_tx+n_txch.first*id_rx], id_tx,id_rx);
             }
         }
+    }
+    if (thereis_refimg) {
+        ept->SetReferenceImage(refimg.value());
     }
     // run the method
     cout<<"Run "<<ToString(ept_method)<<"..."<<flush;

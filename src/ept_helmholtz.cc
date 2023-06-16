@@ -49,7 +49,9 @@ EPTHelmholtz(const size_t n0, const size_t n1, const size_t n2,
     const double freq, const Shape &window, const int degree,
     const bool trx_phase_is_wrapped, const bool compute_variance) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, trx_phase_is_wrapped),
-    sg_filter_(d0,d1,d2, window, degree),
+    sg_filter_(),
+    sg_window_(window),
+    sg_degree_(degree),
     variance_(nullptr),
     compute_variance_(compute_variance) {
     return;
@@ -64,6 +66,13 @@ EPTHelmholtz::
 // EPTHelmholtz run
 EPTlibError EPTHelmholtz::
 Run() {
+    // check that the sg filter is correctly set up
+    if (ThereIsReferenceImage() && !std::holds_alternative<filter::AnatomicalSavitzkyGolay>(sg_filter_)) {
+        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
+    } else
+    if (!ThereIsReferenceImage() && !std::holds_alternative<filter::SavitzkyGolay>(sg_filter_)) {
+        sg_filter_.emplace<filter::SavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
+    }
     // setup the output variables
     if (ThereIsTxSens(0)) {
         epsr_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
@@ -99,7 +108,11 @@ CompleteEPTHelm() {
         eps_c(idx) = ::nancd;
     }
     // compute the laplacian
-    sg_filter_.Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
+    if (ThereIsReferenceImage()) {
+        std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c, *reference_image_);
+    } else {
+        std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
+    }
     // extract the output
     for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
         eps_c(idx) /= -MU0*omega_*omega_*tx_sens_c(idx);
@@ -115,7 +128,11 @@ MagnitudeEPTHelm() {
     // setup the input
     epsr_->GetData().assign(epsr_->GetNVox(), ::nand);
     // compute the laplacian
-    sg_filter_.Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
+    if (ThereIsReferenceImage()) {
+        std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0), *reference_image_);
+    } else {
+        std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
+    }
     // extract the output
     for (int idx = 0; idx<epsr_->GetNVox(); ++idx) {
         epsr_->At(idx) /= -EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
@@ -133,11 +150,23 @@ PhaseEPTHelm() {
     }
     // compute the laplacian
     if (PhaseIsWrapped() && !ComputeVariance()) {
-        sg_filter_.ApplyWrappedPhase(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
+        if (ThereIsReferenceImage()) {
+            throw std::runtime_error("Feature not implemented, yet!");
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
+        }
     } else if (!ComputeVariance()) {
-        sg_filter_.Apply(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
+        if (ThereIsReferenceImage()) {
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0), *reference_image_);
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
+        }
     } else {
-        sg_filter_.Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0));
+        if (ThereIsReferenceImage()) {
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0), *reference_image_);
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0));
+        }
     }
     // extract the output
     for (int idx = 0; idx<sigma_->GetNVox(); ++idx) {
