@@ -80,7 +80,7 @@ ComputeWeights(const std::vector<double> &ref_img_crop) const {
     std::vector<double> weights(ref_img_crop.size());
     size_t idx0 = ref_img_crop.size()/2;
     for (size_t idx = 0; idx < ref_img_crop.size(); ++idx) {
-        double relative_contrast = (ref_img_crop[idx] - ref_img_crop[idx0]) / ref_img_crop[idx0];
+        double relative_contrast = std::abs((ref_img_crop[idx] - ref_img_crop[idx0]) / ref_img_crop[idx0]);
         if (relative_contrast > 0.1) {
             weights[idx] = 0.0;
         } else {
