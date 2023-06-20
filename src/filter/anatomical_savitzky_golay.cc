@@ -77,15 +77,34 @@ eptlib::filter::AnatomicalSavitzkyGolay::
 // AnatomicalSavitzkyGolay compute the weights for the polynomial fitting
 std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
 ComputeWeights(const std::vector<double> &ref_img_crop) const {
+//    return WeightHardThreshold(ref_img_crop, 0.1);
+    return WeightGaussian(ref_img_crop, 0.05);
+}
+
+//
+std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
+WeightHardThreshold(const std::vector<double> &ref_img_crop, const double threshold) const {
     std::vector<double> weights(ref_img_crop.size());
     size_t idx0 = ref_img_crop.size()/2;
     for (size_t idx = 0; idx < ref_img_crop.size(); ++idx) {
-        double relative_contrast = std::abs((ref_img_crop[idx] - ref_img_crop[idx0]) / ref_img_crop[idx0]);
-        if (relative_contrast > 0.1) {
+        double relative_contrast = std::abs((ref_img_crop[idx] - ref_img_crop[idx0]) / (ref_img_crop[idx] + ref_img_crop[idx0]) * 2.0);
+        if (relative_contrast > threshold) {
             weights[idx] = 0.0;
         } else {
             weights[idx] = 1.0;
         }
+    }
+    return weights;
+}
+
+//
+std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
+WeightGaussian(const std::vector<double> &ref_img_crop, const double sigma) const {
+    std::vector<double> weights(ref_img_crop.size());
+    size_t idx0 = ref_img_crop.size()/2;
+    for (size_t idx = 0; idx < ref_img_crop.size(); ++idx) {
+        double delta = ref_img_crop[idx] - ref_img_crop[idx0];
+        weights[idx] = std::exp(-delta*delta/2/sigma/sigma);
     }
     return weights;
 }
