@@ -340,12 +340,18 @@ int main(int argc, char **argv) {
             cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
             cfgdata<string> output_var_addr("","parameter.output-variance");
             cfgdata<bool> postprocess(false,"parameter.postprocess");
+            cfglist<int> pp_rr({1,1,1},"parameter.postprocess-size");
+            cfgdata<int> pp_shape(2,"parameter.postprocess-shape");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
             LOADOPTIONALDATA(io_toml,degree);
             LOADOPTIONALDATA(io_toml,output_var_addr);
             LOADOPTIONALDATA(io_toml,postprocess);
+            if (postprocess.first) {
+                LOADOPTIONALLIST(io_toml,pp_rr);
+                LOADOPTIONALDATA(io_toml,pp_shape);
+            }
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -376,6 +382,11 @@ int main(int argc, char **argv) {
             cout<<"    Polynomial degree: "<<degree.first<<"\n";
             cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
             cout<<"  Postprocess: "<<(postprocess.first?"Yes":"No")<<"\n";
+            if (postprocess.first) {
+                KernelShape pp_kernel_shape = static_cast<KernelShape>(pp_shape.first);
+                cout<<"    Postprocess kernel size: ["<<pp_rr.first[0]<<", "<<pp_rr.first[1]<<", "<<pp_rr.first[2]<<"]\n";
+                cout<<"    Postprocess kernel shape: ("<<pp_shape.first<<") "<<ToString(pp_kernel_shape)<<"\n";
+            }
             cout<<endl;
             // combine the parameters
             Shape kernel;
@@ -750,146 +761,198 @@ int main(int argc, char **argv) {
     if (thereis_refimg) {
         ept->SetReferenceImage(refimg.value());
     }
-    // run the method
-    cout<<"Run "<<ToString(ept_method)<<"..."<<flush;
-    auto run_start = std::chrono::system_clock::now();
-    EPTlibError run_error = ept->Run();
-    auto run_end = std::chrono::system_clock::now();
-    if (run_error==EPTlibError::Success) {
-        auto run_elapsed = std::chrono::duration_cast<std::chrono::seconds>(run_end-run_start);
-        cout<<"done! ["<<run_elapsed.count()<<" s]\n"<<flush;
+
+    cfgdata<bool> postprocess(false,"parameter.postprocess");
+    LOADOPTIONALNOWARNINGDATA(io_toml,postprocess);
+    if (postprocess.first) {
+        cfglist<int> rr({1,1,1},"parameter.postprocess-size");
+        cfgdata<int> shape(2,"parameter.postprocess-shape");
+        LOADOPTIONALLIST(io_toml,rr);
+        LOADOPTIONALDATA(io_toml,shape);
+        KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
+        Shape kernel;
+        switch (kernel_shape) {
+            case KernelShape::CROSS:
+                kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
+                break;
+            case KernelShape::ELLIPSOID:
+                kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
+                break;
+            case KernelShape::CUBOID: {
+                kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
+                break;
+            }
+        }
+
+        cout<<"Loading electric conductivity:\n"<<flush;
+        Image<double> sigma(nn.first[0],nn.first[1],nn.first[2]);
+        LOADMAP(sigma,sigma_addr.first);
+        cout<<"  '"<<sigma_addr.first<<"'\n"<<endl;
+
+        cfgdata<string> output_var_addr("","parameter.output-variance");
+        LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
+        cout<<"Loading variance:\n"<<flush;
+        Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
+        LOADMAP(var,output_var_addr.first);
+        cout<<"  '"<<output_var_addr.first<<"'\n"<<endl;
+
+        Image<double> sigma_postpro(nn.first[0], nn.first[1], nn.first[2]);
+        cout<<"Postprocess..."<<flush;
+        auto postprocess_start = std::chrono::system_clock::now();
+        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg);
+        auto postprocess_end = std::chrono::system_clock::now();
+        auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
+        if (postprocess_error==EPTlibError::Success) {
+            cout<<"done! ";
+        } else {
+            cout<<"postprocess failed ";
+        }
+        cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
+
+        SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro");
+
     } else {
-        cout<<"execution failed\n"<<endl;
-        return 1;
-    }
-    // possible postprocess
-    if (ept_method==EPTMethod::HELMHOLTZ) {
-        cfgdata<bool> postprocess(false,"parameter.postprocess");
-        LOADOPTIONALNOWARNINGDATA(io_toml,postprocess);
-        if (postprocess.first) {
-            cout<<"Postprocess..."<<flush;
-            auto postprocess_start = std::chrono::system_clock::now();
-            EPTlibError postprocess_error = dynamic_cast<EPTHelmholtz*>(ept.get())->Postprocess();
-            auto postprocess_end = std::chrono::system_clock::now();
-            auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
-            if (postprocess_error==EPTlibError::Success) {
-                cout<<"done! ";
-            } else {
-                cout<<"postprocess failed ";
+        // run the method
+        cout<<"Run "<<ToString(ept_method)<<"..."<<flush;
+        auto run_start = std::chrono::system_clock::now();
+        EPTlibError run_error = ept->Run();
+        auto run_end = std::chrono::system_clock::now();
+        if (run_error==EPTlibError::Success) {
+            auto run_elapsed = std::chrono::duration_cast<std::chrono::seconds>(run_end-run_start);
+            cout<<"done! ["<<run_elapsed.count()<<" s]\n"<<flush;
+        } else {
+            cout<<"execution failed\n"<<endl;
+            return 1;
+        }
+        // possible postprocess
+        if (ept_method==EPTMethod::HELMHOLTZ) {
+            cfgdata<bool> postprocess(false,"parameter.postprocess");
+            LOADOPTIONALNOWARNINGDATA(io_toml,postprocess);
+            if (postprocess.first) {
+                cout<<"Postprocess..."<<flush;
+                auto postprocess_start = std::chrono::system_clock::now();
+                EPTlibError postprocess_error = dynamic_cast<EPTHelmholtz*>(ept.get())->Postprocess();
+                auto postprocess_end = std::chrono::system_clock::now();
+                auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
+                if (postprocess_error==EPTlibError::Success) {
+                    cout<<"done! ";
+                } else {
+                    cout<<"postprocess failed ";
+                }
+                cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
             }
-            cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
         }
-    }
-    // report possible output parameters
-    if (ept_method==EPTMethod::HELMHOLTZ) {
-        // Save the quality index chi2 distribution
-        cfgdata<string> output_var_addr("","parameter.output-variance");
-        LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
-        bool thereis_var = output_var_addr.first!="" && !thereis_txsens;
-        if (thereis_var) {
-            auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVariance();
-            SAVEMAP(*var,output_var_addr.first);
-        }
-    } else if (ept_method==EPTMethod::CONVREACT) {
-        cout<<"  Iterative solver parameters:\n";
-        cout<<"    Iterations: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverIterations()<<"\n";
-        cout<<"    Estimated error: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverResidual()<<std::endl;
-    } else if (ept_method==EPTMethod::GRADIENT) {
-        if (dynamic_cast<EPTGradient*>(ept.get())->GetRunMode()==EPTGradientRun::FULL) {
-            cout<<"  Gradient inversion parameters:\n";
-            cout<<"    Cost functional: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostFunctional()<<"\n";
-            if (!dynamic_cast<EPTGradient*>(ept.get())->SeedPointsAreUsed()) {
-                cout<<"    Cost regularization: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostRegularization()<<"\n";
-                // Save the mask
-                {
-                    cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
-                    LOADOPTIONALNOWARNINGDATA(io_toml,regularization_output_mask_addr);
-                    bool thereis_mask = regularization_output_mask_addr.first!="";
-                    if (thereis_mask) {
-                        const boost::dynamic_bitset<>& mask = dynamic_cast<EPTGradient*>(ept.get())->GetMask();
-                        std::vector<int> nn_mask{nn.first[0]-1, nn.first[1]-1, 1};
-                        if (mask.size()!=nn_mask[0]*nn_mask[1]) {
-                            nn_mask[2] = nn.first[2]-1;
-                        }
-                        Image<int> mask_img(nn_mask[0], nn_mask[1], nn_mask[2]);
-                        for (int idx = 0; idx<mask_img.GetNVox(); ++idx) {
-                            if (mask[idx]) {
-                                mask_img(idx) = 1;
-                            } else {
-                                mask_img(idx) = 0;
+        // report possible output parameters
+        if (ept_method==EPTMethod::HELMHOLTZ) {
+            // Save the quality index chi2 distribution
+            cfgdata<string> output_var_addr("","parameter.output-variance");
+            LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
+            bool thereis_var = output_var_addr.first!="" && !thereis_txsens;
+            if (thereis_var) {
+                auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVariance();
+                SAVEMAP(*var,output_var_addr.first);
+            }
+        } else if (ept_method==EPTMethod::CONVREACT) {
+            cout<<"  Iterative solver parameters:\n";
+            cout<<"    Iterations: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverIterations()<<"\n";
+            cout<<"    Estimated error: "<<dynamic_cast<EPTConvReact*>(ept.get())->GetSolverResidual()<<std::endl;
+        } else if (ept_method==EPTMethod::GRADIENT) {
+            if (dynamic_cast<EPTGradient*>(ept.get())->GetRunMode()==EPTGradientRun::FULL) {
+                cout<<"  Gradient inversion parameters:\n";
+                cout<<"    Cost functional: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostFunctional()<<"\n";
+                if (!dynamic_cast<EPTGradient*>(ept.get())->SeedPointsAreUsed()) {
+                    cout<<"    Cost regularization: "<<dynamic_cast<EPTGradient*>(ept.get())->GetCostRegularization()<<"\n";
+                    // Save the mask
+                    {
+                        cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
+                        LOADOPTIONALNOWARNINGDATA(io_toml,regularization_output_mask_addr);
+                        bool thereis_mask = regularization_output_mask_addr.first!="";
+                        if (thereis_mask) {
+                            const boost::dynamic_bitset<>& mask = dynamic_cast<EPTGradient*>(ept.get())->GetMask();
+                            std::vector<int> nn_mask{nn.first[0]-1, nn.first[1]-1, 1};
+                            if (mask.size()!=nn_mask[0]*nn_mask[1]) {
+                                nn_mask[2] = nn.first[2]-1;
                             }
+                            Image<int> mask_img(nn_mask[0], nn_mask[1], nn_mask[2]);
+                            for (int idx = 0; idx<mask_img.GetNVox(); ++idx) {
+                                if (mask[idx]) {
+                                    mask_img(idx) = 1;
+                                } else {
+                                    mask_img(idx) = 0;
+                                }
+                            }
+                            SAVEMAP(mask_img,regularization_output_mask_addr.first);
                         }
-                        SAVEMAP(mask_img,regularization_output_mask_addr.first);
                     }
                 }
             }
-        }
-        // Save the gradient distribution 
-        {
-            cfgdata<bool> is_3d(false,"parameter.volume-tomography");
-            cfgdata<string> output_gradient_addr("","parameter.output-gradient");
-            LOADOPTIONALNOWARNINGDATA(io_toml,is_3d);
-            LOADOPTIONALNOWARNINGDATA(io_toml,output_gradient_addr);
-            bool thereis_grad = output_gradient_addr.first!="";
-            if (thereis_grad) {
-                std::vector<int> nn_grad{nn.first[0], nn.first[1], 1};
-                if (is_3d.first) {
-                    nn_grad[2] = nn.first[2];
-                }
-                Image<double> grad_real(nn_grad[0], nn_grad[1], nn_grad[2]);
-                Image<double> grad_imag(nn_grad[0], nn_grad[1], nn_grad[2]);
-                // GPlus
-                auto& grad_p = dynamic_cast<EPTGradient*>(ept.get())->GetGPlus();
-                if (grad_p.size() > 0) {
-                    for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
-                        grad_real(idx) = grad_p[idx].real();
-                        grad_imag(idx) = grad_p[idx].imag();
+            // Save the gradient distribution 
+            {
+                cfgdata<bool> is_3d(false,"parameter.volume-tomography");
+                cfgdata<string> output_gradient_addr("","parameter.output-gradient");
+                LOADOPTIONALNOWARNINGDATA(io_toml,is_3d);
+                LOADOPTIONALNOWARNINGDATA(io_toml,output_gradient_addr);
+                bool thereis_grad = output_gradient_addr.first!="";
+                if (thereis_grad) {
+                    std::vector<int> nn_grad{nn.first[0], nn.first[1], 1};
+                    if (is_3d.first) {
+                        nn_grad[2] = nn.first[2];
                     }
-                    string real_addr = output_gradient_addr.first+"/gplus/real";
-                    string imag_addr = output_gradient_addr.first+"/gplus/imag";
-                    SAVEMAP(grad_real,real_addr);
-                    SAVEMAP(grad_imag,imag_addr);
-                }
-                // GZ
-                auto& grad_z = dynamic_cast<EPTGradient*>(ept.get())->GetGZ();
-                if (grad_z.size() > 0) {
-                    for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
-                        grad_real(idx) = grad_z[idx].real();
-                        grad_imag(idx) = grad_z[idx].imag();
+                    Image<double> grad_real(nn_grad[0], nn_grad[1], nn_grad[2]);
+                    Image<double> grad_imag(nn_grad[0], nn_grad[1], nn_grad[2]);
+                    // GPlus
+                    auto& grad_p = dynamic_cast<EPTGradient*>(ept.get())->GetGPlus();
+                    if (grad_p.size() > 0) {
+                        for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
+                            grad_real(idx) = grad_p[idx].real();
+                            grad_imag(idx) = grad_p[idx].imag();
+                        }
+                        string real_addr = output_gradient_addr.first+"/gplus/real";
+                        string imag_addr = output_gradient_addr.first+"/gplus/imag";
+                        SAVEMAP(grad_real,real_addr);
+                        SAVEMAP(grad_imag,imag_addr);
                     }
-                    string real_addr = output_gradient_addr.first+"/gz/real";
-                    string imag_addr = output_gradient_addr.first+"/gz/imag";
-                    SAVEMAP(grad_real,real_addr);
-                    SAVEMAP(grad_imag,imag_addr);
+                    // GZ
+                    auto& grad_z = dynamic_cast<EPTGradient*>(ept.get())->GetGZ();
+                    if (grad_z.size() > 0) {
+                        for (int idx = 0; idx<grad_imag.GetNVox(); ++idx) {
+                            grad_real(idx) = grad_z[idx].real();
+                            grad_imag(idx) = grad_z[idx].imag();
+                        }
+                        string real_addr = output_gradient_addr.first+"/gz/real";
+                        string imag_addr = output_gradient_addr.first+"/gz/imag";
+                        SAVEMAP(grad_real,real_addr);
+                        SAVEMAP(grad_imag,imag_addr);
+                    }
                 }
             }
+        } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
+            // Save the quality index chi2 distribution
+            cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
+            LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
+            bool thereis_index = output_sg_index_addr.first!="";
+            if (thereis_index) {
+                auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetIndex();
+                SAVEMAP(*index,output_sg_index_addr.first);
+            }
+            cfgdata<string> output_var_addr("","parameter.output-variance");
+            LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
+            bool thereis_var = output_var_addr.first!="";
+            if (thereis_var) {
+                auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVariance();
+                SAVEMAP(*var,output_var_addr.first);
+            }
         }
-    } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
-        // Save the quality index chi2 distribution
-        cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-        LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
-        bool thereis_index = output_sg_index_addr.first!="";
-        if (thereis_index) {
-            auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetIndex();
-            SAVEMAP(*index,output_sg_index_addr.first);
+        cout<<endl;
+        // get the results
+        if (thereis_sigma) {
+            auto& map = ept->GetElectricConductivity();
+            SAVEMAP(*map,sigma_addr.first);
         }
-        cfgdata<string> output_var_addr("","parameter.output-variance");
-        LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
-        bool thereis_var = output_var_addr.first!="";
-        if (thereis_var) {
-            auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVariance();
-            SAVEMAP(*var,output_var_addr.first);
+        if (thereis_epsr) {
+            auto& map = ept->GetRelativePermittivity();
+            SAVEMAP(*map,epsr_addr.first);
         }
-    }
-    cout<<endl;
-    // get the results
-    if (thereis_sigma) {
-        auto& map = ept->GetElectricConductivity();
-        SAVEMAP(*map,sigma_addr.first);
-    }
-    if (thereis_epsr) {
-        auto& map = ept->GetRelativePermittivity();
-        SAVEMAP(*map,epsr_addr.first);
     }
     //
     auto end = std::chrono::system_clock::now();
