@@ -79,10 +79,13 @@ eptlib::filter::AnatomicalSavitzkyGolay::
 // AnatomicalSavitzkyGolay compute the weights for the polynomial fitting
 std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
 ComputeWeights(const std::vector<double> &ref_img_crop) const {
+    size_t idx0 = ref_img_crop.size() / 2;
+    double ref0 = ref_img_crop[idx0];
     std::vector<double> weights(ref_img_crop.size());
     std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
-        [](const double x) -> double {
-            return eptlib::filter::Gaussian(std::abs(x-1.0), 0.05);
+        [ref0](const double x) -> double {
+            return eptlib::filter::Gaussian(x-ref0, 0.05);
+//            return eptlib::filter::HardThreshold((x-ref0)/(x+ref0)*2, 0.10);
         }
     );
     return weights;

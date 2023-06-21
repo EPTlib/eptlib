@@ -107,10 +107,6 @@ namespace filter {
                 for (size_t i0 = r0; i0<n0-r0; ++i0) {
                     std::vector<Scalar> src_crop(window.GetVolume());
                     std::vector<double> ref_img_crop(window.GetVolume() * num_ref_imgs);
-                    double ref_img0 = 0.0;
-                    if constexpr (filter_with_ref_img) {
-                        ref_img0 = ref_img->At(i0,i1,i2);
-                    }
                     // loop over the window voxels
                     size_t idx_crop = 0;
                     for (size_t iw2 = 0; iw2<m2; ++iw2) {
@@ -119,7 +115,7 @@ namespace filter {
                                 if (window(iw0, iw1, iw2)) {
                                     src_crop[idx_crop] = src(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
                                     if constexpr (filter_with_ref_img) {
-                                        ref_img_crop[idx_crop] = ref_img->At(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2) / ref_img0;
+                                        ref_img_crop[idx_crop] = ref_img->At(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
                                     }
                                     ++idx_crop;
                                 }

@@ -48,15 +48,17 @@ namespace filter {
         const Image<double> &variance, const Image<double> &ref_img) {
         auto filter = [&](const std::vector<Scalar> &src_crop, const std::vector<double> &ref_img_crop, const std::vector<double> &variance_crop) -> Scalar {
             // compute the weights based on the ref_img
+            size_t idx0 = ref_img_crop.size() / 2;
+            double ref0 = ref_img_crop[idx0];
             std::vector<double> weights(ref_img_crop.size());
             std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
-                [](const double x) -> double {
-                    return Gaussian(std::abs(x-1.0), 0.05);
+                [ref0](const double x) -> double {
+                    return Gaussian(x-ref0, 0.05);
                 }
             );
             // combine the weights with the variance
             std::transform(variance_crop.begin(), variance_crop.end(), weights.begin(), weights.begin(),
-                [](const double x, const double s) -> double {
+                [](const double s, const double x) -> double {
                     return x/s;
                 }
             );
