@@ -380,11 +380,6 @@ namespace filter {
 
             /// Where the derivative contributions are found in the design matrix columns.
             static constexpr std::array<size_t, 7> derivative_indices_ = {0, 1, 2, 3, 4, 6, 9};
-
-            /// 
-            std::vector<double> WeightHardThreshold(const std::vector<double> &ref_img_crop, const double threshold) const;
-            ///
-            std::vector<double> WeightGaussian(const std::vector<double> &ref_img_crop, const double sigma) const;
     };
 
 }  // namespace filter

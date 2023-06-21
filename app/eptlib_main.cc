@@ -339,11 +339,13 @@ int main(int argc, char **argv) {
             cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
             cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
             cfgdata<string> output_var_addr("","parameter.output-variance");
+            cfgdata<bool> postprocess(false,"parameter.postprocess");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
             LOADOPTIONALDATA(io_toml,degree);
             LOADOPTIONALDATA(io_toml,output_var_addr);
+            LOADOPTIONALDATA(io_toml,postprocess);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -373,6 +375,7 @@ int main(int argc, char **argv) {
             cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
             cout<<"    Polynomial degree: "<<degree.first<<"\n";
             cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
+            cout<<"  Postprocess: "<<(postprocess.first?"Yes":"No")<<"\n";
             cout<<endl;
             // combine the parameters
             Shape kernel;
@@ -758,6 +761,24 @@ int main(int argc, char **argv) {
     } else {
         cout<<"execution failed\n"<<endl;
         return 1;
+    }
+    // possible postprocess
+    if (ept_method==EPTMethod::HELMHOLTZ) {
+        cfgdata<bool> postprocess(false,"parameter.postprocess");
+        LOADOPTIONALNOWARNINGDATA(io_toml,postprocess);
+        if (postprocess.first) {
+            cout<<"Postprocess..."<<flush;
+            auto postprocess_start = std::chrono::system_clock::now();
+            EPTlibError postprocess_error = dynamic_cast<EPTHelmholtz*>(ept.get())->Postprocess();
+            auto postprocess_end = std::chrono::system_clock::now();
+            auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
+            if (postprocess_error==EPTlibError::Success) {
+                cout<<"done! ";
+            } else {
+                cout<<"postprocess failed ";
+            }
+            cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
+        }
     }
     // report possible output parameters
     if (ept_method==EPTMethod::HELMHOLTZ) {

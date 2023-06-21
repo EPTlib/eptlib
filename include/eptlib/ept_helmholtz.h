@@ -41,6 +41,7 @@
 #include "eptlib/util.h"
 
 #include "eptlib/filter/anatomical_savitzky_golay.h"
+#include "eptlib/filter/postprocessing.h"
 #include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
@@ -127,6 +128,14 @@ class EPTHelmholtz : public EPTInterface {
          */
         inline bool ThereIsVariance() const {
             return variance_!=nullptr;
+        }
+
+        inline EPTlibError Postprocess() {
+            if (ThereIsSigma() && ThereIsReferenceImage() && ThereIsVariance()) {
+                Image<double> sigma(nn_[0], nn_[1], nn_[2]);
+                return filter::Postprocessing(&sigma, *sigma_, sg_window_, *variance_, *reference_image_);
+            }
+            return EPTlibError::MissingData;
         }
     private:
         /// Savitzky-Golay filter for the derivative computation.
