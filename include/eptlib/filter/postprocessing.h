@@ -67,8 +67,18 @@ namespace filter {
             );
             // cut the negative values
             std::transform(src_crop.begin(), src_crop.end(), weights.begin(), weights.begin(),
-                [](const double s, const double x) -> double {
-                    if (s < 0.0 || s > max) {
+                [max](const double s, const double x) -> double {
+                    if (std::isnan(s) || s < 0.0 || s > max) {
+                        return 0.0;
+                    }
+                    return x;
+                }
+            );
+            // remove nan from computation
+            std::vector<double> src(src_crop.size());
+            std::transform(src_crop.begin(), src_crop.end(), src.begin(),
+                [](const double x) -> double {
+                    if (std::isnan(x)) {
                         return 0.0;
                     }
                     return x;

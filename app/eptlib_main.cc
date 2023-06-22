@@ -842,24 +842,6 @@ int main(int argc, char **argv) {
             cout<<"execution failed\n"<<endl;
             return 1;
         }
-        // possible postprocess
-        if (ept_method==EPTMethod::HELMHOLTZ) {
-            cfgdata<bool> postprocess(false,"parameter.postprocess");
-            LOADOPTIONALNOWARNINGDATA(io_toml,postprocess);
-            if (postprocess.first) {
-                cout<<"Postprocess..."<<flush;
-                auto postprocess_start = std::chrono::system_clock::now();
-                EPTlibError postprocess_error = dynamic_cast<EPTHelmholtz*>(ept.get())->Postprocess();
-                auto postprocess_end = std::chrono::system_clock::now();
-                auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
-                if (postprocess_error==EPTlibError::Success) {
-                    cout<<"done! ";
-                } else {
-                    cout<<"postprocess failed ";
-                }
-                cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
-            }
-        }
         // report possible output parameters
         if (ept_method==EPTMethod::HELMHOLTZ) {
             // Save the quality index chi2 distribution
