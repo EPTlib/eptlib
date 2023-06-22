@@ -45,7 +45,7 @@ namespace filter {
 
     template <typename Scalar>
     EPTlibError Postprocessing(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window,
-        const Image<double> &variance, const Image<double> &ref_img) {
+        const Image<double> &variance, const Image<double> &ref_img, const double max) {
         auto filter = [&](const std::vector<Scalar> &src_crop, const std::vector<double> &ref_img_crop, const std::vector<double> &variance_crop) -> Scalar {
             // compute the weights based on the ref_img
             size_t idx0 = ref_img_crop.size() / 2;
@@ -59,7 +59,19 @@ namespace filter {
             // combine the weights with the variance
             std::transform(variance_crop.begin(), variance_crop.end(), weights.begin(), weights.begin(),
                 [](const double s, const double x) -> double {
-                    return x/s;
+                    if (s > 0.0) {
+                        return x/std::sqrt(s);
+                    }
+                    return 0.0;
+                }
+            );
+            // cut the negative values
+            std::transform(src_crop.begin(), src_crop.end(), weights.begin(), weights.begin(),
+                [](const double s, const double x) -> double {
+                    if (s < 0.0 || s > max) {
+                        return 0.0;
+                    }
+                    return x;
                 }
             );
             // normalize the weights

@@ -789,17 +789,32 @@ int main(int argc, char **argv) {
         LOADMAP(sigma,sigma_addr.first);
         cout<<"  '"<<sigma_addr.first<<"'\n"<<endl;
 
+        Image<double> epsr(nn.first[0],nn.first[1],nn.first[2]);
+        cout<<"Loading relative permittivity:\n"<<flush;
+        if (epsr_addr.first != "") {
+            LOADMAP(epsr,epsr_addr.first);
+            cout<<"  '"<<epsr_addr.first<<"'\n"<<endl;
+        }
+
+        Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
         cfgdata<string> output_var_addr("","parameter.output-variance");
         LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
-        cout<<"Loading variance:\n"<<flush;
-        Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
-        LOADMAP(var,output_var_addr.first);
-        cout<<"  '"<<output_var_addr.first<<"'\n"<<endl;
+        if (output_var_addr.first != "") {
+            cout<<"Loading variance:\n"<<flush;
+            LOADMAP(var,output_var_addr.first);
+            cout<<"  '"<<output_var_addr.first<<"'\n"<<endl;
+        } else {
+            var.GetData().assign(var.GetNVox(), 1.0);
+        }
 
         Image<double> sigma_postpro(nn.first[0], nn.first[1], nn.first[2]);
+        Image<double> epsr_postpro(nn.first[0], nn.first[1], nn.first[2]);
         cout<<"Postprocess..."<<flush;
         auto postprocess_start = std::chrono::system_clock::now();
-        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg);
+        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg, 2.0);
+        if (epsr_addr.first != "") {
+            postprocess_error = filter::Postprocessing(&epsr_postpro, epsr, kernel, var, *refimg, 120.0);
+        }
         auto postprocess_end = std::chrono::system_clock::now();
         auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
         if (postprocess_error==EPTlibError::Success) {
@@ -810,6 +825,9 @@ int main(int argc, char **argv) {
         cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
 
         SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro");
+        if (epsr_addr.first != "") {
+            SAVEMAP(epsr_postpro,epsr_addr.first+"-postpro");
+        }
 
     } else {
         // run the method
