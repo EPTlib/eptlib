@@ -56,7 +56,7 @@ namespace filter {
                     return Gaussian(x-ref0, 0.05);
                 }
             );
-            // combine the weights with the variance
+            // combine the weights with the standard deviations
             std::transform(variance_crop.begin(), variance_crop.end(), weights.begin(), weights.begin(),
                 [](const double s, const double x) -> double {
                     if (s > 0.0) {
@@ -68,15 +68,18 @@ namespace filter {
             // cut the negative values
             std::transform(src_crop.begin(), src_crop.end(), weights.begin(), weights.begin(),
                 [max](const double s, const double x) -> double {
-                    if (std::isnan(s) || s < 0.0 || s > max) {
+                    if (std::isnan(s)) {
+                        return 0.0;
+                    }
+                    if (s < 0.0 || s > max) {
                         return 0.0;
                     }
                     return x;
                 }
             );
             // remove nan from computation
-            std::vector<double> src(src_crop.size());
-            std::transform(src_crop.begin(), src_crop.end(), src.begin(),
+            std::vector<double> src_crop_tmp(src_crop.size());
+            std::transform(src_crop.begin(), src_crop.end(), src_crop_tmp.begin(),
                 [](const double x) -> double {
                     if (std::isnan(x)) {
                         return 0.0;
@@ -92,7 +95,7 @@ namespace filter {
                 }
             );
             // apply the filter
-            return std::inner_product(src_crop.begin(), src_crop.end(), weights.begin(), 0.0);
+            return std::inner_product(src_crop_tmp.begin(), src_crop_tmp.end(), weights.begin(), 0.0);
         };
 
         //
@@ -126,7 +129,7 @@ namespace filter {
                             for (size_t iw0 = 0; iw0<m0; ++iw0) {
                                 if (window(iw0, iw1, iw2)) {
                                     src_crop[idx_crop] = src(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
-                                    ref_img_crop[idx_crop] = ref_img(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2) / ref_img0;
+                                    ref_img_crop[idx_crop] = ref_img(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
                                     variance_crop[idx_crop] = variance(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
                                     ++idx_crop;
                                 }
