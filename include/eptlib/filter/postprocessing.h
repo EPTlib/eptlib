@@ -68,7 +68,8 @@ namespace filter {
                 }
                 src_crop_tmp.push_back(src);
             }
-            size_t n = src_crop_tmp.size();
+            // compute the median
+            size_t n = src_crop_tmp.size() / 2;
             std::nth_element(src_crop_tmp.begin(), src_crop_tmp.begin()+n, src_crop_tmp.end());
             return src_crop_tmp[n];
 //            // compute the weights based on the ref_img
