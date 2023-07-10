@@ -811,7 +811,7 @@ int main(int argc, char **argv) {
         Image<double> epsr_postpro(nn.first[0], nn.first[1], nn.first[2]);
         cout<<"Postprocess..."<<flush;
         auto postprocess_start = std::chrono::system_clock::now();
-        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg, 2.0);
+        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg, 2.5);
         if (epsr_addr.first != "") {
             postprocess_error = filter::Postprocessing(&epsr_postpro, epsr, kernel, var, *refimg, 120.0);
         }
@@ -824,9 +824,9 @@ int main(int argc, char **argv) {
         }
         cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
 
-        SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro");
+        SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro-median");
         if (epsr_addr.first != "") {
-            SAVEMAP(epsr_postpro,epsr_addr.first+"-postpro");
+            SAVEMAP(epsr_postpro,epsr_addr.first+"-postpro-median");
         }
 
     } else {

@@ -33,6 +33,8 @@
 #ifndef EPTLIB_FILTER_POSTPROCESSING_H_
 #define EPTLIB_FILTER_POSTPROCESSING_H_
 
+#include <algorithm>
+
 #include "eptlib/image.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
@@ -47,55 +49,77 @@ namespace filter {
     EPTlibError Postprocessing(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window,
         const Image<double> &variance, const Image<double> &ref_img, const double max) {
         auto filter = [&](const std::vector<Scalar> &src_crop, const std::vector<double> &ref_img_crop, const std::vector<double> &variance_crop) -> Scalar {
-            // compute the weights based on the ref_img
             size_t idx0 = ref_img_crop.size() / 2;
             double ref0 = ref_img_crop[idx0];
-            std::vector<double> weights(ref_img_crop.size());
-            std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
-                [ref0](const double x) -> double {
-                    return Gaussian(x-ref0, 0.05);
+            // remove data from the computation
+            std::vector<Scalar> src_crop_tmp(0);
+            src_crop_tmp.reserve(src_crop.size());
+            for (size_t idx = 0; idx < src_crop.size(); ++idx) {
+                const double ref = ref_img_crop[idx];
+                const Scalar src = src_crop[idx];
+                if (HardThreshold(std::abs(ref-ref0)/(ref+ref0)*2.0, 0.10) == 0.0) {
+                    continue;
                 }
-            );
-            // combine the weights with the standard deviations
-            std::transform(variance_crop.begin(), variance_crop.end(), weights.begin(), weights.begin(),
-                [](const double s, const double x) -> double {
-                    if (s > 0.0) {
-                        return x/std::sqrt(s);
-                    }
-                    return 0.0;
+                if (std::isnan(src)) {
+                    continue;
                 }
-            );
-            // cut the negative values
-            std::transform(src_crop.begin(), src_crop.end(), weights.begin(), weights.begin(),
-                [max](const double s, const double x) -> double {
-                    if (std::isnan(s)) {
-                        return 0.0;
-                    }
-                    if (s < 0.0 || s > max) {
-                        return 0.0;
-                    }
-                    return x;
+                if (src < 0.0 || src > max) {
+                    continue;
                 }
-            );
-            // remove nan from computation
-            std::vector<double> src_crop_tmp(src_crop.size());
-            std::transform(src_crop.begin(), src_crop.end(), src_crop_tmp.begin(),
-                [](const double x) -> double {
-                    if (std::isnan(x)) {
-                        return 0.0;
-                    }
-                    return x;
-                }
-            );
-            // normalize the weights
-            double mass = Sum(weights);
-            std::transform(weights.begin(), weights.end(), weights.begin(),
-                [mass](const double x) -> double {
-                    return x/mass;
-                }
-            );
-            // apply the filter
-            return std::inner_product(src_crop_tmp.begin(), src_crop_tmp.end(), weights.begin(), 0.0);
+                src_crop_tmp.push_back(src);
+            }
+            size_t n = src_crop_tmp.size();
+            std::nth_element(src_crop_tmp.begin(), src_crop_tmp.begin()+n, src_crop_tmp.end());
+            return src_crop_tmp[n];
+//            // compute the weights based on the ref_img
+//            size_t idx0 = ref_img_crop.size() / 2;
+//            double ref0 = ref_img_crop[idx0];
+//            std::vector<double> weights(ref_img_crop.size());
+//            std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
+//                [ref0](const double x) -> double {
+//                    return Gaussian(x-ref0, 0.05);
+//                }
+//            );
+//            // combine the weights with the standard deviations
+//            std::transform(variance_crop.begin(), variance_crop.end(), weights.begin(), weights.begin(),
+//                [](const double s, const double x) -> double {
+//                    if (s > 0.0) {
+//                        return x/std::sqrt(s);
+//                    }
+//                    return 0.0;
+//                }
+//            );
+//            // cut the negative values
+//            std::transform(src_crop.begin(), src_crop.end(), weights.begin(), weights.begin(),
+//                [max](const double s, const double x) -> double {
+//                    if (std::isnan(s)) {
+//                        return 0.0;
+//                    }
+//                    if (s < 0.0 || s > max) {
+//                        return 0.0;
+//                    }
+//                    return x;
+//                }
+//            );
+//            // remove nan from computation
+//            std::vector<double> src_crop_tmp(src_crop.size());
+//            std::transform(src_crop.begin(), src_crop.end(), src_crop_tmp.begin(),
+//                [](const double x) -> double {
+//                    if (std::isnan(x)) {
+//                        return 0.0;
+//                    }
+//                    return x;
+//                }
+//            );
+//            // normalize the weights
+//            double mass = Sum(weights);
+//            std::transform(weights.begin(), weights.end(), weights.begin(),
+//                [mass](const double x) -> double {
+//                    return x/mass;
+//                }
+//            );
+//            // apply the filter
+//            return std::inner_product(src_crop_tmp.begin(), src_crop_tmp.end(), weights.begin(), 0.0);
         };
 
         //
