@@ -367,9 +367,9 @@ int main(int argc, char **argv) {
                 cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                 return 1;
             }
-            if (output_var_addr.first!="" && thereis_txsens) {
-                cout<<"WARNING: Variance cannot be evaluated when computing the relative permittivity. Relative permittivity computation will be favoured."<<endl;
-            }
+//            if (output_var_addr.first!="" && thereis_txsens) {
+//                cout<<"WARNING: Variance cannot be evaluated when computing the relative permittivity. Relative permittivity computation will be favoured."<<endl;
+//            }
             if (output_var_addr.first!="" && wrapped_phase.first) {
                 cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
             }
@@ -847,7 +847,7 @@ int main(int argc, char **argv) {
             // Save the quality index chi2 distribution
             cfgdata<string> output_var_addr("","parameter.output-variance");
             LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
-            bool thereis_var = output_var_addr.first!="" && !thereis_txsens;
+            bool thereis_var = output_var_addr.first!=""; // && !thereis_txsens;
             if (thereis_var) {
                 auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVariance();
                 SAVEMAP(*var,output_var_addr.first);
