@@ -53,10 +53,12 @@ namespace filter {
             double ref0 = ref_img_crop[idx0];
             // remove data from the computation
             std::vector<Scalar> src_crop_tmp(0);
+            std::vector<double> var_crop_tmp(0);
             src_crop_tmp.reserve(src_crop.size());
             for (size_t idx = 0; idx < src_crop.size(); ++idx) {
                 const double ref = ref_img_crop[idx];
                 const Scalar src = src_crop[idx];
+                const double var = variance_crop[idx];
                 if (HardThreshold(std::abs(ref-ref0)/(ref+ref0)*2.0, 0.10) == 0.0) {
                     continue;
                 }
@@ -67,11 +69,15 @@ namespace filter {
                     continue;
                 }
                 src_crop_tmp.push_back(src);
+                var_crop_tmp.push_back(var);
             }
-            // compute the median
-            size_t n = src_crop_tmp.size() / 2;
-            std::nth_element(src_crop_tmp.begin(), src_crop_tmp.begin()+n, src_crop_tmp.end());
-            return src_crop_tmp[n];
+            // sort the values based on variance
+            size_t n = var_crop_tmp.size() / 10;
+            std::vector<size_t> indices(var_crop_tmp.size());
+            std::iota(indices.begin(), indices.end(), 0);
+            std::partial_sort(indices.begin(), indices.begin()+n, indices.end(), [&](int a, int b) -> bool { return var_crop_tmp[a] < var_crop_tmp[b]; });
+            // compute the weighted mean
+            return std::accumulate(indices.begin(), indices.begin()+n, 0.0, [&](double a, int b) -> double { return a + src_crop_tmp[b]/n; });
 //            // compute the weights based on the ref_img
 //            size_t idx0 = ref_img_crop.size() / 2;
 //            double ref0 = ref_img_crop[idx0];

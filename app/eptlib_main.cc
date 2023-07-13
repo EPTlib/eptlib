@@ -824,9 +824,9 @@ int main(int argc, char **argv) {
         }
         cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
 
-        SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro-median");
+        SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro-low-var");
         if (epsr_addr.first != "") {
-            SAVEMAP(epsr_postpro,epsr_addr.first+"-postpro-median");
+            SAVEMAP(epsr_postpro,epsr_addr.first+"-postpro-low-var");
         }
 
     } else {
