@@ -36,10 +36,12 @@
 #include "eptlib/ept_interface.h"
 
 #include <optional>
+#include <variant>
 
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
+#include "eptlib/filter/anatomical_savitzky_golay.h"
 #include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
@@ -156,8 +158,13 @@ class EPTConvReact : public EPTInterface {
         double dirichlet_epsr_;
         /// Dirichlet condition of electric conductivity.
         double dirichlet_sigma_;
-        /// Filter for the derivatives computation.
-        filter::SavitzkyGolay sg_filter_;
+        
+        /// Savitzky-Golay filter for the derivative computation.
+        std::variant<std::monostate, filter::SavitzkyGolay, filter::AnatomicalSavitzkyGolay> sg_filter_;
+        /// Mask over which apply the Savitzky-Golay filter.
+        Shape sg_window_;
+        /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
+        int sg_degree_;
 
         /// The number of iterations to solve the linear system.
         std::ptrdiff_t solver_iterations_;
