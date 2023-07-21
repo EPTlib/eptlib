@@ -34,6 +34,7 @@
 #define EPTLIB_FILTER_MOVING_WINDOW_H_
 
 #include <functional>
+#include <limits>
 #include <tuple>
 #include <type_traits>
 #include <vector>
@@ -102,20 +103,33 @@ namespace filter {
         const size_t num_ref_imgs = filter_with_ref_img ? 1 : 0;
         // loop over the destination voxels
         #pragma omp parallel for collapse(3)
-        for (size_t i2 = r2; i2<n2-r2; ++i2) {
-            for (size_t i1 = r1; i1<n1-r1; ++i1) {
-                for (size_t i0 = r0; i0<n0-r0; ++i0) {
+        for (size_t i2 = 0; i2<n2; ++i2) {
+            for (size_t i1 = 0; i1<n1; ++i1) {
+                for (size_t i0 = 0; i0<n0; ++i0) {
                     std::vector<Scalar> src_crop(window.GetVolume());
                     std::vector<double> ref_img_crop(window.GetVolume() * num_ref_imgs);
                     // loop over the window voxels
                     size_t idx_crop = 0;
-                    for (size_t iw2 = 0; iw2<m2; ++iw2) {
-                        for (size_t iw1 = 0; iw1<m1; ++iw1) {
-                            for (size_t iw0 = 0; iw0<m0; ++iw0) {
+                    size_t iw2;
+                    ptrdiff_t ic2;
+                    for (iw2 = 0, ic2 = static_cast<ptrdiff_t>(i2)-r2; iw2<m2; ++iw2, ++ic2) {
+                        size_t iw1;
+                        ptrdiff_t ic1;
+                        for (iw1 = 0, ic1 = static_cast<ptrdiff_t>(i1)-r1; iw1<m1; ++iw1, ++ic1) {
+                            size_t iw0;
+                            ptrdiff_t ic0;
+                            for (iw0 = 0, ic0 = static_cast<ptrdiff_t>(i0)-r0; iw0<m0; ++iw0, ++ic0) {
                                 if (window(iw0, iw1, iw2)) {
-                                    src_crop[idx_crop] = src(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
-                                    if constexpr (filter_with_ref_img) {
-                                        ref_img_crop[idx_crop] = ref_img->At(i0-r0+iw0, i1-r1+iw1, i2-r2+iw2);
+                                    if (ic0 < 0 || ic1 < 0 || ic2 < 0 || ic0 >= n0 || ic1 >= n1 || ic2 >= n2) {
+                                        src_crop[idx_crop] = 0.0;
+                                        if constexpr (filter_with_ref_img) {
+                                            ref_img_crop[idx_crop] = 1000;
+                                        }
+                                    } else {
+                                        src_crop[idx_crop] = src(ic0, ic1, ic2);
+                                        if constexpr (filter_with_ref_img) {
+                                            ref_img_crop[idx_crop] = ref_img->At(ic0, ic1, ic2);
+                                        }
                                     }
                                     ++idx_crop;
                                 }

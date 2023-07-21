@@ -66,6 +66,7 @@ class EPTHelmholtz : public EPTInterface {
          *     difference scheme (default: 2).
          * @param trx_phase_is_wrapped if true, the TRx phase is wrapped.
          * @param compute_variance if true, the variance map will be computed.
+         * @param weight_param parameter of the weight function (default: 0.05).
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
@@ -73,7 +74,8 @@ class EPTHelmholtz : public EPTInterface {
             const double d0, const double d1, const double d2,
             const double freq, const Shape &window, const int degree = 2,
             const bool trx_phase_is_wrapped = false,
-            const bool compute_variance = false);
+            const bool compute_variance = false,
+            const double weight_param = 0.05);
 
         /**
          * Virtual destructor.
@@ -141,6 +143,9 @@ class EPTHelmholtz : public EPTInterface {
         std::unique_ptr<Image<double> > variance_;
         /// If true, compute the result variance.
         bool compute_variance_;
+
+        ///
+        double weight_param_;
 
         /// Perform the complete Helmholtz-based EPT.
         void CompleteEPTHelm();

@@ -47,13 +47,15 @@ EPTHelmholtz::
 EPTHelmholtz(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
     const double freq, const Shape &window, const int degree,
-    const bool trx_phase_is_wrapped, const bool compute_variance) :
+    const bool trx_phase_is_wrapped, const bool compute_variance,
+    const double weight_param) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, trx_phase_is_wrapped),
     sg_filter_(),
     sg_window_(window),
     sg_degree_(degree),
     variance_(nullptr),
-    compute_variance_(compute_variance) {
+    compute_variance_(compute_variance),
+    weight_param_(weight_param) {
     return;
 }
 
@@ -68,7 +70,7 @@ EPTlibError EPTHelmholtz::
 Run() {
     // check that the sg filter is correctly set up
     if (ThereIsReferenceImage() && !std::holds_alternative<filter::AnatomicalSavitzkyGolay>(sg_filter_)) {
-        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
+        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_, weight_param_);
     } else
     if (!ThereIsReferenceImage() && !std::holds_alternative<filter::SavitzkyGolay>(sg_filter_)) {
         sg_filter_.emplace<filter::SavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);

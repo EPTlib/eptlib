@@ -342,6 +342,7 @@ int main(int argc, char **argv) {
             cfgdata<bool> postprocess(false,"parameter.postprocess");
             cfglist<int> pp_rr({1,1,1},"parameter.postprocess-size");
             cfgdata<int> pp_shape(2,"parameter.postprocess-shape");
+            cfgdata<double> weight_param(0.05,"parameter.weight");
             // load the parameters
             LOADOPTIONALLIST(io_toml,rr);
             LOADOPTIONALDATA(io_toml,shape);
@@ -352,6 +353,7 @@ int main(int argc, char **argv) {
                 LOADOPTIONALLIST(io_toml,pp_rr);
                 LOADOPTIONALDATA(io_toml,pp_shape);
             }
+            LOADOPTIONALDATA(io_toml,weight_param);
             cout<<endl;
             // check the parameters
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -387,6 +389,7 @@ int main(int argc, char **argv) {
                 cout<<"    Postprocess kernel size: ["<<pp_rr.first[0]<<", "<<pp_rr.first[1]<<", "<<pp_rr.first[2]<<"]\n";
                 cout<<"    Postprocess kernel shape: ("<<pp_shape.first<<") "<<ToString(pp_kernel_shape)<<"\n";
             }
+            cout<<"  Weight parameter: "<<weight_param.first<<"\n";
             cout<<endl;
             // combine the parameters
             Shape kernel;
@@ -404,7 +407,7 @@ int main(int argc, char **argv) {
             }
             // create the EPT method
             bool compute_variance = output_var_addr.first!="";
-            ept = std::make_unique<EPTHelmholtz>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first, wrapped_phase.first, compute_variance);
+            ept = std::make_unique<EPTHelmholtz>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first, wrapped_phase.first, compute_variance, weight_param.first);
             break;
         }
         case EPTMethod::CONVREACT: {
@@ -767,8 +770,10 @@ int main(int argc, char **argv) {
     if (postprocess.first) {
         cfglist<int> rr({1,1,1},"parameter.postprocess-size");
         cfgdata<int> shape(2,"parameter.postprocess-shape");
+        cfgdata<double> weight_param(0.05,"parameter.weight");
         LOADOPTIONALLIST(io_toml,rr);
         LOADOPTIONALDATA(io_toml,shape);
+        LOADOPTIONALDATA(io_toml,weight_param);
         KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
         Shape kernel;
         switch (kernel_shape) {
@@ -811,9 +816,9 @@ int main(int argc, char **argv) {
         Image<double> epsr_postpro(nn.first[0], nn.first[1], nn.first[2]);
         cout<<"Postprocess..."<<flush;
         auto postprocess_start = std::chrono::system_clock::now();
-        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg, 2.5);
+        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg, 2.5, weight_param.first);
         if (epsr_addr.first != "") {
-            postprocess_error = filter::Postprocessing(&epsr_postpro, epsr, kernel, var, *refimg, 120.0);
+            postprocess_error = filter::Postprocessing(&epsr_postpro, epsr, kernel, var, *refimg, 120.0, weight_param.first);
         }
         auto postprocess_end = std::chrono::system_clock::now();
         auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);

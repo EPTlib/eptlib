@@ -39,9 +39,10 @@
 // AnatomicalSavitzkyGolay constructor
 eptlib::filter::AnatomicalSavitzkyGolay::
 AnatomicalSavitzkyGolay(const double d0, const double d1, const double d2,
-    const eptlib::Shape &window, const size_t degree) :
+    const eptlib::Shape &window, const size_t degree, const double weight_param) :
     window_(window),
-    degree_(degree) {
+    degree_(degree),
+    weight_param_(weight_param) {
     dd_[0] = d0;
     dd_[1] = d1;
     dd_[2] = d2;
@@ -83,9 +84,9 @@ ComputeWeights(const std::vector<double> &ref_img_crop) const {
     double ref0 = ref_img_crop[idx0];
     std::vector<double> weights(ref_img_crop.size());
     std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
-        [ref0](const double x) -> double {
-            return eptlib::filter::Gaussian(x-ref0, 0.05);
-//            return eptlib::filter::HardThreshold((x-ref0)/(x+ref0)*2, 0.10);
+        [&](const double x) -> double {
+            return eptlib::filter::Gaussian(x-ref0, this->weight_param_);
+//            return eptlib::filter::HardThreshold(std::abs(x-ref0), 2.0*weight_param_);
         }
     );
     return weights;

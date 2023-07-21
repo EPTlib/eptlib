@@ -71,9 +71,10 @@ namespace filter {
              * @param d2 resolution in meter along direction z.
              * @param window mask over which apply the filter.
              * @param degree degree of the fitting polynomial (default: 2).
+             * @param weight_param parameter of the weight function (default: 0.05).
              */
             AnatomicalSavitzkyGolay(const double d0, const double d1, const double d2,
-                const Shape &window, const size_t degree = 2);
+                const Shape &window, const size_t degree = 2, const double weight_param = 0.05);
 
             /**
              * @brief Destroy the anatomical Savitzky-Golay object.
@@ -377,6 +378,9 @@ namespace filter {
 
             /// Complete design matrix.
             eptlib::linalg::Matrix<double> design_matrix_;
+
+            ///
+            double weight_param_;
 
             /// Where the derivative contributions are found in the design matrix columns.
             static constexpr std::array<size_t, 7> derivative_indices_ = {0, 1, 2, 3, 4, 6, 9};
