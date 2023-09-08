@@ -45,150 +45,81 @@ namespace eptlib {
 
 namespace filter {
 
-    template <typename Scalar>
-    EPTlibError Postprocessing(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window,
-        const Image<double> &variance, const Image<double> &ref_img, const double max, const double weight_param) {
-        auto filter = [&](const std::vector<Scalar> &src_crop, const std::vector<double> &ref_img_crop, const std::vector<double> &variance_crop) -> Scalar {
-            size_t idx0 = ref_img_crop.size() / 2;
-            double ref0 = ref_img_crop[idx0];
-            // remove data from the computation
-            std::vector<Scalar> src_crop_tmp(0);
-            std::vector<double> var_crop_tmp(0);
-            src_crop_tmp.reserve(src_crop.size());
-            for (size_t idx = 0; idx < src_crop.size(); ++idx) {
-                const double ref = ref_img_crop[idx];
-                const Scalar src = src_crop[idx];
-                const double var = variance_crop[idx];
-                if (HardThreshold(std::abs(ref-ref0), 2.0*weight_param) == 0.0) {
-                    continue;
-                }
-                if (std::isnan(src)) {
-                    continue;
-                }
-                if (src < 0.0 || src > max) {
-                    continue;
-                }
-                src_crop_tmp.push_back(src);
-                var_crop_tmp.push_back(var);
-            }
-            // sort the values based on variance
-            size_t n = var_crop_tmp.size() / 10;
-            if (n == 0) {
-                n = var_crop_tmp.size();
-            }
-            std::vector<size_t> indices(var_crop_tmp.size());
-            std::iota(indices.begin(), indices.end(), 0);
-            std::partial_sort(indices.begin(), indices.begin()+n, indices.end(), [&](int a, int b) -> bool { return var_crop_tmp[a] < var_crop_tmp[b]; });
-            // compute the weighted mean
-            return std::accumulate(indices.begin(), indices.begin()+n, 0.0, [&](double a, int b) -> double { return a + src_crop_tmp[b]/n; });
-//            // compute the weights based on the ref_img
-//            size_t idx0 = ref_img_crop.size() / 2;
-//            double ref0 = ref_img_crop[idx0];
-//            std::vector<double> weights(ref_img_crop.size());
-//            std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
-//                [ref0](const double x) -> double {
-//                    return Gaussian(x-ref0, 0.05);
-//                }
-//            );
-//            // combine the weights with the standard deviations
-//            std::transform(variance_crop.begin(), variance_crop.end(), weights.begin(), weights.begin(),
-//                [](const double s, const double x) -> double {
-//                    if (s > 0.0) {
-//                        return x/std::sqrt(s);
-//                    }
-//                    return 0.0;
-//                }
-//            );
-//            // cut the negative values
-//            std::transform(src_crop.begin(), src_crop.end(), weights.begin(), weights.begin(),
-//                [max](const double s, const double x) -> double {
-//                    if (std::isnan(s)) {
-//                        return 0.0;
-//                    }
-//                    if (s < 0.0 || s > max) {
-//                        return 0.0;
-//                    }
-//                    return x;
-//                }
-//            );
-//            // remove nan from computation
-//            std::vector<double> src_crop_tmp(src_crop.size());
-//            std::transform(src_crop.begin(), src_crop.end(), src_crop_tmp.begin(),
-//                [](const double x) -> double {
-//                    if (std::isnan(x)) {
-//                        return 0.0;
-//                    }
-//                    return x;
-//                }
-//            );
-//            // normalize the weights
-//            double mass = Sum(weights);
-//            std::transform(weights.begin(), weights.end(), weights.begin(),
-//                [mass](const double x) -> double {
-//                    return x/mass;
-//                }
-//            );
-//            // apply the filter
-//            return std::inner_product(src_crop_tmp.begin(), src_crop_tmp.end(), weights.begin(), 0.0);
-        };
+    /**
+     * @brief Apply the median filter to the elements of a three-dimensional window.
+     * 
+     * @param src_crop data values to which apply the filter.
+     * 
+     * @return the median value.
+     */
+    double MedianFilter(const std::vector<double> &src_crop);
 
-        //
+    /**
+     * @brief Apply the median filter to the elements selected from a three-dimensional
+     *     window according to a reference image.
+     * 
+     * @param src_crop data values to which apply the filter.
+     * @param ref_img_crop reference data used for selecting the data values.
+     * @param weight_param parameter of the thresholding function (default: 0.05).
+     * 
+     * @return the median value of selected values.
+     */
+    double AnatomicalMedianFilter(const std::vector<double> &src_crop, const std::vector<double> &ref_img_crop, const double weight_param = 0.05);
 
-        // initialize the runtime variables
-        const size_t n0 = src.GetSize(0);
-        const size_t n1 = src.GetSize(1);
-        const size_t n2 = src.GetSize(2);
-        if (dst->GetSize(0)!=n0 || dst->GetSize(1)!=n1 || dst->GetSize(2)!=n2) {
-            return EPTlibError::WrongDataFormat;
-        }
-        const size_t m0 = window.GetSize(0);
-        const size_t m1 = window.GetSize(1);
-        const size_t m2 = window.GetSize(2);
-        const size_t r0 = m0/2;
-        const size_t r1 = m1/2;
-        const size_t r2 = m2/2;
-        // loop over the destination voxels
-        #pragma omp parallel for collapse(3)
-        for (size_t i2 = 0; i2<n2; ++i2) {
-            for (size_t i1 = 0; i1<n1; ++i1) {
-                for (size_t i0 = 0; i0<n0; ++i0) {
-                    std::vector<Scalar> src_crop(window.GetVolume());
-                    std::vector<double> ref_img_crop(window.GetVolume());
-                    std::vector<double> variance_crop(window.GetVolume());
-                    double ref_img0 = ref_img(i0,i1,i2);
-                    // loop over the window voxels
-                    size_t idx_crop = 0;
-                    size_t iw2;
-                    ptrdiff_t ic2;
-                    for (iw2 = 0, ic2 = static_cast<ptrdiff_t>(i2)-r2; iw2<m2; ++iw2, ++ic2) {
-                        size_t iw1;
-                        ptrdiff_t ic1;
-                        for (iw1 = 0, ic1 = static_cast<ptrdiff_t>(i1)-r1; iw1<m1; ++iw1, ++ic1) {
-                            size_t iw0;
-                            ptrdiff_t ic0;
-                            for (iw0 = 0, ic0 = static_cast<ptrdiff_t>(i0)-r0; iw0<m0; ++iw0, ++ic0) {
-                                if (window(iw0, iw1, iw2)) {
-                                    if (ic0 < 0 || ic1 < 0 || ic2 < 0 || ic0 >= n0 || ic1 >= n1 || ic2 >= n2) {
-                                        src_crop[idx_crop] = std::numeric_limits<double>::quiet_NaN();
-                                        ref_img_crop[idx_crop] = std::numeric_limits<double>::quiet_NaN();
-                                        variance_crop[idx_crop] = std::numeric_limits<double>::quiet_NaN();
-                                    } else {
-                                        src_crop[idx_crop] = src(ic0, ic1, ic2);
-                                        ref_img_crop[idx_crop] = ref_img(ic0, ic1, ic2);
-                                        variance_crop[idx_crop] = variance(ic0, ic1, ic2);
-                                    }
-                                    ++idx_crop;
-                                }
-                            }
-                        }
-                    }
-                    // apply the filter
-                    dst->At(i0,i1,i2) = std::invoke(filter, src_crop, ref_img_crop, variance_crop);
-                }
-            }
-        }
-        return EPTlibError::Success;
-    }
+    /**
+     * @brief Filter the elements of a three-dimensional window based on an uncertainty index.
+     * 
+     * @param src_crop data values to which apply the filter.
+     * @param uncertainty_crop uncertainty values associated to each data value.
+     * @param ratio_of_best_values ratio of best values to be selected for filtering (default: 0.10).
+     * 
+     * @return the filtered value.
+     */
+    double UncertainFilter(const std::vector<double> &src_crop, const std::vector<double> &uncertainty_crop, const double ratio_of_best_values = 0.10);
+
+    /**
+     * @brief Filter the elements selected from a three-dimensional window based on an uncertainty
+     *     index.
+     * 
+     * @param src_crop data values to which apply the filter.
+     * @param supporting_crop supporting values for selecting the data values (reference and
+     *     uncertainty values).
+     * @param weight_param parameter of the thresholding function (default: 0.05).
+     * @param ratio_of_best_values ratio of best values to be selected for filter (default: 0.10).
+     * 
+     * @return the filtered value.
+     */
+    double AnatomicalUncertainFilter(const std::vector<double> &src_crop, const std::vector<double> &supporting_crop, const double weight_param = 0.05, const double ratio_of_best_values = 0.10);
+
+    /**
+     * @brief Postprocess the input image depending on the amount of available information.
+     * 
+     * @param dst image where the filter result is written.
+     * @param src image to which the filter is applied.
+     * @param window mask over which apply the filter.
+     * @param reference_image optional reference image used for an improved filter (default:
+     *     `nullptr').
+     * @param uncertainty optional uncertainty image used for an improved filter (default:
+     *     `nullptr').
+     * @param weight_param parameter of the thresholding function, used only in combination with
+     *     `reference_image' (default: 0.05).
+     * @param ratio_of_best_values ratio of best values to be selected for filter, used only in
+     *     combination with `uncertainty' (default: 0.10).
+     * 
+     * @return a Success, a WrongDataFormat if the argument sizes are inconsistent, or a Unknown.
+     * 
+     * Based on the availability of `reference_image' and `uncertainty', four combinations are
+     * possible:
+     * 
+     * - if both are not available, the MedianFilter is used for postprocessing the data;
+     * 
+     * - if only the `reference_image' is available, the AnatomicalMedianFilter is used;
+     * 
+     * - if only the `uncertainty' is available, the UncertainFilter is used;
+     * 
+     * - if both are available, the AnatomicalUncertainFilter is used.
+     */
+    EPTlibError Postprocessing(Image<double> *dst, const Image<double> &src, const Shape &window, const Image<double> *reference_image = nullptr, const Image<double> *uncertainty = nullptr, const double weight_param = 0.05, const double ratio_of_best_values = 0.10);
 
 }  // namespace filter
 

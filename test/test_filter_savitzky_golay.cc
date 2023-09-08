@@ -231,12 +231,14 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply) {
     for (int k = 0; k<n2; ++k) {
         for (int j = 0; j<n1; ++j) {
             for (int i = 0; i<n0; ++i) {
-                ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-13);
-                ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-13);
                 if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1 ||
                     i==1 || i==n0-2 || j==1 || j==n1-2 || k==1 || k==n2-2) {
-                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-13);
+                    ASSERT_TRUE(std::isnan(lapl_constant_field (i,j,k)));
+                    ASSERT_TRUE(std::isnan(lapl_linear_field   (i,j,k)));
+                    ASSERT_TRUE(std::isnan(lapl_quadratic_field(i,j,k)));
                 } else {
+                    ASSERT_NEAR(lapl_constant_field (i,j,k), 0.0, 1e-13);
+                    ASSERT_NEAR(lapl_linear_field   (i,j,k), 0.0, 1e-13);
                     ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-13);
                 }
             }
@@ -289,12 +291,14 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApply2D) {
 
     for (int j = 0; j<n1; ++j) {
         for (int i = 0; i<n0; ++i) {
-            ASSERT_NEAR(lapl_constant_field(i,j,0), 0.0, 1e-13);
-            ASSERT_NEAR(lapl_linear_field  (i,j,0), 0.0, 1e-13);
             if (i==0 || i==n0-1 || j==0 || j==n1-1 ||
                 i==1 || i==n0-2 || j==1 || j==n1-2) {
-                ASSERT_NEAR(lapl_quadratic_field(i,j,0), 0.0, 1e-13);
+                ASSERT_TRUE(std::isnan(lapl_constant_field (i,j,0)));
+                ASSERT_TRUE(std::isnan(lapl_linear_field   (i,j,0)));
+                ASSERT_TRUE(std::isnan(lapl_quadratic_field(i,j,0)));
             } else {
+                ASSERT_NEAR(lapl_constant_field (i,j,0), 0.0, 1e-13);
+                ASSERT_NEAR(lapl_linear_field   (i,j,0), 0.0, 1e-13);
                 ASSERT_NEAR(lapl_quadratic_field(i,j,0), 4.0, 1e-12);
             }
         }
@@ -386,12 +390,14 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApplyWrappedPhase) {
     for (int k = 0; k<n2; ++k) {
         for (int j = 0; j<n1; ++j) {
             for (int i = 0; i<n0; ++i) {
-                ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-10);
-                ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-10);
                 if (i==0 || i==n0-1 || j==0 || j==n1-1 || k==0 || k==n2-1 ||
                     i==1 || i==n0-2 || j==1 || j==n1-2 || k==1 || k==n2-2) {
-                    ASSERT_NEAR(lapl_quadratic_field(i,j,k), 0.0, 1e-8);
+                    ASSERT_TRUE(std::isnan(lapl_constant_field (i,j,k)));
+                    ASSERT_TRUE(std::isnan(lapl_linear_field   (i,j,k)));
+                    ASSERT_TRUE(std::isnan(lapl_quadratic_field(i,j,k)));
                 } else {
+                    ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-10);
+                    ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-10);
                     ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-8);
                 }
             }

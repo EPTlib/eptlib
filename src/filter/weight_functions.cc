@@ -39,7 +39,7 @@ HardThreshold(const double x, const double threshold) {
     if (x > threshold) {
         return 0.0;
     }
-    return x;
+    return 1.0;
 }
 
 double eptlib::filter::

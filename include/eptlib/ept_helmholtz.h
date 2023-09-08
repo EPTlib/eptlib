@@ -66,7 +66,8 @@ class EPTHelmholtz : public EPTInterface {
          *     difference scheme (default: 2).
          * @param trx_phase_is_wrapped if true, the TRx phase is wrapped.
          * @param compute_variance if true, the variance map will be computed.
-         * @param weight_param parameter of the weight function (default: 0.05).
+         * @param weight_param parameter of the weight function, used only with
+         *     the anatomical Savitzky-Golay filter (default: 0.05).
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
@@ -138,13 +139,13 @@ class EPTHelmholtz : public EPTInterface {
         Shape sg_window_;
         /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
         int sg_degree_;
-        
+
         /// Quality map.
         std::unique_ptr<Image<double> > variance_;
         /// If true, compute the result variance.
         bool compute_variance_;
 
-        ///
+        /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
         double weight_param_;
 
         /// Perform the complete Helmholtz-based EPT.

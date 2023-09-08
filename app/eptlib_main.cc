@@ -173,6 +173,44 @@ EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
     return EPTlibError::Success;
 }
 
+int PerformPostprocessing(const string &output_addr, const string &input_addr,
+    const string &reference_addr, const string &uncertainty_addr, const Shape &kernel,
+    const double weight_param, const double ratio_of_best_values,
+    const cfglist<int> &nn) {
+    //
+    Image<double> dst(nn.first[0], nn.first[1], nn.first[2]);
+    Image<double> src(nn.first[0], nn.first[1], nn.first[2]);
+    Image<double> ref;
+    Image<double> unc;
+    bool thereis_reference = false;
+    bool thereis_uncertainty = false;
+    //
+    LOADMAP(src, input_addr);
+    if (reference_addr!="") {
+        ref = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
+        LOADMAP(ref, reference_addr);
+        thereis_reference = true;
+    }
+    if (uncertainty_addr!="") {
+        unc = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
+        LOADMAP(unc, uncertainty_addr);
+        thereis_uncertainty = true;
+    }
+    //
+    if (!thereis_reference && !thereis_uncertainty) {
+        filter::Postprocessing(&dst, src, kernel);
+    } else if (thereis_reference && !thereis_uncertainty) {
+        filter::Postprocessing(&dst, src, kernel, &ref, nullptr, weight_param, 0.0);
+    } else if (!thereis_reference && thereis_uncertainty) {
+        filter::Postprocessing(&dst, src, kernel, nullptr, &unc, 0.0, ratio_of_best_values);
+    } else {
+        filter::Postprocessing(&dst, src, kernel, &ref, &unc, weight_param, ratio_of_best_values);
+    }
+    //
+    SAVEMAP(dst, output_addr);
+    return 0;
+}
+
 int main(int argc, char **argv) {
     auto start = std::chrono::system_clock::now();
     // opening boilerplate
@@ -209,6 +247,13 @@ int main(int argc, char **argv) {
     cfgdata<string> refimg_addr("","input.reference-image");
     cfgdata<string> sigma_addr("","output.electric-conductivity");
     cfgdata<string> epsr_addr("","output.relative-permittivity");
+    cfgdata<string> postprocessing_output_sigma_addr("","postprocessing.output-electric-conductivity");
+    cfgdata<string> postprocessing_output_epsr_addr("","postprocessing.output-relative-permittivity");
+    cfgdata<bool> perform_only_postprocessing(false,"postprocessing.perform-only-postprocessing");
+    cfgdata<string> postprocessing_input_sigma_addr("","postprocessing.input-electric-conductivity");
+    cfgdata<string> postprocessing_input_epsr_addr("","postprocessing.input-relative-permittivity");
+    cfgdata<string> postprocessing_input_reference_addr("","postprocessing.input-reference-image");
+    cfgdata<string> postprocessing_input_uncertainty_addr("","postprocessing.input-uncertainty-map");
     // load the input data
     //   title
     LOADMANDATORYDATA(io_toml,title);
@@ -228,613 +273,555 @@ int main(int argc, char **argv) {
     //   output
     LOADOPTIONALDATA(io_toml,sigma_addr);
     LOADOPTIONALDATA(io_toml,epsr_addr);
-    cout<<endl;
-    // check the provided data
-    EPTMethod ept_method = static_cast<EPTMethod>(method.first);
-    bool thereis_txsens = txsens_addr.first!="";
-    bool thereis_trxphase = trxphase_addr.first!="";
-    bool thereis_refimg = refimg_addr.first!="";
-    bool thereis_sigma = sigma_addr.first!="";
-    bool thereis_epsr = epsr_addr.first!="";
-    //   EPT method
-    if (ept_method<=EPTMethod::BEGIN_STABLE||(ept_method>=EPTMethod::END_STABLE&&ept_method<=EPTMethod::BEGIN_EXPERIMENTAL)||ept_method>=EPTMethod::END_EXPERIMENTAL) {
-        cout<<"FATAL ERROR in config file: Wrong data format '"<<method.second<<"'"<<endl;
-        return 1;
+    //   postprocessing
+    LOADOPTIONALDATA(io_toml,postprocessing_output_sigma_addr);
+    LOADOPTIONALDATA(io_toml,postprocessing_output_epsr_addr);
+    LOADOPTIONALDATA(io_toml,perform_only_postprocessing);
+    if (perform_only_postprocessing.first) {
+        LOADOPTIONALDATA(io_toml,postprocessing_input_sigma_addr);
+        LOADOPTIONALDATA(io_toml,postprocessing_input_epsr_addr);
+        LOADOPTIONALDATA(io_toml,postprocessing_input_reference_addr);
+        LOADOPTIONALDATA(io_toml,postprocessing_input_uncertainty_addr);
     }
-    //   input addresses
-    if (!thereis_txsens&&!thereis_trxphase) {
-        cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
-        return 1;
-    }
-    //   output addresses
-    if (!thereis_sigma&&!thereis_epsr) {
-        cout<<"FATAL ERROR in config file: Neither '"<<sigma_addr.second<<"' nor '"<<epsr_addr.second<<"' are provided"<<endl;
-        return 1;
-    }
-    // report the readen values
-    cout<<"  "<<title.first<<"\n";
-    cout<<"  "<<descr.first<<"\n";
-    cout<<"\n  Method: ("<<method.first<<") "<<ToString(ept_method)<<"\n";
-    cout<<"\n  Mesh size: ["<<nn.first[0]<<", "<<nn.first[1]<<", "<<nn.first[2]<<"]\n";
-    cout<<"  Mesh step: ["<<dd.first[0]<<", "<<dd.first[1]<<", "<<dd.first[2]<<"]\n";
-    cout<<"\n  Frequency: "<<freq.first<<"\n";
-    cout<<"  Tx channels: "<<n_txch.first<<"\n";
-    cout<<"  Rx channels: "<<n_rxch.first<<"\n";
-    cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
-    cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
-    cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
-    cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
-    cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
-    cout<<"  Output relative permittivity addr.: '"<<epsr_addr.first<<"'\n";
+    //
     cout<<endl;
-    // load the input maps
-    vector<Image<double> > txsens(0);
-    vector<Image<double> > trxphase(0);
-    optional<Image<double> > refimg;
-    //   look for alternative wildcards
-    cfgdata<char> tx_wc('>',"input.wildcard.tx-character");
-    cfgdata<char> rx_wc('<',"input.wildcard.rx-character");
-    cfgdata<int> wc_start_from(0,"input.wildcard.start-from");
-    cfgdata<int> wc_step(1,"input.wildcard.step");
-    LOADOPTIONALDATA(io_toml,tx_wc);
-    LOADOPTIONALDATA(io_toml,rx_wc);
-    LOADOPTIONALDATA(io_toml,wc_start_from);
-    LOADOPTIONALDATA(io_toml,wc_step);
-    cout<<endl;
-    //   check the provided wildcards
-    if (tx_wc==rx_wc) {
-        cout<<"FATAL ERROR in config file: wildcard characters for Tx and Rx are equal"<<endl;
-        return 1;
-    }
-    //   report the wildcards
-    cout<<"# Wildcard characters\n";
-    cout<<"# Tx character: '"<<tx_wc.first<<"'\n";
-    cout<<"# Rx character: '"<<rx_wc.first<<"'\n";
-    cout<<"# Start value: "<<wc_start_from.first<<"\n";
-    cout<<"# Step: "<<wc_step.first<<"\n";
-    cout<<endl;
-    //   load the maps
-    if (thereis_txsens) {
-        cout<<"Loading Tx sensitivity:\n"<<flush;
-        for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
-            int tx = id_tx*wc_step.first+wc_start_from.first;
-            string addr(txsens_addr.first);
-            StringReplace(&addr,string(1,tx_wc.first),to_string(tx));
-            Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
-            LOADMAP(map,addr);
-            txsens.push_back(map);
-            cout<<"  '"<<addr<<"'\n"<<flush;
+    // perform EPT
+    if (!perform_only_postprocessing.first) {
+        // check the provided data
+        EPTMethod ept_method = static_cast<EPTMethod>(method.first);
+        bool thereis_txsens = txsens_addr.first!="";
+        bool thereis_trxphase = trxphase_addr.first!="";
+        bool thereis_refimg = refimg_addr.first!="";
+        bool thereis_sigma = sigma_addr.first!="";
+        bool thereis_epsr = epsr_addr.first!="";
+        //   EPT method
+        if (ept_method<=EPTMethod::BEGIN_STABLE||(ept_method>=EPTMethod::END_STABLE&&ept_method<=EPTMethod::BEGIN_EXPERIMENTAL)||ept_method>=EPTMethod::END_EXPERIMENTAL) {
+            cout<<"FATAL ERROR in config file: Wrong data format '"<<method.second<<"'"<<endl;
+            return 1;
         }
+        //   input addresses
+        if (!thereis_txsens&&!thereis_trxphase) {
+            cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
+            return 1;
+        }
+        //   output addresses
+        if (!thereis_sigma&&!thereis_epsr) {
+            cout<<"FATAL ERROR in config file: Neither '"<<sigma_addr.second<<"' nor '"<<epsr_addr.second<<"' are provided"<<endl;
+            return 1;
+        }
+        // report the readen values
+        cout<<"  "<<title.first<<"\n";
+        cout<<"  "<<descr.first<<"\n";
+        cout<<"\n  Method: ("<<method.first<<") "<<ToString(ept_method)<<"\n";
+        cout<<"\n  Mesh size: ["<<nn.first[0]<<", "<<nn.first[1]<<", "<<nn.first[2]<<"]\n";
+        cout<<"  Mesh step: ["<<dd.first[0]<<", "<<dd.first[1]<<", "<<dd.first[2]<<"]\n";
+        cout<<"\n  Frequency: "<<freq.first<<"\n";
+        cout<<"  Tx channels: "<<n_txch.first<<"\n";
+        cout<<"  Rx channels: "<<n_rxch.first<<"\n";
+        cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
+        cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+        cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
+        cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
+        cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
+        cout<<"  Output relative permittivity addr.: '"<<epsr_addr.first<<"'\n";
         cout<<endl;
-    }
-    if (thereis_trxphase) {
-        cout<<"Loading TRx phase:\n"<<flush;
-        for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
+        // load the input maps
+        vector<Image<double> > txsens(0);
+        vector<Image<double> > trxphase(0);
+        optional<Image<double> > refimg;
+        //   look for alternative wildcards
+        cfgdata<char> tx_wc('>',"input.wildcard.tx-character");
+        cfgdata<char> rx_wc('<',"input.wildcard.rx-character");
+        cfgdata<int> wc_start_from(0,"input.wildcard.start-from");
+        cfgdata<int> wc_step(1,"input.wildcard.step");
+        LOADOPTIONALDATA(io_toml,tx_wc);
+        LOADOPTIONALDATA(io_toml,rx_wc);
+        LOADOPTIONALDATA(io_toml,wc_start_from);
+        LOADOPTIONALDATA(io_toml,wc_step);
+        cout<<endl;
+        //   check the provided wildcards
+        if (tx_wc==rx_wc) {
+            cout<<"FATAL ERROR in config file: wildcard characters for Tx and Rx are equal"<<endl;
+            return 1;
+        }
+        //   report the wildcards
+        cout<<"# Wildcard characters\n";
+        cout<<"# Tx character: '"<<tx_wc.first<<"'\n";
+        cout<<"# Rx character: '"<<rx_wc.first<<"'\n";
+        cout<<"# Start value: "<<wc_start_from.first<<"\n";
+        cout<<"# Step: "<<wc_step.first<<"\n";
+        cout<<endl;
+        //   load the maps
+        if (thereis_txsens) {
+            cout<<"Loading Tx sensitivity:\n"<<flush;
             for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
                 int tx = id_tx*wc_step.first+wc_start_from.first;
-                int rx = id_rx*wc_step.first+wc_start_from.first;
-                string addr(trxphase_addr.first);
+                string addr(txsens_addr.first);
                 StringReplace(&addr,string(1,tx_wc.first),to_string(tx));
-                StringReplace(&addr,string(1,rx_wc.first),to_string(rx));
                 Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
                 LOADMAP(map,addr);
-                trxphase.push_back(map);
+                txsens.push_back(map);
                 cout<<"  '"<<addr<<"'\n"<<flush;
             }
+            cout<<endl;
         }
-        cout<<endl;
-    }
-    if (thereis_refimg) {
-        cout<<"Loading reference image:\n"<<flush;
-        refimg.emplace(nn.first[0],nn.first[1],nn.first[2]);
-        LOADMAP(*refimg,refimg_addr.first);
-        cout<<"  '"<<refimg_addr.first<<"'\n"<<endl;
-    }
-    // set-up the specific parameters of EPT methods
-    unique_ptr<EPTInterface> ept = nullptr;
-    switch (ept_method) {
-        case EPTMethod::HELMHOLTZ: {
-            // declare the parameters
-            cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
-            cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
-            cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
-            cfgdata<string> output_var_addr("","parameter.output-variance");
-            cfgdata<bool> postprocess(false,"parameter.postprocess");
-            cfglist<int> pp_rr({1,1,1},"parameter.postprocess-size");
-            cfgdata<int> pp_shape(2,"parameter.postprocess-shape");
-            cfgdata<double> weight_param(0.05,"parameter.weight");
-            // load the parameters
-            LOADOPTIONALLIST(io_toml,rr);
-            LOADOPTIONALDATA(io_toml,shape);
-            LOADOPTIONALDATA(io_toml,degree);
-            LOADOPTIONALDATA(io_toml,output_var_addr);
-            LOADOPTIONALDATA(io_toml,postprocess);
-            if (postprocess.first) {
-                LOADOPTIONALLIST(io_toml,pp_rr);
-                LOADOPTIONALDATA(io_toml,pp_shape);
-            }
-            LOADOPTIONALDATA(io_toml,weight_param);
-            cout<<endl;
-            // check the parameters
-            KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
-            if (shape.first<0||kernel_shape>=KernelShape::END) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
-                return 1;
-            }
-            if (degree.first<2) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
-                return 1;
-            }
-            if (n_txch.first>1||n_rxch.first>1) {
-                cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
-                return 1;
-            }
-//            if (output_var_addr.first!="" && thereis_txsens) {
-//                cout<<"WARNING: Variance cannot be evaluated when computing the relative permittivity. Relative permittivity computation will be favoured."<<endl;
-//            }
-            if (output_var_addr.first!="" && wrapped_phase.first) {
-                cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
-            }
-            cout<<endl;
-            // report the parameters
-            cout<<"Parameters:\n";
-            cout<<"  Savitzky-Golay filter:\n";
-            cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
-            cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
-            cout<<"    Polynomial degree: "<<degree.first<<"\n";
-            cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
-            cout<<"  Postprocess: "<<(postprocess.first?"Yes":"No")<<"\n";
-            if (postprocess.first) {
-                KernelShape pp_kernel_shape = static_cast<KernelShape>(pp_shape.first);
-                cout<<"    Postprocess kernel size: ["<<pp_rr.first[0]<<", "<<pp_rr.first[1]<<", "<<pp_rr.first[2]<<"]\n";
-                cout<<"    Postprocess kernel shape: ("<<pp_shape.first<<") "<<ToString(pp_kernel_shape)<<"\n";
-            }
-            cout<<"  Weight parameter: "<<weight_param.first<<"\n";
-            cout<<endl;
-            // combine the parameters
-            Shape kernel;
-            switch (kernel_shape) {
-                case KernelShape::CROSS:
-                    kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
-                    break;
-                case KernelShape::ELLIPSOID:
-                    kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
-                    break;
-                case KernelShape::CUBOID: {
-                    kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
-                    break;
+        if (thereis_trxphase) {
+            cout<<"Loading TRx phase:\n"<<flush;
+            for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
+                for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
+                    int tx = id_tx*wc_step.first+wc_start_from.first;
+                    int rx = id_rx*wc_step.first+wc_start_from.first;
+                    string addr(trxphase_addr.first);
+                    StringReplace(&addr,string(1,tx_wc.first),to_string(tx));
+                    StringReplace(&addr,string(1,rx_wc.first),to_string(rx));
+                    Image<double> map(nn.first[0],nn.first[1],nn.first[2]);
+                    LOADMAP(map,addr);
+                    trxphase.push_back(map);
+                    cout<<"  '"<<addr<<"'\n"<<flush;
                 }
             }
-            // create the EPT method
-            bool compute_variance = output_var_addr.first!="";
-            ept = std::make_unique<EPTHelmholtz>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first, wrapped_phase.first, compute_variance, weight_param.first);
-            break;
-        }
-        case EPTMethod::CONVREACT: {
-            // declare the parameters
-            cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
-            cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
-            cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
-            cfgdata<bool> is_3d(false,"parameter.volume-tomography");
-            cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
-            cfgdata<double> dir_sigma(0.0,"parameter.dirichlet.electric-conductivity");
-            cfgdata<double> dir_epsr(1.0,"parameter.dirichlet.relative-permittivity");
-            cfgdata<bool> thereis_diff(false,"parameter.artificial-diffusion");
-            cfgdata<double> diff_coeff(0.0,"parameter.artificial-diffusion-coefficient");
-            // load the parameters
-            LOADOPTIONALLIST(io_toml,rr);
-            LOADOPTIONALDATA(io_toml,shape);
-            LOADOPTIONALDATA(io_toml,degree);
-            LOADOPTIONALDATA(io_toml,is_3d);
-            if (!is_3d.first) {
-                LOADOPTIONALDATA(io_toml,imaging_slice);
-            }
-            LOADOPTIONALDATA(io_toml,dir_sigma);
-            LOADOPTIONALDATA(io_toml,dir_epsr);
-            LOADOPTIONALDATA(io_toml,thereis_diff);
-            if (thereis_diff.first) {
-                LOADOPTIONALDATA(io_toml,diff_coeff);
-            }
             cout<<endl;
-            // check the parameters
-            KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
-            if (shape.first<0||kernel_shape>=KernelShape::END) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
-                return 1;
-            }
-            if (degree.first<2) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
-                return 1;
-            }
-            if (!is_3d.first) {
-                if (imaging_slice.first<rr.first[2]||imaging_slice.first>nn.first[2]-1-rr.first[2]) {
-                    cout<<"FATAL ERROR in config file: Wrong data format '"<<imaging_slice.second<<"'"<<endl;
+        }
+        if (thereis_refimg) {
+            cout<<"Loading reference image:\n"<<flush;
+            refimg.emplace(nn.first[0],nn.first[1],nn.first[2]);
+            LOADMAP(*refimg,refimg_addr.first);
+            cout<<"  '"<<refimg_addr.first<<"'\n"<<endl;
+        }
+        // set-up the specific parameters of EPT methods
+        unique_ptr<EPTInterface> ept = nullptr;
+        switch (ept_method) {
+            case EPTMethod::HELMHOLTZ: {
+                // declare the parameters
+                cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
+                cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
+                cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<string> output_var_addr("","parameter.output-variance");
+                cfgdata<bool> postprocess(false,"parameter.postprocess");
+                cfglist<int> pp_rr({1,1,1},"parameter.postprocess-size");
+                cfgdata<int> pp_shape(2,"parameter.postprocess-shape");
+                cfgdata<double> weight_param(0.05,"parameter.weight");
+                // load the parameters
+                LOADOPTIONALLIST(io_toml,rr);
+                LOADOPTIONALDATA(io_toml,shape);
+                LOADOPTIONALDATA(io_toml,degree);
+                LOADOPTIONALDATA(io_toml,output_var_addr);
+                LOADOPTIONALDATA(io_toml,postprocess);
+                if (postprocess.first) {
+                    LOADOPTIONALLIST(io_toml,pp_rr);
+                    LOADOPTIONALDATA(io_toml,pp_shape);
+                }
+                LOADOPTIONALDATA(io_toml,weight_param);
+                cout<<endl;
+                // check the parameters
+                KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
+                if (shape.first<0||kernel_shape>=KernelShape::END) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
                     return 1;
                 }
-            }
-            if (dir_sigma.first<0.0) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<dir_sigma.second<<"'"<<endl;
-                return 1;
-            }
-            if (dir_epsr.first<1.0) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<dir_epsr.second<<"'"<<endl;
-                return 1;
-            }
-            if (n_txch.first>1||n_rxch.first>1) {
-                cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
-                return 1;
-            }
-            // report the parameters
-            cout<<"Parameters:\n";
-            cout<<"  Savitzky-Golay filter:\n";
-            cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
-            cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
-            cout<<"    Polynomial degree: "<<degree.first<<"\n";
-            cout<<"  Volume tomography: "<<(is_3d.first?"Yes":"No")<<"\n";
-            if (!is_3d.first) {
-                cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
-            }
-            cout<<"  Dirichlet:\n";
-            cout<<"    Electric conductivity: "<<dir_sigma.first<<"\n";
-            cout<<"    Relative permittivity: "<<dir_epsr.first<<"\n";
-            cout<<"  Artificial diffusion: "<<(thereis_diff.first?"Yes":"No")<<"\n";
-            if (thereis_diff.first) {
-                cout<<"    Artificial diffusion coefficient: "<<diff_coeff.first<<"\n";
-            }
-            cout<<endl;
-            // combine the parameters
-            Shape kernel;
-            switch (kernel_shape) {
-                case KernelShape::CROSS:
-                    kernel = shapes::Cross(rr.first[0], rr.first[1], rr.first[2]);
-                    break;
-                case KernelShape::ELLIPSOID:
-                    kernel = shapes::Ellipsoid(rr.first[0], rr.first[1], rr.first[2]);
-                    break;
-                case KernelShape::CUBOID:
-                    kernel = shapes::CuboidR(rr.first[0], rr.first[1], rr.first[2]);
-                    break;
-            }
-            // create the EPT method
-            ept = std::make_unique<EPTConvReact>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first);
-            if (!is_3d.first) {
-                dynamic_cast<EPTConvReact*>(ept.get())->SelectSlice(imaging_slice.first);
-            }
-            if (thereis_diff.first) {
-                dynamic_cast<EPTConvReact*>(ept.get())->SetArtificialDiffusion(diff_coeff.first);
-            }
-            dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
-            break;
-        }
-        case EPTMethod::GRADIENT: {
-            // declare the parameters
-            cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
-            cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
-            cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
-            cfgdata<bool> is_3d(false,"parameter.volume-tomography");
-            cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
-            cfgdata<bool> full_run(true,"parameter.full-run");
-            cfgdata<string> output_gradient_addr("","parameter.output-gradient");
-            cfgdata<bool> use_seed_point(false, "parameter.seed-point.use-seed-point");
-            std::string seed_point_url = "parameter.seed-point";
-            cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
-            cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
-            cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
-            // load the parameters
-            LOADOPTIONALLIST(io_toml,rr);
-            LOADOPTIONALDATA(io_toml,shape);
-            LOADOPTIONALDATA(io_toml,degree);
-            LOADOPTIONALDATA(io_toml,is_3d);
-            if (!is_3d.first) {
-                LOADOPTIONALDATA(io_toml,imaging_slice);
-            }
-            LOADOPTIONALDATA(io_toml,full_run);
-            LOADOPTIONALDATA(io_toml,output_gradient_addr);
-            LOADOPTIONALDATA(io_toml,use_seed_point);
-            LOADOPTIONALDATA(io_toml,regularization_coefficient);
-            LOADOPTIONALDATA(io_toml,regularization_gradient_tolerance);
-            LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
-            cout<<endl;
-            // check the parameters
-            KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
-            std::vector<SeedPoint> seed_points(0);
-            if (use_seed_point.first) {
-                EPTlibError error = TOMLGetSeedPoints(seed_points,*io_toml,seed_point_url);
-                if (error != EPTlibError::Success) {
-                    cout<<"FATAL ERROR in config file: '"<<seed_point_url<<"'"<<endl;
+                if (degree.first<2) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
                     return 1;
                 }
-            }
-            if (shape.first<0||kernel_shape>=KernelShape::END) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
-                return 1;
-            }
-            if (degree.first<2) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
-                return 1;
-            }
-            if (!is_3d.first) {
-                if (imaging_slice.first<2*rr.first[2]||imaging_slice.first>nn.first[2]-1-2*rr.first[2]) {
-                    cout<<"FATAL ERROR in config file: Wrong data format '"<<imaging_slice.second<<"'"<<endl;
+                if (n_txch.first>1||n_rxch.first>1) {
+                    cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
+    //            if (output_var_addr.first!="" && thereis_txsens) {
+    //                cout<<"WARNING: Variance cannot be evaluated when computing the relative permittivity. Relative permittivity computation will be favoured."<<endl;
+    //            }
+                if (output_var_addr.first!="" && wrapped_phase.first) {
+                    cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
+                }
+                cout<<endl;
+                // report the parameters
+                cout<<"Parameters:\n";
+                cout<<"  Savitzky-Golay filter:\n";
+                cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
+                cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
+                cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
+                cout<<"  Postprocess: "<<(postprocess.first?"Yes":"No")<<"\n";
+                if (postprocess.first) {
+                    KernelShape pp_kernel_shape = static_cast<KernelShape>(pp_shape.first);
+                    cout<<"    Postprocess kernel size: ["<<pp_rr.first[0]<<", "<<pp_rr.first[1]<<", "<<pp_rr.first[2]<<"]\n";
+                    cout<<"    Postprocess kernel shape: ("<<pp_shape.first<<") "<<ToString(pp_kernel_shape)<<"\n";
+                }
+                cout<<"  Weight parameter: "<<weight_param.first<<"\n";
+                cout<<endl;
+                // combine the parameters
+                Shape kernel;
+                switch (kernel_shape) {
+                    case KernelShape::CROSS:
+                        kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
+                        break;
+                    case KernelShape::ELLIPSOID:
+                        kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
+                        break;
+                    case KernelShape::CUBOID: {
+                        kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
+                        break;
+                    }
+                }
+                // create the EPT method
+                bool compute_variance = output_var_addr.first!="";
+                ept = std::make_unique<EPTHelmholtz>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first, wrapped_phase.first, compute_variance, weight_param.first);
+                break;
             }
-            for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
-                for (int d = 0; d<N_DIM; ++d) {
-                    if (seed_points[idx_sp].ijk[d]<0||seed_points[idx_sp].ijk[d]>=nn.first[d]) {
+            case EPTMethod::CONVREACT: {
+                // declare the parameters
+                cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
+                cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
+                cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<bool> is_3d(false,"parameter.volume-tomography");
+                cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
+                cfgdata<double> dir_sigma(0.0,"parameter.dirichlet.electric-conductivity");
+                cfgdata<double> dir_epsr(1.0,"parameter.dirichlet.relative-permittivity");
+                cfgdata<bool> thereis_diff(false,"parameter.artificial-diffusion");
+                cfgdata<double> diff_coeff(0.0,"parameter.artificial-diffusion-coefficient");
+                // load the parameters
+                LOADOPTIONALLIST(io_toml,rr);
+                LOADOPTIONALDATA(io_toml,shape);
+                LOADOPTIONALDATA(io_toml,degree);
+                LOADOPTIONALDATA(io_toml,is_3d);
+                if (!is_3d.first) {
+                    LOADOPTIONALDATA(io_toml,imaging_slice);
+                }
+                LOADOPTIONALDATA(io_toml,dir_sigma);
+                LOADOPTIONALDATA(io_toml,dir_epsr);
+                LOADOPTIONALDATA(io_toml,thereis_diff);
+                if (thereis_diff.first) {
+                    LOADOPTIONALDATA(io_toml,diff_coeff);
+                }
+                cout<<endl;
+                // check the parameters
+                KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
+                if (shape.first<0||kernel_shape>=KernelShape::END) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
+                    return 1;
+                }
+                if (degree.first<2) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                    return 1;
+                }
+                if (!is_3d.first) {
+                    if (imaging_slice.first<rr.first[2]||imaging_slice.first>nn.first[2]-1-rr.first[2]) {
+                        cout<<"FATAL ERROR in config file: Wrong data format '"<<imaging_slice.second<<"'"<<endl;
+                        return 1;
+                    }
+                }
+                if (dir_sigma.first<0.0) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<dir_sigma.second<<"'"<<endl;
+                    return 1;
+                }
+                if (dir_epsr.first<1.0) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<dir_epsr.second<<"'"<<endl;
+                    return 1;
+                }
+                if (n_txch.first>1||n_rxch.first>1) {
+                    cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
+                    return 1;
+                }
+                // report the parameters
+                cout<<"Parameters:\n";
+                cout<<"  Savitzky-Golay filter:\n";
+                cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
+                cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
+                cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"  Volume tomography: "<<(is_3d.first?"Yes":"No")<<"\n";
+                if (!is_3d.first) {
+                    cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
+                }
+                cout<<"  Dirichlet:\n";
+                cout<<"    Electric conductivity: "<<dir_sigma.first<<"\n";
+                cout<<"    Relative permittivity: "<<dir_epsr.first<<"\n";
+                cout<<"  Artificial diffusion: "<<(thereis_diff.first?"Yes":"No")<<"\n";
+                if (thereis_diff.first) {
+                    cout<<"    Artificial diffusion coefficient: "<<diff_coeff.first<<"\n";
+                }
+                cout<<endl;
+                // combine the parameters
+                Shape kernel;
+                switch (kernel_shape) {
+                    case KernelShape::CROSS:
+                        kernel = shapes::Cross(rr.first[0], rr.first[1], rr.first[2]);
+                        break;
+                    case KernelShape::ELLIPSOID:
+                        kernel = shapes::Ellipsoid(rr.first[0], rr.first[1], rr.first[2]);
+                        break;
+                    case KernelShape::CUBOID:
+                        kernel = shapes::CuboidR(rr.first[0], rr.first[1], rr.first[2]);
+                        break;
+                }
+                // create the EPT method
+                ept = std::make_unique<EPTConvReact>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first);
+                if (!is_3d.first) {
+                    dynamic_cast<EPTConvReact*>(ept.get())->SelectSlice(imaging_slice.first);
+                }
+                if (thereis_diff.first) {
+                    dynamic_cast<EPTConvReact*>(ept.get())->SetArtificialDiffusion(diff_coeff.first);
+                }
+                dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
+                break;
+            }
+            case EPTMethod::GRADIENT: {
+                // declare the parameters
+                cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
+                cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
+                cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<bool> is_3d(false,"parameter.volume-tomography");
+                cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
+                cfgdata<bool> full_run(true,"parameter.full-run");
+                cfgdata<string> output_gradient_addr("","parameter.output-gradient");
+                cfgdata<bool> use_seed_point(false, "parameter.seed-point.use-seed-point");
+                std::string seed_point_url = "parameter.seed-point";
+                cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
+                cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
+                cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
+                // load the parameters
+                LOADOPTIONALLIST(io_toml,rr);
+                LOADOPTIONALDATA(io_toml,shape);
+                LOADOPTIONALDATA(io_toml,degree);
+                LOADOPTIONALDATA(io_toml,is_3d);
+                if (!is_3d.first) {
+                    LOADOPTIONALDATA(io_toml,imaging_slice);
+                }
+                LOADOPTIONALDATA(io_toml,full_run);
+                LOADOPTIONALDATA(io_toml,output_gradient_addr);
+                LOADOPTIONALDATA(io_toml,use_seed_point);
+                LOADOPTIONALDATA(io_toml,regularization_coefficient);
+                LOADOPTIONALDATA(io_toml,regularization_gradient_tolerance);
+                LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
+                cout<<endl;
+                // check the parameters
+                KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
+                std::vector<SeedPoint> seed_points(0);
+                if (use_seed_point.first) {
+                    EPTlibError error = TOMLGetSeedPoints(seed_points,*io_toml,seed_point_url);
+                    if (error != EPTlibError::Success) {
+                        cout<<"FATAL ERROR in config file: '"<<seed_point_url<<"'"<<endl;
+                        return 1;
+                    }
+                }
+                if (shape.first<0||kernel_shape>=KernelShape::END) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<shape.second<<"'"<<endl;
+                    return 1;
+                }
+                if (degree.first<2) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                    return 1;
+                }
+                if (!is_3d.first) {
+                    if (imaging_slice.first<2*rr.first[2]||imaging_slice.first>nn.first[2]-1-2*rr.first[2]) {
+                        cout<<"FATAL ERROR in config file: Wrong data format '"<<imaging_slice.second<<"'"<<endl;
+                        return 1;
+                    }
+                }
+                for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                    for (int d = 0; d<N_DIM; ++d) {
+                        if (seed_points[idx_sp].ijk[d]<0||seed_points[idx_sp].ijk[d]>=nn.first[d]) {
+                            cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
+                            return 1;
+                        }
+                    }
+                    if (seed_points[idx_sp].sigma<0.0) {
+                        cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
+                        return 1;
+                    }
+                    if (seed_points[idx_sp].epsr<1.0) {
                         cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
                         return 1;
                     }
                 }
-                if (seed_points[idx_sp].sigma<0.0) {
-                    cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
+                if (regularization_coefficient.first<0.0) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_coefficient.second<<"'"<<endl;
                     return 1;
                 }
-                if (seed_points[idx_sp].epsr<1.0) {
-                    cout<<"FATAL ERROR in config file: Wrong data format '"<<seed_point_url<<"'"<<endl;
+                if (regularization_gradient_tolerance.first<0.0 || regularization_gradient_tolerance.first>1.0) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_gradient_tolerance.second<<"'"<<endl;
                     return 1;
                 }
-            }
-            if (regularization_coefficient.first<0.0) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_coefficient.second<<"'"<<endl;
-                return 1;
-            }
-            if (regularization_gradient_tolerance.first<0.0 || regularization_gradient_tolerance.first>1.0) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<regularization_gradient_tolerance.second<<"'"<<endl;
-                return 1;
-            }
-            if (n_txch.first<5) {
-                cout<<"FATAL ERROR in config file: at least 5 transmit channels are needed by "<<ToString(ept_method)<<endl;
-                return 1;
-            }
-            if (n_rxch.first>1) {
-                cout<<"FATAL ERROR in config file: 1 receive channel is needed by "<<ToString(ept_method)<<endl;
-                return 1;
-            }
-            // report the parameters
-            cout<<"Parameters:\n";
-            cout<<"  Savitzky-Golay filter:\n";
-            cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
-            cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
-            cout<<"    Polynomial degree: "<<degree.first<<"\n";
-            cout<<"  Volume tomography: "<<(is_3d.first?"Yes":"No")<<"\n";
-            if (!is_3d.first) {
-                cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
-            }
-            cout<<"  Full run: "<<(full_run.first?"Yes":"No")<<"\n";
-            cout<<"  Output gradient addr.: '"<<output_gradient_addr.first<<"'\n";
-            if (full_run.first) {
-                cout<<"  Seed point:\n";
-                cout<<"    Use seed point: "<<(use_seed_point.first?"Yes":"No")<<"\n";
-                if (use_seed_point.first) {
-                    cout<<"    Coordinates: [";
-                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
-                        cout<<"["<<seed_points[idx_sp].ijk[0]<<", "<<seed_points[idx_sp].ijk[1]<<", "<<seed_points[idx_sp].ijk[2]<<"], ";
-                    }
-                    cout<<"]\n";
-                    cout<<"    Electric conductivity: [";
-                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
-                        cout<<seed_points[idx_sp].sigma<<", ";
-                    }
-                    cout<<"]\n";
-                    cout<<"    Relative permittivity: [";
-                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
-                        cout<<seed_points[idx_sp].epsr<<", ";
-                    }
-                    cout<<"]\n";
-                } else {
-                    cout<<"  Regularization:\n";
-                    cout<<"    Regularization coefficient: "<<regularization_coefficient.first<<"\n";
-                    cout<<"    Gradient tolerance: "<<regularization_gradient_tolerance.first<<"\n";
-                    cout<<"    Output mask addr.: '"<<regularization_output_mask_addr.first<<"'\n";
-                }
-            }
-            cout<<endl;
-            // combine the parameters
-            Shape kernel;
-            switch (kernel_shape) {
-                case KernelShape::CROSS:
-                    kernel = shapes::Cross(rr.first[0], rr.first[1], rr.first[2]);
-                    break;
-                case KernelShape::ELLIPSOID:
-                    kernel = shapes::Ellipsoid(rr.first[0], rr.first[1], rr.first[2]);
-                    break;
-                case KernelShape::CUBOID: {
-                    kernel = shapes::CuboidR(rr.first[0], rr.first[1], rr.first[2]);
-                    break;
-                }
-            }
-            // create the EPT method
-            EPTGradientRun run_mode = full_run.first ? EPTGradientRun::FULL : EPTGradientRun::LOCAL;
-            ept = std::make_unique<EPTGradient>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, n_txch.first, degree.first, run_mode);
-            if (!is_3d.first) {
-                dynamic_cast<EPTGradient*>(ept.get())->SelectSlice(imaging_slice.first);
-            }
-            if (use_seed_point.first) {
-                for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
-                    dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_points[idx_sp]);
-                }
-            } else {
-                dynamic_cast<EPTGradient*>(ept.get())->SetRegularizationCoefficient(regularization_coefficient.first);
-                dynamic_cast<EPTGradient*>(ept.get())->SetGradientTolerance(regularization_gradient_tolerance.first);
-            }
-            break;
-        }
-        case EPTMethod::HELMHOLTZ_CHI2: {
-            // declare the parameters
-            string savitzky_golay_url = "parameter.savitzky-golay";
-            cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
-            cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-            cfgdata<bool> admit_unphysical_values(false,"parameter.admit-unphysical-values");
-            cfgdata<string> output_var_addr("","parameter.output-variance");
-            // load the parameters
-            LOADOPTIONALDATA(io_toml,degree);
-            LOADOPTIONALDATA(io_toml,output_sg_index_addr);
-            LOADOPTIONALDATA(io_toml,admit_unphysical_values);
-            LOADOPTIONALDATA(io_toml,output_var_addr);
-            cout<<endl;
-            std::vector<int> shapes(0);
-            std::vector<std::array<int,N_DIM> > sizes(0);
-            EPTlibError error = TOMLGetMultipleSGShapes(shapes,sizes,*io_toml,savitzky_golay_url);
-            if (error!=EPTlibError::Success) {
-                cout<<"FATAL ERROR in config file: '"<<savitzky_golay_url<<"'"<<endl;
-                return 1;
-            }
-            // check the parameters
-            std::vector<KernelShape> kernel_shapes(shapes.size());
-            for (int idx = 0; idx<shapes.size(); ++idx) {
-                kernel_shapes[idx] = static_cast<KernelShape>(shapes[idx]);
-                if (shapes[idx]<0||kernel_shapes[idx]>=KernelShape::END) {
-                    cout<<"FATAL ERROR in config file: Wrong data format '"<<savitzky_golay_url<<"'"<<endl;
+                if (n_txch.first<5) {
+                    cout<<"FATAL ERROR in config file: at least 5 transmit channels are needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
-            }
-            if (n_txch.first>1||n_rxch.first>1) {
-                cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
-                return 1;
-            }
-            if (!thereis_trxphase) {
-                cout<<"FATAL ERROR in config file: The transceive phase address is needed by "<<ToString(ept_method)<<endl;
-                return 1;
-            }
-            if (degree.first<2) {
-                cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
-                return 1;
-            }
-            if (thereis_txsens) {
-                cout<<"WARNING: This method works only with the phase-based approximation. Relative permittivity will not be computed and the Tx sensitivity will not be used."<<endl;
-            }
-            if (wrapped_phase.first) {
-                cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
-            }
-            cout<<endl;
-            // report the parameters
-            cout<<"Parameters:\n";
-            cout<<"  Savitzky-Golay filter:\n";
-            cout<<"    Kernel shapes: ["<<shapes[0];
-            for (int idx = 1; idx<shapes.size(); ++idx) {
-                cout<<", "<<shapes[idx];
-            }
-            cout<<"]\n";
-            cout<<"    Kernel sizes: [";
-            cout<<"["<<sizes[0][0]<<", "<<sizes[0][1]<<", "<<sizes[0][2]<<"]";
-            for (int idx = 1; idx<sizes.size(); ++idx) {
-                cout<<", "<<"["<<sizes[idx][0]<<", "<<sizes[idx][1]<<", "<<sizes[idx][2]<<"]";
-            }
-            cout<<"]\n";
-            cout<<"    Polynomial degree: "<<degree.first<<"\n";
-            cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
-            cout<<"  Admit unphysical values: "<<(admit_unphysical_values.first?"Yes":"No")<<"\n";
-            cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
-            cout<<endl;
-            // combine the parameters
-            std::vector<Shape> kernels(shapes.size());
-            for (int idx = 0; idx<kernels.size(); ++idx) {
-                switch (kernel_shapes[idx]) {
+                if (n_rxch.first>1) {
+                    cout<<"FATAL ERROR in config file: 1 receive channel is needed by "<<ToString(ept_method)<<endl;
+                    return 1;
+                }
+                // report the parameters
+                cout<<"Parameters:\n";
+                cout<<"  Savitzky-Golay filter:\n";
+                cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
+                cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
+                cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"  Volume tomography: "<<(is_3d.first?"Yes":"No")<<"\n";
+                if (!is_3d.first) {
+                    cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
+                }
+                cout<<"  Full run: "<<(full_run.first?"Yes":"No")<<"\n";
+                cout<<"  Output gradient addr.: '"<<output_gradient_addr.first<<"'\n";
+                if (full_run.first) {
+                    cout<<"  Seed point:\n";
+                    cout<<"    Use seed point: "<<(use_seed_point.first?"Yes":"No")<<"\n";
+                    if (use_seed_point.first) {
+                        cout<<"    Coordinates: [";
+                        for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                            cout<<"["<<seed_points[idx_sp].ijk[0]<<", "<<seed_points[idx_sp].ijk[1]<<", "<<seed_points[idx_sp].ijk[2]<<"], ";
+                        }
+                        cout<<"]\n";
+                        cout<<"    Electric conductivity: [";
+                        for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                            cout<<seed_points[idx_sp].sigma<<", ";
+                        }
+                        cout<<"]\n";
+                        cout<<"    Relative permittivity: [";
+                        for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                            cout<<seed_points[idx_sp].epsr<<", ";
+                        }
+                        cout<<"]\n";
+                    } else {
+                        cout<<"  Regularization:\n";
+                        cout<<"    Regularization coefficient: "<<regularization_coefficient.first<<"\n";
+                        cout<<"    Gradient tolerance: "<<regularization_gradient_tolerance.first<<"\n";
+                        cout<<"    Output mask addr.: '"<<regularization_output_mask_addr.first<<"'\n";
+                    }
+                }
+                cout<<endl;
+                // combine the parameters
+                Shape kernel;
+                switch (kernel_shape) {
                     case KernelShape::CROSS:
-                        kernels[idx] = shapes::Cross(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
+                        kernel = shapes::Cross(rr.first[0], rr.first[1], rr.first[2]);
                         break;
                     case KernelShape::ELLIPSOID:
-                        kernels[idx] = shapes::Ellipsoid(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
+                        kernel = shapes::Ellipsoid(rr.first[0], rr.first[1], rr.first[2]);
                         break;
                     case KernelShape::CUBOID: {
-                        kernels[idx] = shapes::CuboidR(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
+                        kernel = shapes::CuboidR(rr.first[0], rr.first[1], rr.first[2]);
                         break;
                     }
                 }
+                // create the EPT method
+                EPTGradientRun run_mode = full_run.first ? EPTGradientRun::FULL : EPTGradientRun::LOCAL;
+                ept = std::make_unique<EPTGradient>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, n_txch.first, degree.first, run_mode);
+                if (!is_3d.first) {
+                    dynamic_cast<EPTGradient*>(ept.get())->SelectSlice(imaging_slice.first);
+                }
+                if (use_seed_point.first) {
+                    for (int idx_sp = 0; idx_sp<seed_points.size(); ++idx_sp) {
+                        dynamic_cast<EPTGradient*>(ept.get())->AddSeedPoint(seed_points[idx_sp]);
+                    }
+                } else {
+                    dynamic_cast<EPTGradient*>(ept.get())->SetRegularizationCoefficient(regularization_coefficient.first);
+                    dynamic_cast<EPTGradient*>(ept.get())->SetGradientTolerance(regularization_gradient_tolerance.first);
+                }
+                break;
             }
-            // create the EPT method
-            ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first);
-            break;
+            case EPTMethod::HELMHOLTZ_CHI2: {
+                // declare the parameters
+                string savitzky_golay_url = "parameter.savitzky-golay";
+                cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
+                cfgdata<bool> admit_unphysical_values(false,"parameter.admit-unphysical-values");
+                cfgdata<string> output_var_addr("","parameter.output-variance");
+                // load the parameters
+                LOADOPTIONALDATA(io_toml,degree);
+                LOADOPTIONALDATA(io_toml,output_sg_index_addr);
+                LOADOPTIONALDATA(io_toml,admit_unphysical_values);
+                LOADOPTIONALDATA(io_toml,output_var_addr);
+                cout<<endl;
+                std::vector<int> shapes(0);
+                std::vector<std::array<int,N_DIM> > sizes(0);
+                EPTlibError error = TOMLGetMultipleSGShapes(shapes,sizes,*io_toml,savitzky_golay_url);
+                if (error!=EPTlibError::Success) {
+                    cout<<"FATAL ERROR in config file: '"<<savitzky_golay_url<<"'"<<endl;
+                    return 1;
+                }
+                // check the parameters
+                std::vector<KernelShape> kernel_shapes(shapes.size());
+                for (int idx = 0; idx<shapes.size(); ++idx) {
+                    kernel_shapes[idx] = static_cast<KernelShape>(shapes[idx]);
+                    if (shapes[idx]<0||kernel_shapes[idx]>=KernelShape::END) {
+                        cout<<"FATAL ERROR in config file: Wrong data format '"<<savitzky_golay_url<<"'"<<endl;
+                        return 1;
+                    }
+                }
+                if (n_txch.first>1||n_rxch.first>1) {
+                    cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
+                    return 1;
+                }
+                if (!thereis_trxphase) {
+                    cout<<"FATAL ERROR in config file: The transceive phase address is needed by "<<ToString(ept_method)<<endl;
+                    return 1;
+                }
+                if (degree.first<2) {
+                    cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
+                    return 1;
+                }
+                if (thereis_txsens) {
+                    cout<<"WARNING: This method works only with the phase-based approximation. Relative permittivity will not be computed and the Tx sensitivity will not be used."<<endl;
+                }
+                if (wrapped_phase.first) {
+                    cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
+                }
+                cout<<endl;
+                // report the parameters
+                cout<<"Parameters:\n";
+                cout<<"  Savitzky-Golay filter:\n";
+                cout<<"    Kernel shapes: ["<<shapes[0];
+                for (int idx = 1; idx<shapes.size(); ++idx) {
+                    cout<<", "<<shapes[idx];
+                }
+                cout<<"]\n";
+                cout<<"    Kernel sizes: [";
+                cout<<"["<<sizes[0][0]<<", "<<sizes[0][1]<<", "<<sizes[0][2]<<"]";
+                for (int idx = 1; idx<sizes.size(); ++idx) {
+                    cout<<", "<<"["<<sizes[idx][0]<<", "<<sizes[idx][1]<<", "<<sizes[idx][2]<<"]";
+                }
+                cout<<"]\n";
+                cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
+                cout<<"  Admit unphysical values: "<<(admit_unphysical_values.first?"Yes":"No")<<"\n";
+                cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
+                cout<<endl;
+                // combine the parameters
+                std::vector<Shape> kernels(shapes.size());
+                for (int idx = 0; idx<kernels.size(); ++idx) {
+                    switch (kernel_shapes[idx]) {
+                        case KernelShape::CROSS:
+                            kernels[idx] = shapes::Cross(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
+                            break;
+                        case KernelShape::ELLIPSOID:
+                            kernels[idx] = shapes::Ellipsoid(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
+                            break;
+                        case KernelShape::CUBOID: {
+                            kernels[idx] = shapes::CuboidR(sizes[idx][0],sizes[idx][1],sizes[idx][2]);
+                            break;
+                        }
+                    }
+                }
+                // create the EPT method
+                ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first);
+                break;
+            }
         }
-    }
-    // set-up the common parameters of the method
-    if (thereis_txsens) {
-        for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
-            ept->SetTxSensitivity(txsens[id_tx], id_tx);
-        }
-    }
-    if (thereis_trxphase) {
-        for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
+        // set-up the common parameters of the method
+        if (thereis_txsens) {
             for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
-                ept->SetTRxPhase(trxphase[id_tx+n_txch.first*id_rx], id_tx,id_rx);
+                ept->SetTxSensitivity(txsens[id_tx], id_tx);
             }
         }
-    }
-    if (thereis_refimg) {
-        ept->SetReferenceImage(refimg.value());
-    }
-
-    cfgdata<bool> postprocess(false,"parameter.postprocess");
-    LOADOPTIONALNOWARNINGDATA(io_toml,postprocess);
-    if (postprocess.first) {
-        cfglist<int> rr({1,1,1},"parameter.postprocess-size");
-        cfgdata<int> shape(2,"parameter.postprocess-shape");
-        cfgdata<double> weight_param(0.05,"parameter.weight");
-        LOADOPTIONALLIST(io_toml,rr);
-        LOADOPTIONALDATA(io_toml,shape);
-        LOADOPTIONALDATA(io_toml,weight_param);
-        KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
-        Shape kernel;
-        switch (kernel_shape) {
-            case KernelShape::CROSS:
-                kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
-                break;
-            case KernelShape::ELLIPSOID:
-                kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
-                break;
-            case KernelShape::CUBOID: {
-                kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
-                break;
+        if (thereis_trxphase) {
+            for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
+                for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
+                    ept->SetTRxPhase(trxphase[id_tx+n_txch.first*id_rx], id_tx,id_rx);
+                }
             }
         }
-
-        cout<<"Loading electric conductivity:\n"<<flush;
-        Image<double> sigma(nn.first[0],nn.first[1],nn.first[2]);
-        LOADMAP(sigma,sigma_addr.first);
-        cout<<"  '"<<sigma_addr.first<<"'\n"<<endl;
-
-        Image<double> epsr(nn.first[0],nn.first[1],nn.first[2]);
-        cout<<"Loading relative permittivity:\n"<<flush;
-        if (epsr_addr.first != "") {
-            LOADMAP(epsr,epsr_addr.first);
-            cout<<"  '"<<epsr_addr.first<<"'\n"<<endl;
+        if (thereis_refimg) {
+            ept->SetReferenceImage(refimg.value());
         }
-
-        Image<double> var(nn.first[0],nn.first[1],nn.first[2]);
-        cfgdata<string> output_var_addr("","parameter.output-variance");
-        LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
-        if (output_var_addr.first != "") {
-            cout<<"Loading variance:\n"<<flush;
-            LOADMAP(var,output_var_addr.first);
-            cout<<"  '"<<output_var_addr.first<<"'\n"<<endl;
-        } else {
-            var.GetData().assign(var.GetNVox(), 1.0);
-        }
-
-        Image<double> sigma_postpro(nn.first[0], nn.first[1], nn.first[2]);
-        Image<double> epsr_postpro(nn.first[0], nn.first[1], nn.first[2]);
-        cout<<"Postprocess..."<<flush;
-        auto postprocess_start = std::chrono::system_clock::now();
-        auto postprocess_error = filter::Postprocessing(&sigma_postpro, sigma, kernel, var, *refimg, 2.5, weight_param.first);
-        if (epsr_addr.first != "") {
-            postprocess_error = filter::Postprocessing(&epsr_postpro, epsr, kernel, var, *refimg, 120.0, weight_param.first);
-        }
-        auto postprocess_end = std::chrono::system_clock::now();
-        auto postprocess_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocess_end-postprocess_start);
-        if (postprocess_error==EPTlibError::Success) {
-            cout<<"done! ";
-        } else {
-            cout<<"postprocess failed ";
-        }
-        cout<<"["<<postprocess_elapsed.count()<<" s]\n"<<flush;
-
-        SAVEMAP(sigma_postpro,sigma_addr.first+"-postpro-low-var");
-        if (epsr_addr.first != "") {
-            SAVEMAP(epsr_postpro,epsr_addr.first+"-postpro-low-var");
-        }
-
-    } else {
         // run the method
         cout<<"Run "<<ToString(ept_method)<<"..."<<flush;
         auto run_start = std::chrono::system_clock::now();
@@ -959,6 +946,126 @@ int main(int argc, char **argv) {
             SAVEMAP(*map,epsr_addr.first);
         }
     }
+    //
+    cout<<"Postprocessing ..."<<flush;
+    auto postprocessing_start = std::chrono::system_clock::now();
+    if (postprocessing_output_sigma_addr.first!="") {
+        string output = postprocessing_output_sigma_addr.first;
+        string input;
+        string reference;
+        string uncertainty;
+        bool postprocess_flag = true;
+        if (perform_only_postprocessing.first) {
+            if (postprocessing_input_sigma_addr.first!="") {
+                input = postprocessing_input_sigma_addr.first;
+                reference = postprocessing_input_reference_addr.first;
+                uncertainty = postprocessing_input_uncertainty_addr.first;
+            } else {
+                cout<<"WARNING: No input conductivity to be postprocessed!"<<endl;
+                postprocess_flag = false;
+            }
+        } else {
+            if (sigma_addr.first!="") {
+                cfgdata<string> output_var_addr("","parameter.output-variance");
+                LOADOPTIONALNOWARNINGDATA(io_toml, output_var_addr);
+                input = sigma_addr.first;
+                reference = refimg_addr.first;
+                uncertainty = output_var_addr.first;
+            } else {
+                cout<<"WARNING: No input conductivity to be postprocessed!"<<endl;
+                postprocess_flag = false;
+            }
+        }
+        if (postprocess_flag) {
+            cfglist<int> rr({1,1,1},"postprocessing.kernel-size");
+            cfgdata<int> shape(2,"postprocessing.kernel-shape");
+            cfgdata<double> weight_param(0.05,"postprocessing.weight-param");
+            cfgdata<double> ratio_of_best_values(0.10,"postprocessing.ratio-of-best-values");
+            LOADOPTIONALNOWARNINGLIST(io_toml,rr);
+            LOADOPTIONALNOWARNINGDATA(io_toml,shape);
+            LOADOPTIONALNOWARNINGDATA(io_toml,weight_param);
+            LOADOPTIONALNOWARNINGDATA(io_toml,ratio_of_best_values);
+            KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
+            Shape kernel;
+            switch (kernel_shape) {
+                case KernelShape::CROSS:
+                    kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
+                    break;
+                case KernelShape::ELLIPSOID:
+                    kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
+                    break;
+                case KernelShape::CUBOID: {
+                    kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
+                    break;
+                }
+            }
+            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, ratio_of_best_values.first, nn);
+            if (postprocessing_error != 0) {
+                cout<<"execution failed\n"<<endl;
+                return 1;
+            }
+        }
+    }
+    if (postprocessing_output_epsr_addr.first!="") {
+        string output = postprocessing_output_epsr_addr.first;
+        string input;
+        string reference;
+        string uncertainty;
+        bool postprocess_flag = true;
+        if (perform_only_postprocessing.first) {
+            if (postprocessing_output_epsr_addr.first!="") {
+                input = postprocessing_input_epsr_addr.first;
+                reference = postprocessing_input_reference_addr.first;
+                uncertainty = postprocessing_input_uncertainty_addr.first;
+            } else {
+                cout<<"WARNING: No input permittivity to be postprocessed!"<<endl;
+                postprocess_flag = false;
+            }
+        } else {
+            if (epsr_addr.first!="") {
+                cfgdata<string> output_var_addr("","parameter.output-variance");
+                LOADOPTIONALNOWARNINGDATA(io_toml, output_var_addr);
+                input = epsr_addr.first;
+                reference = refimg_addr.first;
+                uncertainty = output_var_addr.first;
+            } else {
+                cout<<"WARNING: No input permittivity to be postprocessed!"<<endl;
+                postprocess_flag = false;
+            }
+        }
+        if (postprocess_flag) {
+            cfglist<int> rr({1,1,1},"postprocessing.kernel-size");
+            cfgdata<int> shape(2,"postprocessing.kernel-shape");
+            cfgdata<double> weight_param(0.05,"postprocessing.weight-param");
+            cfgdata<double> ratio_of_best_values(0.10,"postprocessing.ratio-of-best-values");
+            LOADOPTIONALNOWARNINGLIST(io_toml,rr);
+            LOADOPTIONALNOWARNINGDATA(io_toml,shape);
+            LOADOPTIONALNOWARNINGDATA(io_toml,weight_param);
+            LOADOPTIONALNOWARNINGDATA(io_toml,ratio_of_best_values);
+            KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
+            Shape kernel;
+            switch (kernel_shape) {
+                case KernelShape::CROSS:
+                    kernel = shapes::Cross(rr.first[0],rr.first[1],rr.first[2]);
+                    break;
+                case KernelShape::ELLIPSOID:
+                    kernel = shapes::Ellipsoid(rr.first[0],rr.first[1],rr.first[2]);
+                    break;
+                case KernelShape::CUBOID: {
+                    kernel = shapes::CuboidR(rr.first[0],rr.first[1],rr.first[2]);
+                    break;
+                }
+            }
+            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, ratio_of_best_values.first, nn);
+            if (postprocessing_error != 0) {
+                cout<<"execution failed\n"<<endl;
+                return 1;
+            }
+        }
+    }
+    auto postprocessing_end = std::chrono::system_clock::now();
+    auto postprocessing_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocessing_end - postprocessing_start);
+    cout<<"done! ["<<postprocessing_elapsed.count()<<" s]\n"<<flush;
     //
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);

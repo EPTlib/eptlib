@@ -86,7 +86,6 @@ ComputeWeights(const std::vector<double> &ref_img_crop) const {
     std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
         [&](const double x) -> double {
             return eptlib::filter::Gaussian(x-ref0, this->weight_param_);
-//            return eptlib::filter::HardThreshold(std::abs(x-ref0), 2.0*weight_param_);
         }
     );
     return weights;

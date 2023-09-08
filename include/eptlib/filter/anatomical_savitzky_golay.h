@@ -202,7 +202,7 @@ namespace filter {
              */
             template <typename Scalar>
             Scalar ExtractSecondOrderDerivative(const size_t d, const std::vector<Scalar> &a) const {
-                return a[derivative_indices_[4+d]];
+                return 2.0 * a[derivative_indices_[4+d]];
             }
 
             /**
@@ -216,7 +216,11 @@ namespace filter {
              */
             template <typename Scalar>
             Scalar ExtractLaplacian(const std::vector<Scalar> &a) const {
-                return 2.0 * (a[derivative_indices_[4]] + a[derivative_indices_[5]] + a[derivative_indices_[6]]);
+                Scalar laplacian = 0.0;
+                laplacian += ExtractSecondOrderDerivative(0, a);
+                laplacian += ExtractSecondOrderDerivative(1, a);
+                laplacian += ExtractSecondOrderDerivative(2, a);
+                return laplacian;
             }
 
             /**
@@ -271,6 +275,26 @@ namespace filter {
             }
 
             /**
+             * @brief Compute the fitting coefficients of the weighted problem in a crop.
+             * 
+             * @tparam Scalar numerical type of the data.
+             * 
+             * @param src_crop data values to which apply the filter.
+             * @param ref_img_crop reference data used for weighting the fitting.
+             * 
+             * @return the fitting coefficients.
+             */
+            template <typename Scalar>
+            inline std::vector<Scalar> GetFittingCoefficients(std::vector<Scalar> src_crop, const std::vector<double> &ref_img_crop) const {
+                std::vector<Scalar> a;
+                eptlib::linalg::Matrix<double> design_matrix = design_matrix_;
+                std::vector<double> weights = ComputeWeights(ref_img_crop);
+                ApplyWeights(weights, &src_crop, &design_matrix);
+                std::tie(a, std::ignore) = eptlib::linalg::LinearRegression(design_matrix, src_crop);
+                return a;
+            }
+
+            /**
              * @brief Apply the Savitzky-Golay filter to estimate the selected differential operator.
              * 
              * @tparam Scalar numerical type of the data.
@@ -286,13 +310,10 @@ namespace filter {
             EPTlibError Apply(const DifferentialOperator differential_operator, Image<Scalar> *dst,
                 const Image<Scalar> &src, const Image<double> &ref_img) const {
                 auto filter = [&](std::vector<Scalar> src_crop, const std::vector<double> &ref_img_crop) -> Scalar {
-                    eptlib::linalg::Matrix<double> design_matrix = this->design_matrix_;
-                    std::vector<double> weights = this->ComputeWeights(ref_img_crop);
-                    this->ApplyWeights(weights, &src_crop, &design_matrix);
-                    auto [a, chi2n] = eptlib::linalg::LinearRegression(design_matrix, src_crop);
+                    auto a = this->GetFittingCoefficients(src_crop, ref_img_crop);
                     return this->GetExtractor<Scalar>(differential_operator)(a);
                 };
-                return MovingWindow(dst, src, window_, filter, nullptr, &ref_img);
+                return MovingWindow(dst, src, window_, filter, nullptr, {&ref_img});
             }
 
             /**
@@ -366,7 +387,7 @@ namespace filter {
                     var *= var*chi2n;
                     return {derivative, var};
                 };
-                return MovingWindow(dst, src, window_, filter, variance, &ref_img);
+                return MovingWindow(dst, src, window_, filter, variance, {&ref_img});
             }
         private:
             /// Resolution in meter of the voxels along each direction.
@@ -379,7 +400,7 @@ namespace filter {
             /// Complete design matrix.
             eptlib::linalg::Matrix<double> design_matrix_;
 
-            ///
+            /// Parameter of the weight function.
             double weight_param_;
 
             /// Where the derivative contributions are found in the design matrix columns.

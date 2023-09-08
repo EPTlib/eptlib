@@ -36,6 +36,7 @@
 #include <algorithm>
 #include <complex>
 #include <functional>
+#include <limits>
 #include <numeric>
 #include <optional>
 #include <string>
@@ -53,6 +54,11 @@ namespace eptlib {
     constexpr double MU0 = 4.0e-7*PI;
     /// Vacuum permittivity [F/m].
     constexpr double EPS0 = 1.0/MU0/C0/C0;
+
+    // Real-valued Not-a-Number
+    constexpr double nand = std::numeric_limits<double>::quiet_NaN();
+    // Complex-valued Not-a-Number
+    constexpr std::complex<double> nancd = std::complex<double>(nand, nand);
 
     /**
      * Error codes that can be provided by EPTlib functions and methods.

@@ -41,25 +41,24 @@
 using namespace eptlib;
 using namespace std::literals::complex_literals;
 
-namespace {
-    static double nand = std::numeric_limits<double>::quiet_NaN();
-    static std::complex<double> nancd = std::complex<double>(nand,nand);
-}
-
 // EPTGradient constructor
 EPTGradient::
 EPTGradient(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
     const double freq, const Shape &window, const size_t n_tx_ch,
-    const int degree, const EPTGradientRun run_mode) :
+    const int degree, const EPTGradientRun run_mode,
+    const double weight_param) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, n_tx_ch,1, false),
     slice_index_(),
     seed_points_(),
     lambda_(0.0),
     gradient_tolerance_(0.0),
     mask_(0),
-    sg_filter_(d0,d1,d2, window, degree),
+    sg_filter_(),
+    sg_window_(window),
+    sg_degree_(degree),
     run_mode_(run_mode),
+    weight_param_(weight_param),
     epsc_(0),
     g_plus_(0),
     g_z_(0),
@@ -87,6 +86,13 @@ Run() {
     if (!ThereAreAllTxSens() || !ThereAreAllTRxPhase()) {
         return EPTlibError::MissingData;
     }
+    // check that the sg filter is correctly set up
+    if (ThereIsReferenceImage() && !std::holds_alternative<filter::AnatomicalSavitzkyGolay>(sg_filter_)) {
+        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_, weight_param_);
+    } else
+    if (!ThereIsReferenceImage() && !std::holds_alternative<filter::SavitzkyGolay>(sg_filter_)) {
+        sg_filter_.emplace<filter::SavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
+    }
     // Set-up the output
     epsr_  = std::make_unique<Image<double> >(nn_[0], nn_[1], VolumeTomography() ? nn_[2] : 1);
     sigma_ = std::make_unique<Image<double> >(nn_[0], nn_[1], VolumeTomography() ? nn_[2] : 1);
@@ -102,7 +108,7 @@ Run() {
             g_z_.assign(n_out, 0.0);
         }
         // For each transmit channel as reference...
-        size_t m2 = sg_filter_.GetWindow().GetSize(2);
+        size_t m2 = sg_window_.GetSize(2);
         size_t r2 = m2/2;
         std::array<size_t, N_DIM> nn{nn_[0], nn_[1], VolumeTomography() ? nn_[2] : m2};
         size_t n_int = nn[0]*nn[1]*nn[2];
@@ -112,11 +118,11 @@ Run() {
             std::array<Image<double>, N_DIM> grad_phi0;
             for (size_t d = 0; d<N_DIM; ++d) {
                 grad_phi0[d] = Image<double>(nn[0], nn[1], nn[2]);
-                grad_phi0[d].GetData().assign(n_int, ::nand);
+                grad_phi0[d].GetData().assign(n_int, nand);
             }
-            std::vector<std::complex<double> > g_plus(n_int, ::nancd);
-            std::vector<std::complex<double> > g_z   (n_int, ::nancd);
-            std::vector<std::complex<double> > theta (n_int, ::nancd);
+            std::vector<std::complex<double> > g_plus(n_int, nancd);
+            std::vector<std::complex<double> > g_z   (n_int, nancd);
+            std::vector<std::complex<double> > theta (n_int, nancd);
             // ...perform the local recovery
             LocalRecovery(&grad_phi0,&g_plus,&g_z,&theta, tx_ch_ref);
             // ...estimate the complex permittivity from theta
@@ -168,20 +174,35 @@ namespace { //details
     void FillLocalMatrix(Eigen::MatrixXd *A, Eigen::VectorXd *b,
         const std::vector<std::vector<std::complex<double> > > &field_crop,
         const std::vector<std::complex<double> > &field_mid_values,
-        const filter::SavitzkyGolay &sg_filter,
-        const std::array<double,N_DIM> &dd, const int tx_ch, const bool is_2d) {
+        const std::variant<std::monostate, filter::SavitzkyGolay, filter::AnatomicalSavitzkyGolay> &sg_filter,
+        const std::array<double,N_DIM> &dd, const int tx_ch, const bool is_2d,
+        const std::vector<double> *ref_img_crop = nullptr) {
+        bool there_is_reference_image = std::holds_alternative<filter::AnatomicalSavitzkyGolay>(sg_filter);
         int n_col = is_2d?6:9;
         *A = Eigen::MatrixXd::Zero(2*tx_ch,n_col);
         *b = Eigen::VectorXd::Zero(2*tx_ch);
         // for each transmit channel...
         for (int itx = 0; itx<tx_ch; ++itx) {
             int row = 2*itx;
+            std::complex<double> tmp;
+            std::vector<std::complex<double> > fitting_coefficients(0);
+            if (there_is_reference_image) {
+                fitting_coefficients = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter).GetFittingCoefficients(field_crop[itx], *ref_img_crop);
+            }
             // ...laplacian
-            std::complex<double> tmp = sg_filter.Laplacian(field_crop[itx]);
+            if (there_is_reference_image) {
+                tmp = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter).ExtractLaplacian(fitting_coefficients);
+            } else {
+                tmp = std::get<filter::SavitzkyGolay>(sg_filter).Laplacian(field_crop[itx]);
+            }
             (*b)[row  ] = tmp.real();
             (*b)[row+1] = tmp.imag();
             // ...grad_x
-            tmp = sg_filter.FirstOrderDerivative(0, field_crop[itx]);
+            if (there_is_reference_image) {
+                tmp = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter).ExtractFirstOrderDerivative(0, fitting_coefficients);
+            } else {
+                tmp = std::get<filter::SavitzkyGolay>(sg_filter).FirstOrderDerivative(0, field_crop[itx]);
+            }
             (*A)(row  , col_phi    ) =  tmp.imag()*2.0;
             (*A)(row+1, col_phi    ) = -tmp.real()*2.0;
             (*A)(row  , col_gplus  ) =  tmp.real();
@@ -189,7 +210,11 @@ namespace { //details
             (*A)(row  , col_gplus+1) = -tmp.imag();
             (*A)(row+1, col_gplus+1) =  tmp.real();
             // ...grad_y
-            tmp = sg_filter.FirstOrderDerivative(1, field_crop[itx]);
+            if (there_is_reference_image) {
+                tmp = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter).ExtractFirstOrderDerivative(1, fitting_coefficients);
+            } else {
+                tmp = std::get<filter::SavitzkyGolay>(sg_filter).FirstOrderDerivative(1, field_crop[itx]);
+            }
             (*A)(row  , col_phi+1  )  =  tmp.imag()*2.0;
             (*A)(row+1, col_phi+1  )  = -tmp.real()*2.0;
             (*A)(row  , col_gplus  ) +=  tmp.imag();
@@ -198,7 +223,11 @@ namespace { //details
             (*A)(row+1, col_gplus+1) +=  tmp.imag();
             // ...grad_z
             if (!is_2d) {
-                tmp = sg_filter.FirstOrderDerivative(2, field_crop[itx]);
+                if (there_is_reference_image) {
+                    tmp = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter).ExtractFirstOrderDerivative(2, fitting_coefficients);
+                } else {
+                    tmp = std::get<filter::SavitzkyGolay>(sg_filter).FirstOrderDerivative(2, field_crop[itx]);
+                }
                 (*A)(row  , col_phi+2) =  tmp.imag()*2.0;
                 (*A)(row+1, col_phi+2) = -tmp.real()*2.0;
                 (*A)(row  , col_gz   ) =  tmp.real();
@@ -246,7 +275,7 @@ LocalRecovery(std::array<Image<double>, N_DIM> *grad_phi0,
     std::vector<std::complex<double> > *g_z,
     std::vector<std::complex<double> > *theta,
     const int iref) {
-    size_t r2 = sg_filter_.GetWindow().GetSize(2)/2;
+    size_t r2 = sg_window_.GetSize(2)/2;
     if (!VolumeTomography()) {
         for (size_t i2 = slice_index_.value()-r2; i2<=slice_index_.value()+r2; ++i2) {
             LocalRecoverySlice(grad_phi0,g_plus,g_z,theta,iref,i2);
@@ -266,17 +295,16 @@ LocalRecoverySlice(std::array<Image<double>, N_DIM> *grad_phi0,
     std::vector<std::complex<double> > *g_z,
     std::vector<std::complex<double> > *theta,
     const int iref, const int i2) {
-    const Shape& window = sg_filter_.GetWindow();
     std::array<int, N_DIM> rr;
     for (size_t d = 0; d<N_DIM; ++d) {
-        rr[d] = window.GetSize(d)/2;
+        rr[d] = sg_window_.GetSize(d)/2;
     }
     std::array<size_t, N_DIM> ii;
     std::array<size_t, N_DIM> m_inc;
-    size_t m_vox = window.GetNVox();
+    size_t m_vox = sg_window_.GetNVox();
     m_inc[0] = 1;
-    m_inc[1] = nn_[0] - window.GetSize(0);
-    m_inc[2] = nn_[0] * (nn_[1] - window.GetSize(1));
+    m_inc[1] = nn_[0] - sg_window_.GetSize(0);
+    m_inc[2] = nn_[0] * (nn_[1] - sg_window_.GetSize(1));
     ii[2] = i2;
     for (ii[1] = rr[1]; ii[1]<nn_[1]-rr[1]; ++ii[1]) {
         for (ii[0] = rr[0]; ii[0]<nn_[0]-rr[0]; ++ii[0]) {
@@ -284,7 +312,7 @@ LocalRecoverySlice(std::array<Image<double>, N_DIM> *grad_phi0,
             std::vector<std::vector<std::complex<double> > > field_crop(n_tx_ch_);
             std::vector<std::complex<double> > field_mid_values(n_tx_ch_, 0.0);
             for (int tx_ch = 0; tx_ch<n_tx_ch_; ++tx_ch) {
-                field_crop[tx_ch].assign(window.GetVolume(), 0.0);
+                field_crop[tx_ch].assign(sg_window_.GetVolume(), 0.0);
             }
             // inner loop over the kernel voxels
             int idx_f = 0;
@@ -299,7 +327,7 @@ LocalRecoverySlice(std::array<Image<double>, N_DIM> *grad_phi0,
                                 field_mid_values[tx_ch] = GetTxSens(tx_ch)->At(idx_g) * std::exp(exponent);
                             }
                         }
-                        if (window(idx_l)) {
+                        if (sg_window_(idx_l)) {
                             // set the field value
                             for (int tx_ch = 0; tx_ch<n_tx_ch_; ++tx_ch) {
                                 std::complex<double> exponent = std::complex<double>(0.0, GetTRxPhase(tx_ch,0)->At(idx_g) - GetTRxPhase(iref,0)->At(idx_g));
@@ -343,7 +371,7 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
     const std::vector<std::complex<double> > &g_plus,
     const std::vector<std::complex<double> > &g_z) {
     int n_dim = VolumeTomography() ? 3 : 2;
-    size_t m2 = sg_filter_.GetWindow().GetSize(2);
+    size_t m2 = sg_window_.GetSize(2);
     std::array<size_t, N_DIM> nn{nn_[0], nn_[1], VolumeTomography() ? nn_[2] : m2};
     int n_vox = nn[0]*nn[1]*nn[2];
     int offset = VolumeTomography() ? 0 : nn[0]*nn[1]*(m2/2);
@@ -351,7 +379,12 @@ Theta2Epsc(std::vector<std::complex<double> > *theta,
     for (int d = 0; d<n_dim; ++d) {
         Image<double> lapl_phi0(nn[0], nn[1], nn[2]);
         DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
-        EPTlibError error = sg_filter_.Apply(diff_op, &lapl_phi0, grad_phi0[d]);
+        EPTlibError error;
+        if (ThereIsReferenceImage()) {
+            error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &lapl_phi0, grad_phi0[d], *reference_image_);
+        }  else {
+            error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &lapl_phi0, grad_phi0[d]);
+        }
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -840,7 +873,7 @@ GlobalMinimisation() {
             if (SeedPointsAreUsed() && dof[idx]<0) {
                 epsc_[idx] = std::exp(dir[-dof[idx]-1]);
             } else {
-                epsc_[idx] = ::nancd;
+                epsc_[idx] = nancd;
             }
         }
     }
