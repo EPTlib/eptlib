@@ -283,48 +283,57 @@ int main(int argc, char **argv) {
         LOADOPTIONALDATA(io_toml,postprocessing_input_reference_addr);
         LOADOPTIONALDATA(io_toml,postprocessing_input_uncertainty_addr);
     }
-    //
+    cout<<endl;
+    // check the provided data
+    EPTMethod ept_method = static_cast<EPTMethod>(method.first);
+    bool thereis_txsens = txsens_addr.first!="";
+    bool thereis_trxphase = trxphase_addr.first!="";
+    bool thereis_refimg = refimg_addr.first!="";
+    bool thereis_sigma = sigma_addr.first!="";
+    bool thereis_epsr = epsr_addr.first!="";
+    //   EPT method
+    if (ept_method<=EPTMethod::BEGIN_STABLE||(ept_method>=EPTMethod::END_STABLE&&ept_method<=EPTMethod::BEGIN_EXPERIMENTAL)||ept_method>=EPTMethod::END_EXPERIMENTAL) {
+        cout<<"FATAL ERROR in config file: Wrong data format '"<<method.second<<"'"<<endl;
+        return 1;
+    }
+    //   input addresses
+    if (!thereis_txsens&&!thereis_trxphase) {
+        cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
+        return 1;
+    }
+    //   output addresses
+    if (!thereis_sigma&&!thereis_epsr) {
+        cout<<"FATAL ERROR in config file: Neither '"<<sigma_addr.second<<"' nor '"<<epsr_addr.second<<"' are provided"<<endl;
+        return 1;
+    }
+    // report the readen values
+    cout<<"  "<<title.first<<"\n";
+    cout<<"  "<<descr.first<<"\n";
+    cout<<"\n  Method: ("<<method.first<<") "<<ToString(ept_method)<<"\n";
+    cout<<"\n  Mesh size: ["<<nn.first[0]<<", "<<nn.first[1]<<", "<<nn.first[2]<<"]\n";
+    cout<<"  Mesh step: ["<<dd.first[0]<<", "<<dd.first[1]<<", "<<dd.first[2]<<"]\n";
+    cout<<"\n  Frequency: "<<freq.first<<"\n";
+    cout<<"  Tx channels: "<<n_txch.first<<"\n";
+    cout<<"  Rx channels: "<<n_rxch.first<<"\n";
+    cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
+    cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+    cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
+    cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
+    cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
+    cout<<"  Output relative permittivity addr.: '"<<epsr_addr.first<<"'\n";
+    cout<<"\n  Postprocessing:\n";
+    cout<<"    Output electric conductivity addr.: '"<<postprocessing_output_sigma_addr.first<<"'\n";
+    cout<<"    Output relative permittivity addr.: '"<<postprocessing_output_epsr_addr.first<<"'\n";
+    cout<<"    Perform only postprocessing: "<<(perform_only_postprocessing.first?"Yes":"No")<<"\n";
+    if (perform_only_postprocessing.first) {
+        cout<<"    Input electric conductivity addr.: '"<<postprocessing_input_sigma_addr.first<<"'\n";
+        cout<<"    Input relative permittivity addr.: '"<<postprocessing_input_epsr_addr.first<<"'\n";
+        cout<<"    Input reference image addr.: '"<<postprocessing_input_reference_addr.first<<"'\n";
+        cout<<"    Input uncertainty map addr.: '"<<postprocessing_input_uncertainty_addr.first<<"'\n";
+    }
     cout<<endl;
     // perform EPT
     if (!perform_only_postprocessing.first) {
-        // check the provided data
-        EPTMethod ept_method = static_cast<EPTMethod>(method.first);
-        bool thereis_txsens = txsens_addr.first!="";
-        bool thereis_trxphase = trxphase_addr.first!="";
-        bool thereis_refimg = refimg_addr.first!="";
-        bool thereis_sigma = sigma_addr.first!="";
-        bool thereis_epsr = epsr_addr.first!="";
-        //   EPT method
-        if (ept_method<=EPTMethod::BEGIN_STABLE||(ept_method>=EPTMethod::END_STABLE&&ept_method<=EPTMethod::BEGIN_EXPERIMENTAL)||ept_method>=EPTMethod::END_EXPERIMENTAL) {
-            cout<<"FATAL ERROR in config file: Wrong data format '"<<method.second<<"'"<<endl;
-            return 1;
-        }
-        //   input addresses
-        if (!thereis_txsens&&!thereis_trxphase) {
-            cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
-            return 1;
-        }
-        //   output addresses
-        if (!thereis_sigma&&!thereis_epsr) {
-            cout<<"FATAL ERROR in config file: Neither '"<<sigma_addr.second<<"' nor '"<<epsr_addr.second<<"' are provided"<<endl;
-            return 1;
-        }
-        // report the readen values
-        cout<<"  "<<title.first<<"\n";
-        cout<<"  "<<descr.first<<"\n";
-        cout<<"\n  Method: ("<<method.first<<") "<<ToString(ept_method)<<"\n";
-        cout<<"\n  Mesh size: ["<<nn.first[0]<<", "<<nn.first[1]<<", "<<nn.first[2]<<"]\n";
-        cout<<"  Mesh step: ["<<dd.first[0]<<", "<<dd.first[1]<<", "<<dd.first[2]<<"]\n";
-        cout<<"\n  Frequency: "<<freq.first<<"\n";
-        cout<<"  Tx channels: "<<n_txch.first<<"\n";
-        cout<<"  Rx channels: "<<n_rxch.first<<"\n";
-        cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
-        cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
-        cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
-        cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
-        cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
-        cout<<"  Output relative permittivity addr.: '"<<epsr_addr.first<<"'\n";
-        cout<<endl;
         // load the input maps
         vector<Image<double> > txsens(0);
         vector<Image<double> > trxphase(0);
@@ -397,20 +406,12 @@ int main(int argc, char **argv) {
                 cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
                 cfgdata<string> output_var_addr("","parameter.output-variance");
-                cfgdata<bool> postprocess(false,"parameter.postprocess");
-                cfglist<int> pp_rr({1,1,1},"parameter.postprocess-size");
-                cfgdata<int> pp_shape(2,"parameter.postprocess-shape");
-                cfgdata<double> weight_param(0.05,"parameter.weight");
+                cfgdata<double> weight_param(0.05,"parameter.weight-param");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
                 LOADOPTIONALDATA(io_toml,shape);
                 LOADOPTIONALDATA(io_toml,degree);
                 LOADOPTIONALDATA(io_toml,output_var_addr);
-                LOADOPTIONALDATA(io_toml,postprocess);
-                if (postprocess.first) {
-                    LOADOPTIONALLIST(io_toml,pp_rr);
-                    LOADOPTIONALDATA(io_toml,pp_shape);
-                }
                 LOADOPTIONALDATA(io_toml,weight_param);
                 cout<<endl;
                 // check the parameters
@@ -427,9 +428,6 @@ int main(int argc, char **argv) {
                     cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
-    //            if (output_var_addr.first!="" && thereis_txsens) {
-    //                cout<<"WARNING: Variance cannot be evaluated when computing the relative permittivity. Relative permittivity computation will be favoured."<<endl;
-    //            }
                 if (output_var_addr.first!="" && wrapped_phase.first) {
                     cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
                 }
@@ -441,12 +439,6 @@ int main(int argc, char **argv) {
                 cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
                 cout<<"    Polynomial degree: "<<degree.first<<"\n";
                 cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
-                cout<<"  Postprocess: "<<(postprocess.first?"Yes":"No")<<"\n";
-                if (postprocess.first) {
-                    KernelShape pp_kernel_shape = static_cast<KernelShape>(pp_shape.first);
-                    cout<<"    Postprocess kernel size: ["<<pp_rr.first[0]<<", "<<pp_rr.first[1]<<", "<<pp_rr.first[2]<<"]\n";
-                    cout<<"    Postprocess kernel shape: ("<<pp_shape.first<<") "<<ToString(pp_kernel_shape)<<"\n";
-                }
                 cout<<"  Weight parameter: "<<weight_param.first<<"\n";
                 cout<<endl;
                 // combine the parameters
@@ -479,6 +471,9 @@ int main(int argc, char **argv) {
                 cfgdata<double> dir_epsr(1.0,"parameter.dirichlet.relative-permittivity");
                 cfgdata<bool> thereis_diff(false,"parameter.artificial-diffusion");
                 cfgdata<double> diff_coeff(0.0,"parameter.artificial-diffusion-coefficient");
+                cfgdata<double> max_iterations(1000,"parameter.max-iterations");
+                cfgdata<double> tolerance(1e-6,"parameter.tolerance");
+                cfgdata<double> weight_param(0.05,"parameter.weight-param");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
                 LOADOPTIONALDATA(io_toml,shape);
@@ -493,6 +488,9 @@ int main(int argc, char **argv) {
                 if (thereis_diff.first) {
                     LOADOPTIONALDATA(io_toml,diff_coeff);
                 }
+                LOADOPTIONALDATA(io_toml,max_iterations);
+                LOADOPTIONALDATA(io_toml,tolerance);
+                LOADOPTIONALDATA(io_toml,weight_param);
                 cout<<endl;
                 // check the parameters
                 KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -539,6 +537,9 @@ int main(int argc, char **argv) {
                 if (thereis_diff.first) {
                     cout<<"    Artificial diffusion coefficient: "<<diff_coeff.first<<"\n";
                 }
+                cout<<"  Max iterations: "<<max_iterations.first<<"\n";
+                cout<<"  Tolerance: "<<tolerance.first<<"\n";
+                cout<<"  Weight parameter: "<<weight_param.first<<"\n";
                 cout<<endl;
                 // combine the parameters
                 Shape kernel;
@@ -554,7 +555,7 @@ int main(int argc, char **argv) {
                         break;
                 }
                 // create the EPT method
-                ept = std::make_unique<EPTConvReact>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first);
+                ept = std::make_unique<EPTConvReact>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, degree.first, max_iterations.first, tolerance.first, weight_param.first);
                 if (!is_3d.first) {
                     dynamic_cast<EPTConvReact*>(ept.get())->SelectSlice(imaging_slice.first);
                 }
@@ -578,6 +579,7 @@ int main(int argc, char **argv) {
                 cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
                 cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
                 cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
+                cfgdata<double> weight_param(0.05,"parameter.weight-param");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
                 LOADOPTIONALDATA(io_toml,shape);
@@ -592,6 +594,7 @@ int main(int argc, char **argv) {
                 LOADOPTIONALDATA(io_toml,regularization_coefficient);
                 LOADOPTIONALDATA(io_toml,regularization_gradient_tolerance);
                 LOADOPTIONALDATA(io_toml,regularization_output_mask_addr);
+                LOADOPTIONALDATA(io_toml,weight_param);
                 cout<<endl;
                 // check the parameters
                 KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
@@ -687,6 +690,7 @@ int main(int argc, char **argv) {
                         cout<<"    Output mask addr.: '"<<regularization_output_mask_addr.first<<"'\n";
                     }
                 }
+                cout<<"  Weight parameter: "<<weight_param.first<<"\n";
                 cout<<endl;
                 // combine the parameters
                 Shape kernel;
@@ -704,7 +708,7 @@ int main(int argc, char **argv) {
                 }
                 // create the EPT method
                 EPTGradientRun run_mode = full_run.first ? EPTGradientRun::FULL : EPTGradientRun::LOCAL;
-                ept = std::make_unique<EPTGradient>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, n_txch.first, degree.first, run_mode);
+                ept = std::make_unique<EPTGradient>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernel, n_txch.first, degree.first, run_mode, weight_param.first);
                 if (!is_3d.first) {
                     dynamic_cast<EPTGradient*>(ept.get())->SelectSlice(imaging_slice.first);
                 }
@@ -947,7 +951,7 @@ int main(int argc, char **argv) {
         }
     }
     //
-    cout<<"Postprocessing ..."<<flush;
+    cout<<"Postprocessing ..."<<endl;
     auto postprocessing_start = std::chrono::system_clock::now();
     if (postprocessing_output_sigma_addr.first!="") {
         string output = postprocessing_output_sigma_addr.first;

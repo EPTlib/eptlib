@@ -47,15 +47,10 @@ namespace {
     }
 
     // Select the best (less uncertain) indices.
-    std::vector<size_t> BestIndices(const std::vector<double> &uncertainties, const double ratio_of_best_values) {
+    std::vector<size_t> BestIndices(const std::vector<double> &uncertainties, const size_t n) {
         std::vector<size_t> indices(uncertainties.size());
         std::iota(indices.begin(), indices.end(), 0);
-        size_t n = uncertainties.size() * ratio_of_best_values;
-        if (n == 0 && uncertainties.size() > 0) {
-            n = 1;
-        }
         std::partial_sort(indices.begin(), indices.begin()+n, indices.end(), [&](size_t a, size_t b) -> bool { return uncertainties[a] < uncertainties[b]; });
-        indices.resize(n);
         return indices;
     }
 
@@ -74,7 +69,7 @@ double eptlib::filter::MedianFilter(const std::vector<double> &src_crop) {
         src_selected.push_back(src);
     }
     // compute the median
-    return ::Median(src_selected);
+    return src_selected.size()>0 ? ::Median(src_selected) : 0.0;
 }
 
 // Apply the median filter to selected values based on the anatomy of a reference image.
@@ -97,7 +92,7 @@ double eptlib::filter::AnatomicalMedianFilter(const std::vector<double> &src_cro
         src_selected.push_back(src);
     }
     // compute the median
-    return ::Median(src_selected);
+    return src_selected.size()>0 ? ::Median(src_selected) : nand;
 }
 
 // Filter the elements of a three-dimensional window based on an uncertainty index.
@@ -117,10 +112,10 @@ double eptlib::filter::UncertainFilter(const std::vector<double> &src_crop, cons
         unc_selected.push_back(unc);
     }
     // select the best (less uncertain) values
-    std::vector<size_t> indices = BestIndices(unc_selected, ratio_of_best_values);
-    size_t n = indices.size();
+    size_t n = unc_selected.size() * ratio_of_best_values;
+    std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
-    return std::accumulate(indices.begin(), indices.end(), 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
+    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
 }
 
 // Filter the elements selected from a three-dimensional window based on an uncertainty index.
@@ -147,10 +142,10 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
         unc_selected.push_back(unc);
     }
     // select the best (less uncertain) values
-    std::vector<size_t> indices = BestIndices(unc_selected, ratio_of_best_values);
-    size_t n = indices.size();
+    size_t n = unc_selected.size() * ratio_of_best_values;
+    std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
-    return std::accumulate(indices.begin(), indices.end(), 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
+    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
 }
 
 // Postprocess the input image depending on the amount of available information.

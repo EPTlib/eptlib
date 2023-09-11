@@ -72,6 +72,7 @@ class EPTConvReact : public EPTInterface {
         EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
             const double freq, const Shape &window, const int degree = 2,
+            const size_t max_iterations = 1000, const double tolerance = 1e-6,
             const double weight_param = 0.05);
 
         /**
@@ -171,6 +172,11 @@ class EPTConvReact : public EPTInterface {
 
         /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
         double weight_param_;
+
+        /// The maximum number of iterations to solve the linear system.
+        std::size_t solver_max_iterations_;
+        /// The accepted tolerance in the linear system solution.
+        double solver_tolerance_;
 
         /// The number of iterations to solve the linear system.
         std::ptrdiff_t solver_iterations_;
