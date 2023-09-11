@@ -396,8 +396,8 @@ TEST(FilterSavitzkyGolayGTest,SavitzkyGolayApplyWrappedPhase) {
                     ASSERT_TRUE(std::isnan(lapl_linear_field   (i,j,k)));
                     ASSERT_TRUE(std::isnan(lapl_quadratic_field(i,j,k)));
                 } else {
-                    ASSERT_NEAR(lapl_constant_field(i,j,k), 0.0, 1e-10);
-                    ASSERT_NEAR(lapl_linear_field  (i,j,k), 0.0, 1e-10);
+                    ASSERT_NEAR(lapl_constant_field (i,j,k), 0.0, 1e-10);
+                    ASSERT_NEAR(lapl_linear_field   (i,j,k), 0.0, 1e-10);
                     ASSERT_NEAR(lapl_quadratic_field(i,j,k), 6.0, 1e-8);
                 }
             }
