@@ -147,12 +147,6 @@ CompleteEPTConvReact() {
         } else {
             error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], tx_sens_c);
         }
-        EPTlibError error;
-        if (ThereIsReferenceImage()) {
-            error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], tx_sens_c, *reference_image_);
-        } else {
-            error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], tx_sens_c);
-        }
         if (error!=EPTlibError::Success) {
             return error;
         }
@@ -165,12 +159,6 @@ CompleteEPTConvReact() {
         beta[2] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
         beta[2].GetData().assign(n_vox, nand);
         DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
-        EPTlibError error;
-        if (ThereIsReferenceImage()) {
-            error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], tx_sens_c, *reference_image_);
-        } else {
-            error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], tx_sens_c);
-        }
         EPTlibError error;
         if (ThereIsReferenceImage()) {
             error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], tx_sens_c, *reference_image_);
