@@ -73,8 +73,8 @@ namespace filter {
      * 
      * The filter always receives in input the image `src' cropped in the filter window
      * and provides in output the value to be assigned to image `dst'. Additionally,
-     * it can receive the `supporting_images' (cropped and listed in a single vector one
-     * after another) and can provide a second output (`variance').
+     * it can receive the `supporting_images' (cropped and listed in a single vector by
+     * alternating the entries of each image) and can provide a second output (`variance').
      */
     template <typename Scalar, typename Filter>
     EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter,
@@ -105,10 +105,11 @@ namespace filter {
         for (size_t i2 = 0; i2<n2; ++i2) {
             for (size_t i1 = 0; i1<n1; ++i1) {
                 for (size_t i0 = 0; i0<n0; ++i0) {
-                    std::vector<Scalar> src_crop(window.GetVolume());
-                    std::vector<double> supporting_images_crop(window.GetVolume() * num_supporting_images);
+                    std::vector<Scalar> src_crop;
+                    std::vector<double> supporting_images_crop;
+                    src_crop.reserve(window.GetVolume());
+                    supporting_images_crop.reserve(window.GetVolume() * num_supporting_images);
                     // loop over the window voxels
-                    size_t idx_crop = 0;
                     size_t iw2;
                     ptrdiff_t ic2;
                     for (iw2 = 0, ic2 = static_cast<ptrdiff_t>(i2)-r2; iw2<m2; ++iw2, ++ic2) {
@@ -120,23 +121,20 @@ namespace filter {
                             for (iw0 = 0, ic0 = static_cast<ptrdiff_t>(i0)-r0; iw0<m0; ++iw0, ++ic0) {
                                 if (window(iw0, iw1, iw2)) {
                                     if (ic0 < 0 || ic1 < 0 || ic2 < 0 || ic0 >= n0 || ic1 >= n1 || ic2 >= n2) {
-                                        src_crop[idx_crop] = static_cast<Scalar>(nand);
+                                        src_crop.push_back(static_cast<Scalar>(nand));
                                         if constexpr (filter_with_supporting_images) {
                                             for (size_t idx_supporting_image = 0; idx_supporting_image < num_supporting_images; ++idx_supporting_image) {
-                                                supporting_images_crop[idx_crop + idx_supporting_image * window.GetVolume()] = nand;
+                                                supporting_images_crop.push_back(nand);
                                             }
                                         }
                                     } else {
-                                        src_crop[idx_crop] = src(ic0, ic1, ic2);
+                                        src_crop.push_back(src(ic0, ic1, ic2));
                                         if constexpr (filter_with_supporting_images) {
-                                            auto supporting_image = supporting_images.begin();
-                                            for (size_t idx_supporting_image = 0; idx_supporting_image < num_supporting_images; ++idx_supporting_image) {
-                                                supporting_images_crop[idx_crop + idx_supporting_image * window.GetVolume()] = (*supporting_image)->At(ic0, ic1, ic2);
-                                                ++supporting_image;
+                                            for (auto supporting_image = supporting_images.begin(); supporting_image != supporting_images.end(); ++supporting_image) {
+                                                supporting_images_crop.push_back((*supporting_image)->At(ic0, ic1, ic2));
                                             }
                                         }
                                     }
-                                    ++idx_crop;
                                 }
                             }
                         }

@@ -185,18 +185,26 @@ int PerformPostprocessing(const string &output_addr, const string &input_addr,
     bool thereis_reference = false;
     bool thereis_uncertainty = false;
     //
+    cout<<"  Loading source image:\n"<<flush;
     LOADMAP(src, input_addr);
+    cout<<"    '"<<input_addr<<"'\n"<<endl;
     if (reference_addr!="") {
         ref = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
+        cout<<"  Loading reference image:\n"<<flush;
         LOADMAP(ref, reference_addr);
+        cout<<"    '"<<reference_addr<<"'\n"<<endl;
         thereis_reference = true;
     }
     if (uncertainty_addr!="") {
         unc = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
+        cout<<"  Loading uncertainty map:\n"<<flush;
         LOADMAP(unc, uncertainty_addr);
+        cout<<"    '"<<uncertainty_addr<<"'\n"<<endl;
         thereis_uncertainty = true;
     }
     //
+    cout<<"Postprocessing ..."<<endl;
+    auto postprocessing_start = std::chrono::system_clock::now();
     if (!thereis_reference && !thereis_uncertainty) {
         filter::Postprocessing(&dst, src, kernel);
     } else if (thereis_reference && !thereis_uncertainty) {
@@ -206,6 +214,9 @@ int PerformPostprocessing(const string &output_addr, const string &input_addr,
     } else {
         filter::Postprocessing(&dst, src, kernel, &ref, &unc, weight_param, ratio_of_best_values);
     }
+    auto postprocessing_end = std::chrono::system_clock::now();
+    auto postprocessing_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocessing_end - postprocessing_start);
+    cout<<"done! ["<<postprocessing_elapsed.count()<<" s]\n"<<endl;
     //
     SAVEMAP(dst, output_addr);
     return 0;
@@ -951,8 +962,6 @@ int main(int argc, char **argv) {
         }
     }
     //
-    cout<<"Postprocessing ..."<<endl;
-    auto postprocessing_start = std::chrono::system_clock::now();
     if (postprocessing_output_sigma_addr.first!="") {
         string output = postprocessing_output_sigma_addr.first;
         string input;
@@ -1067,9 +1076,6 @@ int main(int argc, char **argv) {
             }
         }
     }
-    auto postprocessing_end = std::chrono::system_clock::now();
-    auto postprocessing_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocessing_end - postprocessing_start);
-    cout<<"done! ["<<postprocessing_elapsed.count()<<" s]\n"<<flush;
     //
     auto end = std::chrono::system_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(end - start);

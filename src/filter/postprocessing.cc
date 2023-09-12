@@ -122,7 +122,7 @@ double eptlib::filter::UncertainFilter(const std::vector<double> &src_crop, cons
 double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_crop, const std::vector<double> &supporting_crop, const double weight_param, const double ratio_of_best_values) {
     // identify the central reference value
     const size_t idx0 = src_crop.size() / 2;
-    const double ref0 = supporting_crop[idx0];
+    const double ref0 = supporting_crop[idx0 * 2];
     // remove data from the computation
     std::vector<double> src_selected(0);
     std::vector<double> unc_selected(0);
@@ -130,8 +130,8 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
     unc_selected.reserve(src_crop.size());
     for (size_t idx = 0; idx < src_crop.size(); ++idx) {
         const double src = src_crop[idx];
-        const double ref = supporting_crop[idx];
-        const double unc = supporting_crop[idx + src_crop.size()];
+        const double ref = supporting_crop[idx * 2];
+        const double unc = supporting_crop[idx * 2 + 1];
         if (eptlib::filter::HardThreshold(std::abs(ref - ref0), 2.0*weight_param) == 0) {
             continue;
         }

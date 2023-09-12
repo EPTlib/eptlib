@@ -39,10 +39,6 @@
 
 using namespace eptlib;
 
-namespace {
-    static double nand = std::numeric_limits<double>::quiet_NaN();
-}
-
 // EPTHelmholtzChi2 constructor
 EPTHelmholtzChi2::
 EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
