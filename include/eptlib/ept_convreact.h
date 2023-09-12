@@ -64,12 +64,16 @@ class EPTConvReact : public EPTInterface {
          * @param window mask over which apply the finite difference scheme.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
+         * @param weight_param parameter of the weight function, used only with
+         *     the anatomical Savitzky-Golay filter (default: 0.05).
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
         EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
-            const double freq, const Shape &window, const int degree = 2);
+            const double freq, const Shape &window, const int degree = 2,
+            const size_t max_iterations = 1000, const double tolerance = 1e-6,
+            const double weight_param = 0.05);
 
         /**
          * Virtual destructor.
@@ -165,6 +169,14 @@ class EPTConvReact : public EPTInterface {
         Shape sg_window_;
         /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
         int sg_degree_;
+
+        /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
+        double weight_param_;
+
+        /// The maximum number of iterations to solve the linear system.
+        std::size_t solver_max_iterations_;
+        /// The accepted tolerance in the linear system solution.
+        double solver_tolerance_;
 
         /// The number of iterations to solve the linear system.
         std::ptrdiff_t solver_iterations_;

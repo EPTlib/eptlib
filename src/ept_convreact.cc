@@ -39,16 +39,13 @@
 
 using namespace eptlib;
 
-namespace {
-	static double nand = std::numeric_limits<double>::quiet_NaN();
-	static std::complex<double> nancd = std::complex<double>(nand,nand);
-}
-
 // EPTConvReact constructor
 EPTConvReact::
 EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
-    const double freq, const Shape &window, const int degree) :
+    const double freq, const Shape &window, const int degree,
+    const size_t max_iterations, const double tolerance,
+    const double weight_param) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, false),
     slice_index_(),
     artificial_diffusion_(),
@@ -57,6 +54,9 @@ EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
     sg_filter_(),
     sg_window_(window),
     sg_degree_(degree),
+    weight_param_(weight_param),
+    solver_max_iterations_(max_iterations),
+    solver_tolerance_(tolerance),
     solver_iterations_(0),
     solver_residual_(0.0) {
     return;
@@ -73,7 +73,7 @@ EPTlibError EPTConvReact::
 Run() {
     // check that the sg filter is correctly set up
     if (ThereIsReferenceImage() && !std::holds_alternative<filter::AnatomicalSavitzkyGolay>(sg_filter_)) {
-        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
+        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_, weight_param_);
     } else
     if (!ThereIsReferenceImage() && !std::holds_alternative<filter::SavitzkyGolay>(sg_filter_)) {
         sg_filter_.emplace<filter::SavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
@@ -82,6 +82,7 @@ Run() {
     if (!ThereIsTRxPhase(0,0)) {
         return EPTlibError::MissingData;
     }
+    // setup the output variables and perform ept
     // setup the output variables and perform ept
     sigma_ = std::make_unique<Image<double> >(nn_[0], nn_[1], VolumeTomography() ? nn_[2] : 1);
     if (ThereIsTxSens(0)) {
@@ -138,8 +139,14 @@ CompleteEPTConvReact() {
     }
     for (size_t d = 0; d<n_dim; ++d) {
         beta[d] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
-        beta[d].GetData().assign(n_vox, ::nand);
+        beta[d].GetData().assign(n_vox, nand);
         DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
+        EPTlibError error;
+        if (ThereIsReferenceImage()) {
+            error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], tx_sens_c, *reference_image_);
+        } else {
+            error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], tx_sens_c);
+        }
         EPTlibError error;
         if (ThereIsReferenceImage()) {
             error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], tx_sens_c, *reference_image_);
@@ -156,8 +163,14 @@ CompleteEPTConvReact() {
     }
     if (!VolumeTomography()) {
         beta[2] = Image<std::complex<double> >(nn_[0], nn_[1], nn_[2]);
-        beta[2].GetData().assign(n_vox, ::nand);
+        beta[2].GetData().assign(n_vox, nand);
         DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
+        EPTlibError error;
+        if (ThereIsReferenceImage()) {
+            error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], tx_sens_c, *reference_image_);
+        } else {
+            error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], tx_sens_c);
+        }
         EPTlibError error;
         if (ThereIsReferenceImage()) {
             error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], tx_sens_c, *reference_image_);
@@ -235,6 +248,8 @@ CompleteEPTConvReact() {
     // Solve the linear system
     Eigen::BiCGSTAB<Eigen::SparseMatrix<std::complex<double> > > solver;
     solver.compute(A);
+    solver.setMaxIterations(solver_max_iterations_);
+    solver.setTolerance(solver_tolerance_);
     Eigen::VectorXcd x = solver.solve(b);
     solver_iterations_ = solver.iterations();
     solver_residual_ = solver.error();
@@ -246,8 +261,8 @@ CompleteEPTConvReact() {
             epsr_ ->At(idx) =  epsc.real()/EPS0;
             sigma_->At(idx) = -epsc.imag()*omega_;
         } else {
-            epsr_ ->At(idx) = ::nand;
-            sigma_->At(idx) = ::nand;
+            epsr_ ->At(idx) = nand;
+            sigma_->At(idx) = nand;
         }
     }
     return EPTlibError::Success;
@@ -265,7 +280,7 @@ PhaseEPTConvReact() {
     std::array<Image<double>, N_DIM> beta;
     for (size_t d = 0; d<n_dim; ++d) {
         beta[d] = Image<double>(nn_[0], nn_[1], nn_[2]);
-        beta[d].GetData().assign(n_vox, ::nand);
+        beta[d].GetData().assign(n_vox, nand);
         DifferentialOperator diff_op = static_cast<DifferentialOperator>(d+1);
         EPTlibError error;
         if (PhaseIsWrapped()) {
@@ -274,7 +289,17 @@ PhaseEPTConvReact() {
             } else {
                 error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[d], *GetTRxPhase(0,0));
             }
+            if (ThereIsReferenceImage()) {
+                throw std::runtime_error("Feature not implemented!");
+            } else {
+                error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[d], *GetTRxPhase(0,0));
+            }
         } else {
+            if (ThereIsReferenceImage()) {
+                error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], *GetTRxPhase(0,0), *reference_image_);
+            } else {
+                error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], *GetTRxPhase(0,0));
+            }
             if (ThereIsReferenceImage()) {
                 error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], *GetTRxPhase(0,0), *reference_image_);
             } else {
@@ -287,7 +312,7 @@ PhaseEPTConvReact() {
     }
     if (!VolumeTomography()) {
         beta[2] = Image<double>(nn_[0], nn_[1], nn_[2]);
-        beta[2].GetData().assign(n_vox, ::nand);
+        beta[2].GetData().assign(n_vox, nand);
         DifferentialOperator diff_op = DifferentialOperator::GradientZZ;
         EPTlibError error;
         if (PhaseIsWrapped()) {
@@ -296,7 +321,17 @@ PhaseEPTConvReact() {
             } else {
                 error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[2], *GetTRxPhase(0,0));
             }
+            if (ThereIsReferenceImage()) {
+                throw std::runtime_error("Feature not implemented!");
+            } else {
+                error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[2], *GetTRxPhase(0,0));
+            }
         } else {
+            if (ThereIsReferenceImage()) {
+                error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], *GetTRxPhase(0,0), *reference_image_);
+            } else {
+                error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], *GetTRxPhase(0,0));
+            }
             if (ThereIsReferenceImage()) {
                 error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], *GetTRxPhase(0,0), *reference_image_);
             } else {
@@ -393,7 +428,7 @@ PhaseEPTConvReact() {
         if (idof > 0) {
             sigma_->At(idx) = 1.0/x[idof-1];
         } else {
-            sigma_->At(idx) = ::nand;
+            sigma_->At(idx) = nand;
         }
     }
     return EPTlibError::Success;

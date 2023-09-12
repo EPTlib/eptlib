@@ -38,6 +38,7 @@
 #include <array>
 #include <complex>
 #include <optional>
+#include <variant>
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
@@ -45,6 +46,7 @@
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
 
+#include "eptlib/filter/anatomical_savitzky_golay.h"
 #include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
@@ -93,13 +95,16 @@ class EPTGradient : public EPTInterface {
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
          * @param run_mode run mode of the Gradient EPT run (default: FULL).
+         * @param weight_param parameter of the weight function, used only with
+         *     the anatomical Savitzky-Golay filter (default: 0.05).
          * 
          * The number of Rx channels is fixed equal to one.
          */
         EPTGradient(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
             const double freq, const Shape &window, const size_t n_tx_ch,
-            const int degree = 2, const EPTGradientRun run_mode = EPTGradientRun::FULL);
+            const int degree = 2, const EPTGradientRun run_mode = EPTGradientRun::FULL,
+            const double weight_param = 0.05);
 
         /**
          * Virtual destructor.
@@ -255,10 +260,19 @@ class EPTGradient : public EPTInterface {
         double gradient_tolerance_;
         /// Mask of the homogeneous regions (used if seed points are unset).
         boost::dynamic_bitset<> mask_;
-        /// Filter for the derivative computation.
-        filter::SavitzkyGolay sg_filter_;
+
+        /// Savitzky-Golay filter for the derivative computation.
+        std::variant<std::monostate, filter::SavitzkyGolay, filter::AnatomicalSavitzkyGolay> sg_filter_;
+        /// Mask over which apply the Savitzky-Golay filter.
+        Shape sg_window_;
+        /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
+        int sg_degree_;
+
         /// Gradient EPT run flag.
         EPTGradientRun run_mode_;
+
+        /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
+        double weight_param_;
 
         /// First estimate of the complex permittivity.
         std::vector<std::complex<double> > epsc_;

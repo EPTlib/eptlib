@@ -37,23 +37,20 @@
 
 using namespace eptlib;
 
-namespace {
-	static double nand = std::numeric_limits<double>::quiet_NaN();
-	static std::complex<double> nancd = std::complex<double>(nand,nand);
-}
-
 // EPTHelmholtz constructor
 EPTHelmholtz::
 EPTHelmholtz(const size_t n0, const size_t n1, const size_t n2,
     const double d0, const double d1, const double d2,
     const double freq, const Shape &window, const int degree,
-    const bool trx_phase_is_wrapped, const bool compute_variance) :
+    const bool trx_phase_is_wrapped, const bool compute_variance,
+    const double weight_param) :
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, trx_phase_is_wrapped),
     sg_filter_(),
     sg_window_(window),
     sg_degree_(degree),
     variance_(nullptr),
-    compute_variance_(compute_variance) {
+    compute_variance_(compute_variance),
+    weight_param_(weight_param) {
     return;
 }
 
@@ -68,7 +65,7 @@ EPTlibError EPTHelmholtz::
 Run() {
     // check that the sg filter is correctly set up
     if (ThereIsReferenceImage() && !std::holds_alternative<filter::AnatomicalSavitzkyGolay>(sg_filter_)) {
-        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
+        sg_filter_.emplace<filter::AnatomicalSavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_, weight_param_);
     } else
     if (!ThereIsReferenceImage() && !std::holds_alternative<filter::SavitzkyGolay>(sg_filter_)) {
         sg_filter_.emplace<filter::SavitzkyGolay>(dd_[0],dd_[1],dd_[2], sg_window_, sg_degree_);
@@ -80,7 +77,7 @@ Run() {
     if (ThereIsTRxPhase(0,0)) {
         sigma_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
     }
-    if (ComputeVariance() && !ThereIsEpsr()) {
+    if (ComputeVariance()) {
         variance_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
     }
     // perform ept
@@ -105,19 +102,33 @@ CompleteEPTHelm() {
     for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
         std::complex<double> exponent = std::complex<double>(0.0, 0.5 * GetTRxPhase(0,0)->At(idx));
         tx_sens_c(idx) = GetTxSens(0)->At(idx) * std::exp(exponent);
-        eps_c(idx) = ::nancd;
+        eps_c(idx) = nancd;
+    }
+    if (ComputeVariance()) {
+        variance_->GetData().assign(eps_c.GetNVox(), nand);
     }
     // compute the laplacian
-    if (ThereIsReferenceImage()) {
-        std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c, *reference_image_);
+    if (!ComputeVariance()) {
+        if (ThereIsReferenceImage()) {
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c, *reference_image_);
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
+        }
     } else {
-        std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, tx_sens_c);
+        if (ThereIsReferenceImage()) {
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, variance_.get(), tx_sens_c, *reference_image_);
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, variance_.get(), tx_sens_c);
+        }
     }
     // extract the output
     for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
         eps_c(idx) /= -MU0*omega_*omega_*tx_sens_c(idx);
         epsr_ ->At(idx) =  std::real(eps_c(idx))/EPS0;
         sigma_->At(idx) = -std::imag(eps_c(idx))*omega_;
+        if (ComputeVariance()) {
+            variance_->At(idx) /= MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+        }
     }
     return;
 }
@@ -126,16 +137,30 @@ CompleteEPTHelm() {
 void EPTHelmholtz::
 MagnitudeEPTHelm() {
     // setup the input
-    epsr_->GetData().assign(epsr_->GetNVox(), ::nand);
+    epsr_->GetData().assign(epsr_->GetNVox(), nand);
+    if (ComputeVariance()) {
+        variance_->GetData().assign(epsr_->GetNVox(), nand);
+    }
     // compute the laplacian
-    if (ThereIsReferenceImage()) {
-        std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0), *reference_image_);
+    if (!ComputeVariance()) {
+        if (ThereIsReferenceImage()) {
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0), *reference_image_);
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
+        }
     } else {
-        std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), *GetTxSens(0));
+        if (ThereIsReferenceImage()) {
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), variance_.get(), *GetTxSens(0), *reference_image_);
+        } else {
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), variance_.get(), *GetTxSens(0));
+        }
     }
     // extract the output
     for (int idx = 0; idx<epsr_->GetNVox(); ++idx) {
         epsr_->At(idx) /= -EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+        if (ComputeVariance()) {
+            variance_->At(idx) /= EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+        }
     }
     return;
 }
@@ -144,14 +169,14 @@ MagnitudeEPTHelm() {
 void EPTHelmholtz::
 PhaseEPTHelm() {
     // setup the input
-    sigma_->GetData().assign(sigma_->GetNVox(), ::nand);
+    sigma_->GetData().assign(sigma_->GetNVox(), nand);
     if(ComputeVariance()) {
-        variance_->GetData().assign(sigma_->GetNVox(), ::nand);
+        variance_->GetData().assign(sigma_->GetNVox(), nand);
     }
     // compute the laplacian
     if (PhaseIsWrapped() && !ComputeVariance()) {
         if (ThereIsReferenceImage()) {
-            throw std::runtime_error("Feature not implemented, yet!");
+            throw std::runtime_error("Feature not implemented!");
         } else {
             std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(DifferentialOperator::Laplacian, sigma_.get(), *GetTRxPhase(0,0));
         }

@@ -84,6 +84,11 @@ else()
     VerboseFindPackage(OpenMP 3.0)
 endif()
 
+# disable fast floating-point operations in Intel compiler
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fp:precise")
+endif()
+
 # Enable testing with GoogleTest
 include(GoogleTest)
 VerboseFindPackage(GTest)

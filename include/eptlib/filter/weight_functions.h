@@ -30,44 +30,39 @@
 *
 *****************************************************************************/
 
-#include "gtest/gtest.h"
+#ifndef EPTLIB_FILTER_WEIGHTS_H_
+#define EPTLIB_FILTER_WEIGHTS_H_
 
-#include "eptlib/filter/moving_window.h"
-
+#include <algorithm>
+#include <functional>
 #include <vector>
 
-#include "eptlib/image.h"
-#include "eptlib/shape.h"
-#include "eptlib/util.h"
+namespace eptlib {
 
-TEST(FilterMovingWindowGTest,MovingWindow) {
-    const size_t n0 = 10;
-    const size_t n1 = 10;
-    const size_t n2 = 10;
-    const size_t r0 = 1;
-    const size_t r1 = 2;
-    const size_t r2 = 3;
-    eptlib::Image<double> img_in (n0, n1, n2);
-    eptlib::Image<double> img_out(n0, n1, n2);
-    eptlib::Shape window = eptlib::shapes::Ellipsoid(r0, r1, r2);
-    for (int idx = 0; idx<img_in.GetNVox(); ++idx) {
-        img_in (idx) = 1.0;
-        img_out(idx) = 0.0;
-    }
-    auto filter = [](const std::vector<double> &crop_in) -> double {
-        return eptlib::Sum(crop_in);
-    };
-    eptlib::EPTlibError error = eptlib::filter::MovingWindow(&img_out, img_in, window, filter);
-    ASSERT_EQ(error, eptlib::EPTlibError::Success);
-    for (size_t i2 = 0; i2<n2; ++i2) {
-        for (size_t i1 = 0; i1<n1; ++i1) {
-            for (size_t i0 = 0; i0<n0; ++i0) {
-                if (i0<r0 || i0>=n0-r0 || i1<r1 || i1>=n1-r1 || i2<r2 || i2>=n2-r2) {
-                    ASSERT_TRUE(std::isnan(img_out(i0,i1,i2)));
-                } else {
-                    ASSERT_EQ(img_out(i0,i1,i2), window.GetVolume());
-                }
-            }
-        }
-    }
-}
+namespace filter {
+
+    /**
+     * @brief Evaluate the hard threshold function.
+     * 
+     * @param x Abscissa at which the hard threshold function is evaluated.
+     * @param threshold Threshold parameter.
+     * 
+     * @return Evaluated hard threshold function.
+     */
+    double HardThreshold(const double x, const double threshold);
+
+    /**
+     * @brief Evaluate the Gaussian function
+     * 
+     * @param x Abscissa at which the Gaussian function is evaluated.
+     * @param sigma Standard deviation of the Gaussian.
+     * 
+     * @return Evaluated Gaussian function.
+     */
+    double Gaussian(const double x, const double sigma);
+
+}  // namespace filter
+
+}  // namespace eptlib
+
+#endif  // EPTLIB_FILTER_WEIGHTS_H_

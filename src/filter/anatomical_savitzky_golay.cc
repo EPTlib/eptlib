@@ -32,14 +32,17 @@
 
 #include "eptlib/filter/anatomical_savitzky_golay.h"
 
+#include "eptlib/filter/weight_functions.h"
+
 #include "eptlib/polynomial/fitting.h"
 
 // AnatomicalSavitzkyGolay constructor
 eptlib::filter::AnatomicalSavitzkyGolay::
 AnatomicalSavitzkyGolay(const double d0, const double d1, const double d2,
-    const eptlib::Shape &window, const size_t degree) :
+    const eptlib::Shape &window, const size_t degree, const double weight_param) :
     window_(window),
-    degree_(degree) {
+    degree_(degree),
+    weight_param_(weight_param) {
     dd_[0] = d0;
     dd_[1] = d1;
     dd_[2] = d2;
@@ -77,34 +80,13 @@ eptlib::filter::AnatomicalSavitzkyGolay::
 // AnatomicalSavitzkyGolay compute the weights for the polynomial fitting
 std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
 ComputeWeights(const std::vector<double> &ref_img_crop) const {
-//    return WeightHardThreshold(ref_img_crop, 0.1);
-    return WeightGaussian(ref_img_crop, 0.05);
-}
-
-//
-std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
-WeightHardThreshold(const std::vector<double> &ref_img_crop, const double threshold) const {
+    size_t idx0 = ref_img_crop.size() / 2;
+    double ref0 = ref_img_crop[idx0];
     std::vector<double> weights(ref_img_crop.size());
-    size_t idx0 = ref_img_crop.size()/2;
-    for (size_t idx = 0; idx < ref_img_crop.size(); ++idx) {
-        double relative_contrast = std::abs((ref_img_crop[idx] - ref_img_crop[idx0]) / (ref_img_crop[idx] + ref_img_crop[idx0]) * 2.0);
-        if (relative_contrast > threshold) {
-            weights[idx] = 0.0;
-        } else {
-            weights[idx] = 1.0;
+    std::transform(ref_img_crop.begin(), ref_img_crop.end(), weights.begin(),
+        [&](const double x) -> double {
+            return eptlib::filter::Gaussian(x-ref0, this->weight_param_);
         }
-    }
-    return weights;
-}
-
-//
-std::vector<double> eptlib::filter::AnatomicalSavitzkyGolay::
-WeightGaussian(const std::vector<double> &ref_img_crop, const double sigma) const {
-    std::vector<double> weights(ref_img_crop.size());
-    size_t idx0 = ref_img_crop.size()/2;
-    for (size_t idx = 0; idx < ref_img_crop.size(); ++idx) {
-        double delta = ref_img_crop[idx] - ref_img_crop[idx0];
-        weights[idx] = std::exp(-delta*delta/2/sigma/sigma);
-    }
+    );
     return weights;
 }

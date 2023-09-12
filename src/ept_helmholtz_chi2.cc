@@ -39,10 +39,6 @@
 
 using namespace eptlib;
 
-namespace {
-    static double nand = std::numeric_limits<double>::quiet_NaN();
-}
-
 // EPTHelmholtzChi2 constructor
 EPTHelmholtzChi2::
 EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
@@ -75,8 +71,8 @@ Run() {
     variance_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
     index_    = std::make_unique<Image<int>    >(nn_[0],nn_[1],nn_[2]);
     auto n_vox = sigma_->GetNVox();
-    sigma_   ->GetData().assign(n_vox,::nand);
-    variance_->GetData().assign(n_vox,::nand);
+    sigma_   ->GetData().assign(n_vox,nand);
+    variance_->GetData().assign(n_vox,nand);
     index_   ->GetData().assign(n_vox,-1);
     // loop over the shapes
     auto freq = omega_/2.0/PI;
