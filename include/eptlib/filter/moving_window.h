@@ -121,10 +121,10 @@ namespace filter {
                             for (iw0 = 0, ic0 = static_cast<ptrdiff_t>(i0)-r0; iw0<m0; ++iw0, ++ic0) {
                                 if (window(iw0, iw1, iw2)) {
                                     if (ic0 < 0 || ic1 < 0 || ic2 < 0 || ic0 >= n0 || ic1 >= n1 || ic2 >= n2) {
-                                        src_crop.push_back(static_cast<Scalar>(nand));
+                                        src_crop.push_back(static_cast<Scalar>(0.0));
                                         if constexpr (filter_with_supporting_images) {
                                             for (size_t idx_supporting_image = 0; idx_supporting_image < num_supporting_images; ++idx_supporting_image) {
-                                                supporting_images_crop.push_back(nand);
+                                                supporting_images_crop.push_back(-1.0);
                                             }
                                         }
                                     } else {

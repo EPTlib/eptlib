@@ -113,6 +113,7 @@ double eptlib::filter::UncertainFilter(const std::vector<double> &src_crop, cons
     }
     // select the best (less uncertain) values
     size_t n = unc_selected.size() * ratio_of_best_values;
+    n = n==0 ? unc_selected.size() : n;
     std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
     return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
@@ -143,6 +144,7 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
     }
     // select the best (less uncertain) values
     size_t n = unc_selected.size() * ratio_of_best_values;
+    n = n==0 ? unc_selected.size() : n;
     std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
     return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
