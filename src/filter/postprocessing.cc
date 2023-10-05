@@ -116,7 +116,8 @@ double eptlib::filter::UncertainFilter(const std::vector<double> &src_crop, cons
     n = n==0 ? unc_selected.size() : n;
     std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
-    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
+    double mass = std::accumulate(unc_selected.begin(), unc_selected.begin() + n, 0.0, [](double a, double b) -> double { return a + 1/b; });
+    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / unc_selected[b] / mass; });
 }
 
 // Filter the elements selected from a three-dimensional window based on an uncertainty index.
@@ -147,7 +148,8 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
     n = n==0 ? unc_selected.size() : n;
     std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
-    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
+    double mass = std::accumulate(unc_selected.begin(), unc_selected.begin() + n, 0.0, [](double a, double b) -> double { return a + 1/b; });
+    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / unc_selected[b] / mass; });
 }
 
 // Postprocess the input image depending on the amount of available information.
