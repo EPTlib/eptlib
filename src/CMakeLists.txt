@@ -73,7 +73,7 @@ if(OpenMP_FOUND)
         set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
         set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -openmp:llvm")
     else()
-        target_link_libraries(EPTlib PUBLIC OpenMP::OpenMP_CXX)
+        target_link_libraries(EPTlib PRIVATE OpenMP::OpenMP_CXX)
     endif()
 endif()
 
