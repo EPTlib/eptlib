@@ -46,14 +46,6 @@ namespace {
         return v[m];
     }
 
-    // Select the best (less uncertain) indices.
-    std::vector<size_t> BestIndices(const std::vector<double> &uncertainties, const size_t n) {
-        std::vector<size_t> indices(uncertainties.size());
-        std::iota(indices.begin(), indices.end(), 0);
-        std::partial_sort(indices.begin(), indices.begin()+n, indices.end(), [&](size_t a, size_t b) -> bool { return uncertainties[a] < uncertainties[b]; });
-        return indices;
-    }
-
 }  //
 
 // Apply the median filter.
@@ -111,12 +103,9 @@ double eptlib::filter::UncertainFilter(const std::vector<double> &src_crop, cons
         src_selected.push_back(src);
         unc_selected.push_back(unc);
     }
-    // select the best (less uncertain) values
-    size_t n = unc_selected.size() * ratio_of_best_values;
-    n = n==0 ? unc_selected.size() : n;
-    std::vector<size_t> indices = ::BestIndices(unc_selected, n);
     // compute the mean
-    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
+    double mass = std::accumulate(unc_selected.begin(), unc_selected.end(), 0.0, [](double a, double b) -> double { return a + 1 / b; });
+    return std::inner_product(src_selected.begin(), src_selected.end(), unc_selected.begin(), 0.0, [](double a, double b) -> double { return a + b; }, [&](double a, double b) -> double { return a / b / mass; });
 }
 
 // Filter the elements selected from a three-dimensional window based on an uncertainty index.
@@ -143,11 +132,8 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
         unc_selected.push_back(unc);
     }
     // select the best (less uncertain) values
-    size_t n = unc_selected.size() * ratio_of_best_values;
-    n = n==0 ? unc_selected.size() : n;
-    std::vector<size_t> indices = ::BestIndices(unc_selected, n);
-    // compute the mean
-    return std::accumulate(indices.begin(), indices.begin() + n, 0.0, [&](double a, size_t b) -> double { return a + src_selected[b] / n; });
+    double mass = std::accumulate(unc_selected.begin(), unc_selected.end(), 0.0, [](double a, double b) -> double { return a + 1 / b; });
+    return std::inner_product(src_selected.begin(), src_selected.end(), unc_selected.begin(), 0.0, [](double a, double b) -> double { return a + b; }, [&](double a, double b) -> double { return a / b / mass; });
 }
 
 // Postprocess the input image depending on the amount of available information.
