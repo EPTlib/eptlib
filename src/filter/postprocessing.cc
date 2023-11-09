@@ -46,14 +46,6 @@ namespace {
         return v[m];
     }
 
-    // Select the best (less uncertain) indices.
-    std::vector<size_t> BestIndices(const std::vector<double> &uncertainties, const size_t n) {
-        std::vector<size_t> indices(uncertainties.size());
-        std::iota(indices.begin(), indices.end(), 0);
-        std::partial_sort(indices.begin(), indices.begin()+n, indices.end(), [&](size_t a, size_t b) -> bool { return uncertainties[a] < uncertainties[b]; });
-        return indices;
-    }
-
 }  //
 
 // Apply the median filter.
