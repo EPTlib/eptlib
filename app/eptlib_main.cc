@@ -175,8 +175,7 @@ EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
 
 int PerformPostprocessing(const string &output_addr, const string &input_addr,
     const string &reference_addr, const string &uncertainty_addr, const Shape &kernel,
-    const double weight_param, const double ratio_of_best_values,
-    const cfglist<int> &nn) {
+    const double weight_param, const cfglist<int> &nn) {
     //
     Image<double> dst(nn.first[0], nn.first[1], nn.first[2]);
     Image<double> src(nn.first[0], nn.first[1], nn.first[2]);
@@ -208,11 +207,11 @@ int PerformPostprocessing(const string &output_addr, const string &input_addr,
     if (!thereis_reference && !thereis_uncertainty) {
         filter::Postprocessing(&dst, src, kernel);
     } else if (thereis_reference && !thereis_uncertainty) {
-        filter::Postprocessing(&dst, src, kernel, &ref, nullptr, weight_param, 0.0);
+        filter::Postprocessing(&dst, src, kernel, &ref, nullptr, weight_param);
     } else if (!thereis_reference && thereis_uncertainty) {
-        filter::Postprocessing(&dst, src, kernel, nullptr, &unc, 0.0, ratio_of_best_values);
+        filter::Postprocessing(&dst, src, kernel, nullptr, &unc);
     } else {
-        filter::Postprocessing(&dst, src, kernel, &ref, &unc, weight_param, ratio_of_best_values);
+        filter::Postprocessing(&dst, src, kernel, &ref, &unc, weight_param);
     }
     auto postprocessing_end = std::chrono::system_clock::now();
     auto postprocessing_elapsed = std::chrono::duration_cast<std::chrono::seconds>(postprocessing_end - postprocessing_start);
@@ -993,11 +992,9 @@ int main(int argc, char **argv) {
             cfglist<int> rr({1,1,1},"postprocessing.kernel-size");
             cfgdata<int> shape(2,"postprocessing.kernel-shape");
             cfgdata<double> weight_param(0.05,"postprocessing.weight-param");
-            cfgdata<double> ratio_of_best_values(0.10,"postprocessing.ratio-of-best-values");
             LOADOPTIONALNOWARNINGLIST(io_toml,rr);
             LOADOPTIONALNOWARNINGDATA(io_toml,shape);
             LOADOPTIONALNOWARNINGDATA(io_toml,weight_param);
-            LOADOPTIONALNOWARNINGDATA(io_toml,ratio_of_best_values);
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
             Shape kernel;
             switch (kernel_shape) {
@@ -1012,7 +1009,19 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
-            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, ratio_of_best_values.first, nn);
+            // Report postprocessing parameters
+            cout<<"Postprocessing of the conductivity map\n";
+            cout<<"Parameters:\n";
+            cout<<"  Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
+            cout<<"  Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
+            cout<<"  Weight parameter: "<<weight_param.first<<"\n";
+            cout<<"  Input address: "<<input<<"\n";
+            cout<<"  Reference address: "<<reference<<"\n";
+            cout<<"  Uncertainty address: "<<uncertainty<<"\n";
+            cout<<"  Output address: "<<output<<"\n";
+            cout<<endl;
+            // Perform the postprocessing
+            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, nn);
             if (postprocessing_error != 0) {
                 cout<<"execution failed\n"<<endl;
                 return 1;
@@ -1050,11 +1059,9 @@ int main(int argc, char **argv) {
             cfglist<int> rr({1,1,1},"postprocessing.kernel-size");
             cfgdata<int> shape(2,"postprocessing.kernel-shape");
             cfgdata<double> weight_param(0.05,"postprocessing.weight-param");
-            cfgdata<double> ratio_of_best_values(0.10,"postprocessing.ratio-of-best-values");
             LOADOPTIONALNOWARNINGLIST(io_toml,rr);
             LOADOPTIONALNOWARNINGDATA(io_toml,shape);
             LOADOPTIONALNOWARNINGDATA(io_toml,weight_param);
-            LOADOPTIONALNOWARNINGDATA(io_toml,ratio_of_best_values);
             KernelShape kernel_shape = static_cast<KernelShape>(shape.first);
             Shape kernel;
             switch (kernel_shape) {
@@ -1069,7 +1076,19 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
-            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, ratio_of_best_values.first, nn);
+            // Report postprocessing parameters
+            cout<<"Postprocessing of the permittivity map\n";
+            cout<<"Parameters:\n";
+            cout<<"  Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
+            cout<<"  Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
+            cout<<"  Weight parameter: "<<weight_param.first<<"\n";
+            cout<<"  Input address: "<<input<<"\n";
+            cout<<"  Reference address: "<<reference<<"\n";
+            cout<<"  Uncertainty address: "<<uncertainty<<"\n";
+            cout<<"  Output address: "<<output<<"\n";
+            cout<<endl;
+            // Perform the postprocessing
+            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, nn);
             if (postprocessing_error != 0) {
                 cout<<"execution failed\n"<<endl;
                 return 1;
