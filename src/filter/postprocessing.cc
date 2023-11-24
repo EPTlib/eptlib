@@ -75,7 +75,7 @@ double eptlib::filter::AnatomicalMedianFilter(const std::vector<double> &src_cro
     for (size_t idx = 0; idx < src_crop.size(); ++idx) {
         const double ref = ref_img_crop[idx];
         const double src = src_crop[idx];
-        if (eptlib::filter::HardThreshold(std::abs(ref - ref0), 2.0*weight_param) == 0) {
+        if (eptlib::filter::HardThreshold(std::abs((ref - ref0) / std::min(ref, ref0)), 2.0*weight_param) == 0) {
             continue;
         }
         if (!std::isfinite(src)) {
@@ -122,7 +122,7 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
         const double src = src_crop[idx];
         const double ref = supporting_crop[idx * 2];
         const double unc = supporting_crop[idx * 2 + 1];
-        if (eptlib::filter::HardThreshold(std::abs(ref - ref0), 2.0*weight_param) == 0) {
+        if (eptlib::filter::HardThreshold(std::abs((ref - ref0) / std::min(ref, ref0)), 2.0*weight_param) == 0) {
             continue;
         }
         if (!std::isfinite(src) || !std::isfinite(unc)) {
