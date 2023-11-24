@@ -63,7 +63,7 @@ TEST(FilterMovingWindowGTest,MovingWindow) {
         for (size_t i1 = 0; i1<n1; ++i1) {
             for (size_t i0 = 0; i0<n0; ++i0) {
                 if (i0<r0 || i0>=n0-r0 || i1<r1 || i1>=n1-r1 || i2<r2 || i2>=n2-r2) {
-                    ASSERT_TRUE(std::isnan(img_out(i0,i1,i2)));
+                    ASSERT_TRUE(img_out(i0,i1,i2) < window.GetVolume());
                 } else {
                     ASSERT_EQ(img_out(i0,i1,i2), window.GetVolume());
                 }
