@@ -415,8 +415,8 @@ int main(int argc, char **argv) {
                 cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
                 cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<double> weight_param(0.05,"parameter.savitzky-golay.weight-param");
                 cfgdata<string> output_var_addr("","parameter.output-variance");
-                cfgdata<double> weight_param(0.05,"parameter.weight-param");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
                 LOADOPTIONALDATA(io_toml,shape);
@@ -448,8 +448,8 @@ int main(int argc, char **argv) {
                 cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
                 cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
                 cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"    Weight parameter: "<<weight_param.first<<"\n";
                 cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
-                cout<<"  Weight parameter: "<<weight_param.first<<"\n";
                 cout<<endl;
                 // combine the parameters
                 Shape kernel;
@@ -475,6 +475,7 @@ int main(int argc, char **argv) {
                 cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
                 cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<double> weight_param(0.05,"parameter.savitzky-golay.weight-param");
                 cfgdata<bool> is_3d(false,"parameter.volume-tomography");
                 cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
                 cfgdata<double> dir_sigma(0.0,"parameter.dirichlet.electric-conductivity");
@@ -483,7 +484,6 @@ int main(int argc, char **argv) {
                 cfgdata<double> diff_coeff(0.0,"parameter.artificial-diffusion-coefficient");
                 cfgdata<double> max_iterations(1000,"parameter.max-iterations");
                 cfgdata<double> tolerance(1e-6,"parameter.tolerance");
-                cfgdata<double> weight_param(0.05,"parameter.weight-param");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
                 LOADOPTIONALDATA(io_toml,shape);
@@ -536,6 +536,7 @@ int main(int argc, char **argv) {
                 cout<<"    Kernel size: ["<<rr.first[0]<<", "<<rr.first[1]<<", "<<rr.first[2]<<"]\n";
                 cout<<"    Kernel shape: ("<<shape.first<<") "<<ToString(kernel_shape)<<"\n";
                 cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"    Weight parameter: "<<weight_param.first<<"\n";
                 cout<<"  Volume tomography: "<<(is_3d.first?"Yes":"No")<<"\n";
                 if (!is_3d.first) {
                     cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
@@ -549,7 +550,6 @@ int main(int argc, char **argv) {
                 }
                 cout<<"  Max iterations: "<<max_iterations.first<<"\n";
                 cout<<"  Tolerance: "<<tolerance.first<<"\n";
-                cout<<"  Weight parameter: "<<weight_param.first<<"\n";
                 cout<<endl;
                 // combine the parameters
                 Shape kernel;
@@ -580,6 +580,7 @@ int main(int argc, char **argv) {
                 cfglist<int> rr({1,1,1},"parameter.savitzky-golay.size");
                 cfgdata<int> shape(0,"parameter.savitzky-golay.shape");
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<double> weight_param(0.05,"parameter.savitzky-golay.weight-param");
                 cfgdata<bool> is_3d(false,"parameter.volume-tomography");
                 cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
                 cfgdata<bool> full_run(true,"parameter.full-run");
@@ -589,7 +590,6 @@ int main(int argc, char **argv) {
                 cfgdata<double> regularization_coefficient(1.0,"parameter.regularization.regularization-coefficient");
                 cfgdata<double> regularization_gradient_tolerance(0.0,"parameter.regularization.gradient-tolerance");
                 cfgdata<string> regularization_output_mask_addr("","parameter.regularization.output-mask");
-                cfgdata<double> weight_param(0.05,"parameter.weight-param");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
                 LOADOPTIONALDATA(io_toml,shape);
