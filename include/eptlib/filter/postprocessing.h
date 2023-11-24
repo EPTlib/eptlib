@@ -60,11 +60,11 @@ namespace filter {
      * 
      * @param src_crop data values to which apply the filter.
      * @param ref_img_crop reference data used for selecting the data values.
-     * @param weight_param parameter of the thresholding function (default: 0.05).
+     * @param weight_param parameter of the thresholding function (default: 0.10).
      * 
      * @return the median value of selected values.
      */
-    double AnatomicalMedianFilter(const std::vector<double> &src_crop, const std::vector<double> &ref_img_crop, const double weight_param = 0.05);
+    double AnatomicalMedianFilter(const std::vector<double> &src_crop, const std::vector<double> &ref_img_crop, const double weight_param = 0.10);
 
     /**
      * @brief Filter the elements of a three-dimensional window based on an uncertainty index.
@@ -83,11 +83,11 @@ namespace filter {
      * @param src_crop data values to which apply the filter.
      * @param supporting_crop supporting values for selecting the data values (reference and
      *     uncertainty values).
-     * @param weight_param parameter of the thresholding function (default: 0.05).
+     * @param weight_param parameter of the thresholding function (default: 0.10).
      * 
      * @return the filtered value.
      */
-    double AnatomicalUncertainFilter(const std::vector<double> &src_crop, const std::vector<double> &supporting_crop, const double weight_param = 0.05);
+    double AnatomicalUncertainFilter(const std::vector<double> &src_crop, const std::vector<double> &supporting_crop, const double weight_param = 0.10);
 
     /**
      * @brief Postprocess the input image depending on the amount of available information.
@@ -100,7 +100,7 @@ namespace filter {
      * @param uncertainty optional uncertainty image used for an improved filter (default:
      *     `nullptr').
      * @param weight_param parameter of the thresholding function, used only in combination with
-     *     `reference_image' (default: 0.05).
+     *     `reference_image' (default: 0.10).
      * 
      * @return a Success, a WrongDataFormat if the argument sizes are inconsistent, or a Unknown.
      * 
@@ -115,7 +115,7 @@ namespace filter {
      * 
      * - if both are available, the AnatomicalUncertainFilter is used.
      */
-    EPTlibError Postprocessing(Image<double> *dst, const Image<double> &src, const Shape &window, const Image<double> *reference_image = nullptr, const Image<double> *uncertainty = nullptr, const double weight_param = 0.05);
+    EPTlibError Postprocessing(Image<double> *dst, const Image<double> &src, const Shape &window, const Image<double> *reference_image = nullptr, const Image<double> *uncertainty = nullptr, const double weight_param = 0.10);
 
 }  // namespace filter
 

@@ -991,7 +991,7 @@ int main(int argc, char **argv) {
         if (postprocess_flag) {
             cfglist<int> rr({1,1,1},"postprocessing.kernel-size");
             cfgdata<int> shape(2,"postprocessing.kernel-shape");
-            cfgdata<double> weight_param(0.05,"postprocessing.weight-param");
+            cfgdata<double> weight_param(0.10,"postprocessing.weight-param");
             LOADOPTIONALNOWARNINGLIST(io_toml,rr);
             LOADOPTIONALNOWARNINGDATA(io_toml,shape);
             LOADOPTIONALNOWARNINGDATA(io_toml,weight_param);
@@ -1058,7 +1058,7 @@ int main(int argc, char **argv) {
         if (postprocess_flag) {
             cfglist<int> rr({1,1,1},"postprocessing.kernel-size");
             cfgdata<int> shape(2,"postprocessing.kernel-shape");
-            cfgdata<double> weight_param(0.05,"postprocessing.weight-param");
+            cfgdata<double> weight_param(0.10,"postprocessing.weight-param");
             LOADOPTIONALNOWARNINGLIST(io_toml,rr);
             LOADOPTIONALNOWARNINGDATA(io_toml,shape);
             LOADOPTIONALNOWARNINGDATA(io_toml,weight_param);
