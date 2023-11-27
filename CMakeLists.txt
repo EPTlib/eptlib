@@ -78,11 +78,7 @@ include_directories("${Boost_INCLUDE_DIRS}")
 VerboseFindPackage(Eigen3 REQUIRED)
 
 # openmp
-if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-    VerboseFindPackage(OpenMP)
-else()
-    VerboseFindPackage(OpenMP 3.0)
-endif()
+VerboseFindPackage(OpenMP)
 
 # disable fast floating-point operations in Intel compiler
 if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
@@ -112,6 +108,7 @@ if(build_docs)
     if(DOXYGEN_FOUND)
         # set the source files
         set(DOCS_SRC
+            include/eptlib/differential_operator.h
             include/eptlib/ept_convreact.h
             include/eptlib/ept_gradient.h
             include/eptlib/ept_helmholtz_chi2.h
@@ -121,14 +118,19 @@ if(build_docs)
             include/eptlib/image.h
             include/eptlib/shape.h
             include/eptlib/util.h
+            include/eptlib/filter/anatomical_savitzky_golay.h
             include/eptlib/filter/moving_window.h
+            include/eptlib/filter/postprocessing.h
             include/eptlib/filter/savitzky_golay.h
+            include/eptlib/filter/weight_functions.h
             include/eptlib/io/io_hdf5.h
             include/eptlib/io/io_toml.h
             include/eptlib/io/io_util.h
-            include/eptlib/linalg/linalg_householder.h
-            include/eptlib/linalg/linalg_eq.h
-            include/eptlib/linalg/linalg_util.h)
+            include/eptlib/linalg/matrix.h
+            include/eptlib/linalg/qr.h
+            include/eptlib/linalg/regression.h
+            include/eptlib/linalg/vector.h
+            include/eptlib/polynomial/fitting.h)
         # set custom doxygen options
         set(DOXYGEN_OUTPUT_DIRECTORY docs)
         set(DOXYGEN_PROJECT_BRIEF "An open-source, extensible C++ library of electric properties tomography methods.")

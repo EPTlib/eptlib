@@ -69,12 +69,7 @@ else()
 endif()
 
 if(OpenMP_FOUND)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
-        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -openmp:llvm")
-    else()
-        target_link_libraries(EPTlib PRIVATE OpenMP::OpenMP_CXX)
-    endif()
+    target_link_libraries(EPTlib PRIVATE OpenMP::OpenMP_CXX)
 endif()
 
 target_compile_features(EPTlib PUBLIC cxx_std_17)

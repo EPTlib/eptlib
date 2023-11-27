@@ -44,12 +44,7 @@ target_include_directories(${EPTLIB_APP_NAME}
     PRIVATE ${PROJECT_BINARY_DIR}/app)
 
 if(OpenMP_FOUND)
-    if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
-        set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -openmp:llvm")
-        set (CMAKE_EXE_LINKER_FLAGS "${CMAKE_EXE_LINKER_FLAGS} -openmp:llvm")
-    else()
-        target_link_libraries(${EPTLIB_APP_NAME} PRIVATE OpenMP::OpenMP_CXX)
-    endif()
+    target_link_libraries(${EPTLIB_APP_NAME} PRIVATE OpenMP::OpenMP_CXX)
 endif()
     
 target_link_libraries(${EPTLIB_APP_NAME} PRIVATE EPTlib)

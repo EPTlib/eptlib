@@ -101,56 +101,57 @@ namespace filter {
         const size_t r2 = m2/2;
         const size_t num_supporting_images = filter_with_supporting_images ? supporting_images.size() : 0;
         // loop over the destination voxels
-        #pragma omp parallel for collapse(3)
-        for (size_t i2 = 0; i2<n2; ++i2) {
-            for (size_t i1 = 0; i1<n1; ++i1) {
-                for (size_t i0 = 0; i0<n0; ++i0) {
-                    std::vector<Scalar> src_crop;
-                    std::vector<double> supporting_images_crop;
-                    src_crop.reserve(window.GetVolume());
-                    supporting_images_crop.reserve(window.GetVolume() * num_supporting_images);
-                    // loop over the window voxels
-                    size_t iw2;
-                    ptrdiff_t ic2;
-                    for (iw2 = 0, ic2 = static_cast<ptrdiff_t>(i2)-r2; iw2<m2; ++iw2, ++ic2) {
-                        size_t iw1;
-                        ptrdiff_t ic1;
-                        for (iw1 = 0, ic1 = static_cast<ptrdiff_t>(i1)-r1; iw1<m1; ++iw1, ++ic1) {
-                            size_t iw0;
-                            ptrdiff_t ic0;
-                            for (iw0 = 0, ic0 = static_cast<ptrdiff_t>(i0)-r0; iw0<m0; ++iw0, ++ic0) {
-                                if (window(iw0, iw1, iw2)) {
-                                    if (ic0 < 0 || ic1 < 0 || ic2 < 0 || ic0 >= n0 || ic1 >= n1 || ic2 >= n2) {
-                                        src_crop.push_back(static_cast<Scalar>(0.0));
-                                        if constexpr (filter_with_supporting_images) {
-                                            for (size_t idx_supporting_image = 0; idx_supporting_image < num_supporting_images; ++idx_supporting_image) {
-                                                supporting_images_crop.push_back(-1.0);
-                                            }
-                                        }
-                                    } else {
-                                        src_crop.push_back(src(ic0, ic1, ic2));
-                                        if constexpr (filter_with_supporting_images) {
-                                            for (auto supporting_image = supporting_images.begin(); supporting_image != supporting_images.end(); ++supporting_image) {
-                                                supporting_images_crop.push_back((*supporting_image)->At(ic0, ic1, ic2));
-                                            }
-                                        }
+        #pragma omp parallel for
+        for (int idx = 0; idx < src.GetNVox(); ++idx) {
+            std::vector<Scalar> src_crop;
+            std::vector<double> supporting_images_crop;
+            src_crop.reserve(window.GetVolume());
+            supporting_images_crop.reserve(window.GetVolume() * num_supporting_images);
+            // get the sub-indices from the linear index
+            size_t i0 = idx % n0;
+            size_t tmp = idx / n0;
+            size_t i1 = tmp % n1;
+            size_t i2 = tmp / n1;
+            // loop over the window voxels
+            size_t iw2;
+            ptrdiff_t ic2;
+            for (iw2 = 0, ic2 = static_cast<ptrdiff_t>(i2)-r2; iw2<m2; ++iw2, ++ic2) {
+                size_t iw1;
+                ptrdiff_t ic1;
+                for (iw1 = 0, ic1 = static_cast<ptrdiff_t>(i1)-r1; iw1<m1; ++iw1, ++ic1) {
+                    size_t iw0;
+                    ptrdiff_t ic0;
+                    for (iw0 = 0, ic0 = static_cast<ptrdiff_t>(i0)-r0; iw0<m0; ++iw0, ++ic0) {
+                        if (window(iw0, iw1, iw2)) {
+                            if (ic0 < 0 || ic1 < 0 || ic2 < 0 || ic0 >= n0 || ic1 >= n1 || ic2 >= n2) {
+                                src_crop.push_back(static_cast<Scalar>(0.0));
+                                if constexpr (filter_with_supporting_images) {
+                                    for (size_t idx_supporting_image = 0; idx_supporting_image < num_supporting_images; ++idx_supporting_image) {
+                                        supporting_images_crop.push_back(-1.0);
+                                    }
+                                }
+                            } else {
+                                src_crop.push_back(src(ic0, ic1, ic2));
+                                if constexpr (filter_with_supporting_images) {
+                                    for (auto supporting_image = supporting_images.begin(); supporting_image != supporting_images.end(); ++supporting_image) {
+                                        supporting_images_crop.push_back((*supporting_image)->At(ic0, ic1, ic2));
                                     }
                                 }
                             }
                         }
                     }
-                    // apply the filter
-                    //   the filter application is obtained in two steps
-                    //   1) the reference to where to write the result is initialised by assigning an rvalue to output
-                    //   2) the result is written by assigning an lvalue to output
-                    using output_t = std::conditional_t<filter_with_variance, std::tuple<Scalar&,double&>, Scalar&>;
-                    output_t output = ConstexprIf<filter_with_variance>(std::tie(dst->At(i0,i1,i2),variance->At(i0,i1,i2)), std::ref(dst->At(i0,i1,i2)));
-                    if constexpr (filter_with_supporting_images) {
-                        output = std::invoke(filter, src_crop, supporting_images_crop);
-                    } else {
-                        output = std::invoke(filter, src_crop);
-                    }
                 }
+            }
+            // apply the filter
+            //   the filter application is obtained in two steps
+            //   1) the reference to where to write the result is initialised by assigning an rvalue to output
+            //   2) the result is written by assigning an lvalue to output
+            using output_t = std::conditional_t<filter_with_variance, std::tuple<Scalar&,double&>, Scalar&>;
+            output_t output = ConstexprIf<filter_with_variance>(std::tie(dst->At(i0,i1,i2),variance->At(i0,i1,i2)), std::ref(dst->At(i0,i1,i2)));
+            if constexpr (filter_with_supporting_images) {
+                output = std::invoke(filter, src_crop, supporting_images_crop);
+            } else {
+                output = std::invoke(filter, src_crop);
             }
         }
         return EPTlibError::Success;
