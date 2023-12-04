@@ -127,7 +127,7 @@ CompleteEPTHelm() {
         epsr_ ->At(idx) =  std::real(eps_c(idx))/EPS0;
         sigma_->At(idx) = -std::imag(eps_c(idx))*omega_;
         if (ComputeVariance()) {
-            variance_->At(idx) /= MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+            variance_->At(idx) /= MU0*MU0 * omega_*omega_*omega_*omega_ * GetTxSens(0)->At(idx)*GetTxSens(0)->At(idx);
         }
     }
     return;
@@ -159,7 +159,7 @@ MagnitudeEPTHelm() {
     for (int idx = 0; idx<epsr_->GetNVox(); ++idx) {
         epsr_->At(idx) /= -EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
         if (ComputeVariance()) {
-            variance_->At(idx) /= EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+            variance_->At(idx) /= EPS0*EPS0 * MU0*MU0 * omega_*omega_*omega_*omega_ * GetTxSens(0)->At(idx)*GetTxSens(0)->At(idx);
         }
     }
     return;
@@ -197,7 +197,7 @@ PhaseEPTHelm() {
     for (int idx = 0; idx<sigma_->GetNVox(); ++idx) {
         sigma_->At(idx) /= 2.0*MU0*omega_;
         if (ComputeVariance()) {
-            variance_->At(idx) /= 2.0*MU0*omega_;
+            variance_->At(idx) /= 2.0*2.0 * MU0*MU0 * omega_*omega_;
         }
     }
     return;
