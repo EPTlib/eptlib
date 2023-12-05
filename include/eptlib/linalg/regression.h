@@ -54,15 +54,27 @@ namespace linalg {
      * @return a std::tuple with:
      *     1) a vector solving the linear regression;
      *     2) the normalized chi-squared statistic of the linear regression.
+     *     If `b` is a complex-valued vector, the statistic of the real and
+     *     imaginary parts of the residual are stored as the real and the
+     *     imaginary parts of a complex number.
      */
     template <typename Scalar>
-    std::tuple<std::vector<Scalar>, double> LinearRegression(const eptlib::linalg::Matrix<double> &A, const std::vector<Scalar> &b) {
+    std::tuple<std::vector<Scalar>, Scalar> LinearRegression(const eptlib::linalg::Matrix<double> &A, const std::vector<Scalar> &b) {
         auto [QR, p] = eptlib::linalg::QRDecomposition(A);
         auto [x, chi] = eptlib::linalg::QRSolve(QR, b);
         eptlib::linalg::Permute(x.begin(), x.end(), p);
         size_t m = A.GetNRow();
         size_t r = eptlib::linalg::QRGetRank(QR);
-        double chi2n = chi>0.0 ? chi*chi/(m-r) : 0.0;
+        Scalar chi2n;
+        if constexpr (std::is_same_v<Scalar, std::complex<double> >) {
+            double chi_r = std::real(chi);
+            double chi_i = std::imag(chi);
+            double chi2n_r = chi_r > 0.0 ? chi_r * chi_r / (m - r) : 0.0;
+            double chi2n_i = chi_i > 0.0 ? chi_i * chi_i / (m - r) : 0.0;
+            chi2n = Scalar(chi2n_r, chi2n_i);
+        } else {
+            chi2n = chi > 0.0 ? chi * chi / (m - r) : 0.0;
+        }
         return {x, chi2n};
     }
 

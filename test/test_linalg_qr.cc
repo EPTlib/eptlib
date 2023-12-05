@@ -123,7 +123,8 @@ TEST(LinalgQRGTest, QRSolve) {
     eptlib::linalg::Permute(x_c.begin(), x_c.end(), p);
 
     ASSERT_DOUBLE_EQ(chi, 0.0);
-    ASSERT_DOUBLE_EQ(chi_c, 0.0);
+    ASSERT_DOUBLE_EQ(std::real(chi_c), 0.0);
+    ASSERT_DOUBLE_EQ(std::imag(chi_c), 0.0);
     for (size_t col = 0; col < n; ++col) {
         ASSERT_NEAR(x[col], u[col], 1e-12);
         ASSERT_NEAR(x_c[col].real(), u[col], 1e-12);

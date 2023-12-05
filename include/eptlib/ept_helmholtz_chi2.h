@@ -94,8 +94,8 @@ class EPTHelmholtzChi2 : public EPTInterface {
          * 
          * @return reference of the pointer to the computed variance map.
          */
-        inline std::unique_ptr<Image<double> >& GetVariance() {
-            return variance_;
+        inline std::unique_ptr<Image<double> >& GetElectricConductivityVariance() {
+            return variance_sigma_;
         }
 
         /**
@@ -104,8 +104,8 @@ class EPTHelmholtzChi2 : public EPTInterface {
          * @return true if the variance is set.
          * @return false if the variance is not set.
          */
-        inline bool ThereIsVariance() const {
-            return variance_!=nullptr;
+        inline bool ThereIsElectricConductivityVariance() const {
+            return variance_sigma_!=nullptr;
         }
 
         /**
@@ -151,7 +151,7 @@ class EPTHelmholtzChi2 : public EPTInterface {
         /// Degree of the interpolating polynomial for the finite difference scheme.
         int degree_;
         /// Quality map.
-        std::unique_ptr<Image<double> > variance_;
+        std::unique_ptr<Image<double> > variance_sigma_;
         /// Pixel-wise selected kernel shape.
         std::unique_ptr<Image<int> > index_;
         /// Unphysical values flag.

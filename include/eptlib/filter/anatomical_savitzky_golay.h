@@ -313,7 +313,7 @@ namespace filter {
                     auto a = this->GetFittingCoefficients(src_crop, ref_img_crop);
                     return this->GetExtractor<Scalar>(differential_operator)(a);
                 };
-                return MovingWindow(dst, src, window_, filter, nullptr, {&ref_img});
+                return MovingWindow<Scalar>(dst, src, window_, filter, nullptr, {&ref_img});
             }
 
             /**
@@ -332,7 +332,7 @@ namespace filter {
              */
             template <typename Scalar>
             EPTlibError Apply(const DifferentialOperator differential_operator, Image<Scalar> *dst,
-                Image<double> *variance, const Image<Scalar> &src, const Image<double> &ref_img) const {
+                Image<Scalar> *variance, const Image<Scalar> &src, const Image<double> &ref_img) const {
                 const size_t n_col = design_matrix_.GetNCol();
                 std::vector<double> w(n_col, 0.0);
                 switch (differential_operator) {
@@ -365,7 +365,7 @@ namespace filter {
                     default:
                         break;
                 }   
-                auto filter = [&](std::vector<Scalar> src_crop, const std::vector<double> &ref_img_crop) -> std::tuple<Scalar, double> {
+                auto filter = [&](std::vector<Scalar> src_crop, const std::vector<double> &ref_img_crop) -> std::tuple<Scalar, Scalar> {
                     // get the derivative
                     eptlib::linalg::Matrix<double> design_matrix = this->design_matrix_;
                     std::vector<double> weights = this->ComputeWeights(ref_img_crop);
@@ -377,15 +377,24 @@ namespace filter {
                     // get the variance
                     size_t m = design_matrix.GetNRow() - std::count(weights.begin(), weights.end(), 0.0);
                     size_t rank = eptlib::linalg::QRGetRank(QR);
-                    double chi2n = chi*chi/(m-rank);
+                    Scalar chi2n;
+                    if constexpr (std::is_same_v<Scalar, std::complex<double> >) {
+                        double chi_r = std::real(chi);
+                        double chi_i = std::imag(chi);
+                        double chi2n_r = chi_r > 0.0 ? chi_r * chi_r / (m - rank) : 0.0;
+                        double chi2n_i = chi_i > 0.0 ? chi_i * chi_i / (m - rank) : 0.0;
+                        chi2n = Scalar(chi2n_r, chi2n_i);
+                    } else {
+                        chi2n = chi > 0.0 ? chi * chi / (m - rank) : 0.0;
+                    }
                     std::vector<double> w_p(n_col);
                     for (size_t col = 0; col < n_col; ++col) {
                         w_p[col] = w[p[col]];
                     }
                     std::vector<double> r = eptlib::linalg::RTransposeSolve(QR, w_p);
                     double var = eptlib::linalg::Norm2(r.begin(), r.end());
-                    var *= var*chi2n;
-                    return {derivative, var};
+                    chi2n *= var*var;
+                    return {derivative, chi2n};
                 };
                 return MovingWindow(dst, src, window_, filter, variance, {&ref_img});
             }

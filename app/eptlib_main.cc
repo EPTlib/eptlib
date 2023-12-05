@@ -174,7 +174,7 @@ EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
 }
 
 int PerformPostprocessing(const string &output_addr, const string &input_addr,
-    const string &reference_addr, const string &uncertainty_addr, const Shape &kernel,
+    const string &reference_addr, const string &variance_addr, const Shape &kernel,
     const double weight_param, const cfglist<int> &nn) {
     //
     Image<double> dst(nn.first[0], nn.first[1], nn.first[2]);
@@ -194,11 +194,11 @@ int PerformPostprocessing(const string &output_addr, const string &input_addr,
         cout<<"    '"<<reference_addr<<"'\n"<<endl;
         thereis_reference = true;
     }
-    if (uncertainty_addr!="") {
+    if (variance_addr!="") {
         unc = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
-        cout<<"  Loading uncertainty map:\n"<<flush;
-        LOADMAP(unc, uncertainty_addr);
-        cout<<"    '"<<uncertainty_addr<<"'\n"<<endl;
+        cout<<"  Loading variance map:\n"<<flush;
+        LOADMAP(unc, variance_addr);
+        cout<<"    '"<<variance_addr<<"'\n"<<endl;
         thereis_uncertainty = true;
     }
     //
@@ -263,7 +263,8 @@ int main(int argc, char **argv) {
     cfgdata<string> postprocessing_input_sigma_addr("","postprocessing.input-electric-conductivity");
     cfgdata<string> postprocessing_input_epsr_addr("","postprocessing.input-relative-permittivity");
     cfgdata<string> postprocessing_input_reference_addr("","postprocessing.input-reference-image");
-    cfgdata<string> postprocessing_input_uncertainty_addr("","postprocessing.input-uncertainty-map");
+    cfgdata<string> postprocessing_input_sigma_variance_addr("","postprocessing.input-electric-conductivity-variance-map");
+    cfgdata<string> postprocessing_input_epsr_variance_addr("","postprocessing.input-relative-permittivity-variance-map");
     // load the input data
     //   title
     LOADMANDATORYDATA(io_toml,title);
@@ -291,7 +292,8 @@ int main(int argc, char **argv) {
         LOADOPTIONALDATA(io_toml,postprocessing_input_sigma_addr);
         LOADOPTIONALDATA(io_toml,postprocessing_input_epsr_addr);
         LOADOPTIONALDATA(io_toml,postprocessing_input_reference_addr);
-        LOADOPTIONALDATA(io_toml,postprocessing_input_uncertainty_addr);
+        LOADOPTIONALDATA(io_toml,postprocessing_input_sigma_variance_addr);
+        LOADOPTIONALDATA(io_toml,postprocessing_input_epsr_variance_addr);
     }
     cout<<endl;
     // check the provided data
@@ -339,7 +341,8 @@ int main(int argc, char **argv) {
         cout<<"    Input electric conductivity addr.: '"<<postprocessing_input_sigma_addr.first<<"'\n";
         cout<<"    Input relative permittivity addr.: '"<<postprocessing_input_epsr_addr.first<<"'\n";
         cout<<"    Input reference image addr.: '"<<postprocessing_input_reference_addr.first<<"'\n";
-        cout<<"    Input uncertainty map addr.: '"<<postprocessing_input_uncertainty_addr.first<<"'\n";
+        cout<<"    Input electric conductivity variance map addr.: '"<<postprocessing_input_sigma_variance_addr.first<<"'\n";
+        cout<<"    Input relative permittivity variance map addr.: '"<<postprocessing_input_epsr_variance_addr.first<<"'\n";
     }
     cout<<endl;
     // perform EPT
@@ -850,13 +853,19 @@ int main(int argc, char **argv) {
         }
         // report possible output parameters
         if (ept_method==EPTMethod::HELMHOLTZ) {
-            // Save the quality index chi2 distribution
+            // Save the variance of the recovered maps
             cfgdata<string> output_var_addr("","parameter.output-variance");
             LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
-            bool thereis_var = output_var_addr.first!=""; // && !thereis_txsens;
+            bool thereis_var = output_var_addr.first!="";
             if (thereis_var) {
-                auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetVariance();
-                SAVEMAP(*var,output_var_addr.first);
+                if (dynamic_cast<EPTHelmholtz*>(ept.get())->ThereIsElectricConductivityVariance()) {
+                    auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetElectricConductivityVariance();
+                    SAVEMAP(*var, output_var_addr.first + "/electric-conductivity");
+                }
+                if (dynamic_cast<EPTHelmholtz*>(ept.get())->ThereIsRelativePermittivityVariance()) {
+                    auto& var = dynamic_cast<EPTHelmholtz*>(ept.get())->GetRelativePermittivityVariance();
+                    SAVEMAP(*var, output_var_addr.first + "/relative-permittivity");
+                }
             }
         } else if (ept_method==EPTMethod::CONVREACT) {
             cout<<"  Iterative solver parameters:\n";
@@ -945,8 +954,8 @@ int main(int argc, char **argv) {
             LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
             bool thereis_var = output_var_addr.first!="";
             if (thereis_var) {
-                auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetVariance();
-                SAVEMAP(*var,output_var_addr.first);
+                auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityVariance();
+                SAVEMAP(*var,output_var_addr.first + "/electric-conductivity");
             }
         }
         cout<<endl;
@@ -965,13 +974,13 @@ int main(int argc, char **argv) {
         string output = postprocessing_output_sigma_addr.first;
         string input;
         string reference;
-        string uncertainty;
+        string variance;
         bool postprocess_flag = true;
         if (perform_only_postprocessing.first) {
             if (postprocessing_input_sigma_addr.first!="") {
                 input = postprocessing_input_sigma_addr.first;
                 reference = postprocessing_input_reference_addr.first;
-                uncertainty = postprocessing_input_uncertainty_addr.first;
+                variance = postprocessing_input_sigma_variance_addr.first;
             } else {
                 cout<<"WARNING: No input conductivity to be postprocessed!"<<endl;
                 postprocess_flag = false;
@@ -982,7 +991,7 @@ int main(int argc, char **argv) {
                 LOADOPTIONALNOWARNINGDATA(io_toml, output_var_addr);
                 input = sigma_addr.first;
                 reference = refimg_addr.first;
-                uncertainty = output_var_addr.first;
+                variance = output_var_addr.first + "/electric-conductivity";
             } else {
                 cout<<"WARNING: No input conductivity to be postprocessed!"<<endl;
                 postprocess_flag = false;
@@ -1017,11 +1026,11 @@ int main(int argc, char **argv) {
             cout<<"  Weight parameter: "<<weight_param.first<<"\n";
             cout<<"  Input address: "<<input<<"\n";
             cout<<"  Reference address: "<<reference<<"\n";
-            cout<<"  Uncertainty address: "<<uncertainty<<"\n";
+            cout<<"  Variance address: "<<variance<<"\n";
             cout<<"  Output address: "<<output<<"\n";
             cout<<endl;
             // Perform the postprocessing
-            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, nn);
+            int postprocessing_error = PerformPostprocessing(output, input, reference, variance, kernel, weight_param.first, nn);
             if (postprocessing_error != 0) {
                 cout<<"execution failed\n"<<endl;
                 return 1;
@@ -1032,13 +1041,13 @@ int main(int argc, char **argv) {
         string output = postprocessing_output_epsr_addr.first;
         string input;
         string reference;
-        string uncertainty;
+        string variance;
         bool postprocess_flag = true;
         if (perform_only_postprocessing.first) {
             if (postprocessing_output_epsr_addr.first!="") {
                 input = postprocessing_input_epsr_addr.first;
                 reference = postprocessing_input_reference_addr.first;
-                uncertainty = postprocessing_input_uncertainty_addr.first;
+                variance = postprocessing_input_epsr_variance_addr.first;
             } else {
                 cout<<"WARNING: No input permittivity to be postprocessed!"<<endl;
                 postprocess_flag = false;
@@ -1049,7 +1058,7 @@ int main(int argc, char **argv) {
                 LOADOPTIONALNOWARNINGDATA(io_toml, output_var_addr);
                 input = epsr_addr.first;
                 reference = refimg_addr.first;
-                uncertainty = output_var_addr.first;
+                variance = output_var_addr.first + "/relative-permittivity";
             } else {
                 cout<<"WARNING: No input permittivity to be postprocessed!"<<endl;
                 postprocess_flag = false;
@@ -1084,11 +1093,11 @@ int main(int argc, char **argv) {
             cout<<"  Weight parameter: "<<weight_param.first<<"\n";
             cout<<"  Input address: "<<input<<"\n";
             cout<<"  Reference address: "<<reference<<"\n";
-            cout<<"  Uncertainty address: "<<uncertainty<<"\n";
+            cout<<"  Variance address: "<<variance<<"\n";
             cout<<"  Output address: "<<output<<"\n";
             cout<<endl;
             // Perform the postprocessing
-            int postprocessing_error = PerformPostprocessing(output, input, reference, uncertainty, kernel, weight_param.first, nn);
+            int postprocessing_error = PerformPostprocessing(output, input, reference, variance, kernel, weight_param.first, nn);
             if (postprocessing_error != 0) {
                 cout<<"execution failed\n"<<endl;
                 return 1;

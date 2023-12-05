@@ -115,22 +115,41 @@ class EPTHelmholtz : public EPTInterface {
         }
 
         /**
-         * @brief Get the computed variance map.
+         * @brief Get the computed variance map of the electric conductivity.
          * 
-         * @return reference of the pointer to the computed variance map.
+         * @return reference of the pointer to the computed variance map of the electric conductivity.
          */
-        inline std::unique_ptr<Image<double> >& GetVariance() {
-            return variance_;
+        inline std::unique_ptr<Image<double> >& GetElectricConductivityVariance() {
+            return variance_sigma_;
         }
 
         /**
-         * @brief Check if the variance is set.
+         * @brief Get the computed variance map of the relative permittivity.
          * 
-         * @return true if the variance is set.
-         * @return false if the variance is not set.
+         * @return reference of the pointer to the computed variance map of the relative permittivity.
          */
-        inline bool ThereIsVariance() const {
-            return variance_!=nullptr;
+        inline std::unique_ptr<Image<double> >& GetRelativePermittivityVariance() {
+            return variance_epsr_;
+        }
+
+        /**
+         * @brief Check if the variance of the electric conductivity is set.
+         * 
+         * @return true if the variance of the electric conductivity is set.
+         * @return false if the variance of the electric conductivity is not set.
+         */
+        inline bool ThereIsElectricConductivityVariance() const {
+            return variance_sigma_!=nullptr;
+        }
+
+        /**
+         * @brief Check if the variance of the relative permittivity is set.
+         * 
+         * @return true if the variance of the relative permittivity is set.
+         * @return false if the variance of the relative permittivity is not set.
+         */
+        inline bool ThereIsRelativePermittivityVariance() const {
+            return variance_epsr_!=nullptr;
         }
     private:
         /// Savitzky-Golay filter for the derivative computation.
@@ -140,8 +159,10 @@ class EPTHelmholtz : public EPTInterface {
         /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
         int sg_degree_;
 
-        /// Quality map.
-        std::unique_ptr<Image<double> > variance_;
+        /// Variance map of the electric conductivity.
+        std::unique_ptr<Image<double> > variance_sigma_;
+        /// Variance map of the relative permittivity.
+        std::unique_ptr<Image<double> > variance_epsr_;
         /// If true, compute the result variance.
         bool compute_variance_;
 

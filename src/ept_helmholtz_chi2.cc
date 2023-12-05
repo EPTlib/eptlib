@@ -48,7 +48,7 @@ EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, false),
     windows_(windows),
     degree_(degree),
-    variance_(nullptr),
+    variance_sigma_(nullptr),
     index_(nullptr),
     admit_unphysical_values_(admit_unphysical_values) {
     return;
@@ -67,13 +67,13 @@ Run() {
         return EPTlibError::MissingData;
     }
     // setup the input
-    sigma_    = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
-    variance_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
-    index_    = std::make_unique<Image<int>    >(nn_[0],nn_[1],nn_[2]);
+    sigma_          = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+    variance_sigma_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+    index_          = std::make_unique<Image<int>    >(nn_[0],nn_[1],nn_[2]);
     auto n_vox = sigma_->GetNVox();
-    sigma_   ->GetData().assign(n_vox,nand);
-    variance_->GetData().assign(n_vox,nand);
-    index_   ->GetData().assign(n_vox,-1);
+    sigma_         ->GetData().assign(n_vox,nand);
+    variance_sigma_->GetData().assign(n_vox,nand);
+    index_         ->GetData().assign(n_vox,-1);
     // loop over the shapes
     auto freq = omega_/2.0/PI;
     for (int idx_s = 0; idx_s<windows_.size(); ++idx_s) {
@@ -87,12 +87,12 @@ Run() {
         }
         // update output with the partial results
         for (int idx = 0; idx<n_vox; ++idx) {
-            if (!std::isnan(hept.GetVariance()->At(idx)) && (hept.GetVariance()->At(idx) < variance_->At(idx) || std::isnan(variance_->At(idx)))) {
+            if (!std::isnan(hept.GetElectricConductivityVariance()->At(idx)) && (hept.GetElectricConductivityVariance()->At(idx) < variance_sigma_->At(idx) || std::isnan(variance_sigma_->At(idx)))) {
                 bool is_physical = hept.GetElectricConductivity()->At(idx) > 0.0;
                 if (AdmitUnphysicalValues() || is_physical) {
-                    sigma_   ->At(idx) = hept.GetElectricConductivity()->At(idx);
-                    variance_->At(idx) = hept.GetVariance()->At(idx);
-                    index_   ->At(idx) = idx_s;
+                    sigma_         ->At(idx) = hept.GetElectricConductivity()->At(idx);
+                    variance_sigma_->At(idx) = hept.GetElectricConductivityVariance()->At(idx);
+                    index_         ->At(idx) = idx_s;
                 }
             }
         }

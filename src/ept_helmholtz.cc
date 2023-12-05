@@ -48,7 +48,8 @@ EPTHelmholtz(const size_t n0, const size_t n1, const size_t n2,
     sg_filter_(),
     sg_window_(window),
     sg_degree_(degree),
-    variance_(nullptr),
+    variance_sigma_(nullptr),
+    variance_epsr_(nullptr),
     compute_variance_(compute_variance),
     weight_param_(weight_param) {
     return;
@@ -78,7 +79,12 @@ Run() {
         sigma_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
     }
     if (ComputeVariance()) {
-        variance_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+        if (ThereIsSigma()) {
+            variance_sigma_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+        }
+        if (ThereIsEpsr()) {
+            variance_epsr_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+        }
     }
     // perform ept
     if (ThereIsEpsr() && ThereIsSigma()) {
@@ -99,13 +105,15 @@ CompleteEPTHelm() {
     // setup the input
     Image<std::complex<double> > tx_sens_c(nn_[0], nn_[1], nn_[2]);
     Image<std::complex<double> > eps_c(nn_[0], nn_[1], nn_[2]);
+    std::unique_ptr<Image<std::complex<double> > > variance_c = nullptr;
     for (int idx = 0; idx<eps_c.GetNVox(); ++idx) {
         std::complex<double> exponent = std::complex<double>(0.0, 0.5 * GetTRxPhase(0,0)->At(idx));
         tx_sens_c(idx) = GetTxSens(0)->At(idx) * std::exp(exponent);
         eps_c(idx) = nancd;
     }
     if (ComputeVariance()) {
-        variance_->GetData().assign(eps_c.GetNVox(), nand);
+        variance_c = std::make_unique<Image<std::complex<double> > >(nn_[0], nn_[1], nn_[2]);
+        variance_c->GetData().assign(eps_c.GetNVox(), nand);
     }
     // compute the laplacian
     if (!ComputeVariance()) {
@@ -116,9 +124,9 @@ CompleteEPTHelm() {
         }
     } else {
         if (ThereIsReferenceImage()) {
-            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, variance_.get(), tx_sens_c, *reference_image_);
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, variance_c.get(), tx_sens_c, *reference_image_);
         } else {
-            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, variance_.get(), tx_sens_c);
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, &eps_c, variance_c.get(), tx_sens_c);
         }
     }
     // extract the output
@@ -127,7 +135,9 @@ CompleteEPTHelm() {
         epsr_ ->At(idx) =  std::real(eps_c(idx))/EPS0;
         sigma_->At(idx) = -std::imag(eps_c(idx))*omega_;
         if (ComputeVariance()) {
-            variance_->At(idx) /= MU0*MU0 * omega_*omega_*omega_*omega_ * GetTxSens(0)->At(idx)*GetTxSens(0)->At(idx);
+            double coeff = MU0 * omega_*omega_ * GetTxSens(0)->At(idx)*GetTxSens(0)->At(idx);
+            variance_epsr_->At(idx) = (std::real(variance_c->At(idx)) * std::real(tx_sens_c(idx))*std::real(tx_sens_c(idx)) + std::imag(variance_c->At(idx)) * std::imag(tx_sens_c(idx))*std::imag(tx_sens_c(idx))) / (EPS0*EPS0 * coeff*coeff);
+            variance_sigma_->At(idx) = (std::real(variance_c->At(idx)) * std::imag(tx_sens_c(idx))*std::imag(tx_sens_c(idx)) + std::imag(variance_c->At(idx)) * std::real(tx_sens_c(idx))*std::real(tx_sens_c(idx))) * omega_*omega_ / (coeff*coeff);
         }
     }
     return;
@@ -139,7 +149,7 @@ MagnitudeEPTHelm() {
     // setup the input
     epsr_->GetData().assign(epsr_->GetNVox(), nand);
     if (ComputeVariance()) {
-        variance_->GetData().assign(epsr_->GetNVox(), nand);
+        variance_epsr_->GetData().assign(epsr_->GetNVox(), nand);
     }
     // compute the laplacian
     if (!ComputeVariance()) {
@@ -150,16 +160,17 @@ MagnitudeEPTHelm() {
         }
     } else {
         if (ThereIsReferenceImage()) {
-            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), variance_.get(), *GetTxSens(0), *reference_image_);
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), variance_epsr_.get(), *GetTxSens(0), *reference_image_);
         } else {
-            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), variance_.get(), *GetTxSens(0));
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, epsr_.get(), variance_epsr_.get(), *GetTxSens(0));
         }
     }
     // extract the output
     for (int idx = 0; idx<epsr_->GetNVox(); ++idx) {
-        epsr_->At(idx) /= -EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+        double coeff = EPS0*MU0*omega_*omega_ * GetTxSens(0)->At(idx);
+        epsr_->At(idx) /= -coeff;
         if (ComputeVariance()) {
-            variance_->At(idx) /= EPS0*EPS0 * MU0*MU0 * omega_*omega_*omega_*omega_ * GetTxSens(0)->At(idx)*GetTxSens(0)->At(idx);
+            variance_epsr_->At(idx) /= coeff*coeff;
         }
     }
     return;
@@ -171,7 +182,7 @@ PhaseEPTHelm() {
     // setup the input
     sigma_->GetData().assign(sigma_->GetNVox(), nand);
     if(ComputeVariance()) {
-        variance_->GetData().assign(sigma_->GetNVox(), nand);
+        variance_sigma_->GetData().assign(sigma_->GetNVox(), nand);
     }
     // compute the laplacian
     if (PhaseIsWrapped() && !ComputeVariance()) {
@@ -188,16 +199,17 @@ PhaseEPTHelm() {
         }
     } else {
         if (ThereIsReferenceImage()) {
-            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0), *reference_image_);
+            std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_sigma_.get(), *GetTRxPhase(0,0), *reference_image_);
         } else {
-            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_.get(), *GetTRxPhase(0,0));
+            std::get<filter::SavitzkyGolay>(sg_filter_).Apply(DifferentialOperator::Laplacian, sigma_.get(), variance_sigma_.get(), *GetTRxPhase(0,0));
         }
     }
     // extract the output
     for (int idx = 0; idx<sigma_->GetNVox(); ++idx) {
-        sigma_->At(idx) /= 2.0*MU0*omega_;
+        double coeff = 2.0*MU0*omega_;
+        sigma_->At(idx) /= coeff;
         if (ComputeVariance()) {
-            variance_->At(idx) /= 2.0*2.0 * MU0*MU0 * omega_*omega_;
+            variance_sigma_->At(idx) /= coeff*coeff;
         }
     }
     return;

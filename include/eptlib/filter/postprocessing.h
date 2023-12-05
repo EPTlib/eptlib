@@ -70,7 +70,7 @@ namespace filter {
      * @brief Filter the elements of a three-dimensional window based on an uncertainty index.
      * 
      * @param src_crop data values to which apply the filter.
-     * @param uncertainty_crop uncertainty values associated to each data value.
+     * @param uncertainty_crop squared uncertainty values associated to each data value.
      * 
      * @return the filtered value.
      */
@@ -82,7 +82,7 @@ namespace filter {
      * 
      * @param src_crop data values to which apply the filter.
      * @param supporting_crop supporting values for selecting the data values (reference and
-     *     uncertainty values).
+     *     squared uncertainty values).
      * @param weight_param parameter of the thresholding function (default: 0.10).
      * 
      * @return the filtered value.
@@ -97,7 +97,7 @@ namespace filter {
      * @param window mask over which apply the filter.
      * @param reference_image optional reference image used for an improved filter (default:
      *     `nullptr').
-     * @param uncertainty optional uncertainty image used for an improved filter (default:
+     * @param uncertainty optional squared uncertainty image used for an improved filter (default:
      *     `nullptr').
      * @param weight_param parameter of the thresholding function, used only in combination with
      *     `reference_image' (default: 0.10).

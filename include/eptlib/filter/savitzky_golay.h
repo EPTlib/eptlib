@@ -271,7 +271,7 @@ namespace filter {
              * @return the variance with which the differential operator is estimated.
              */
             template <typename Scalar>
-            inline double ComputeVariance(const DifferentialOperator differential_operator, const std::vector<Scalar> &crop) const {
+            inline Scalar ComputeVariance(const DifferentialOperator differential_operator, const std::vector<Scalar> &crop) const {
                 const size_t n_row = residuals_.GetNRow();
                 const size_t n_col = residuals_.GetNCol();
                 std::vector<Scalar> residual(n_row, 0.0);
@@ -280,7 +280,18 @@ namespace filter {
                         residual[row] += residuals_(row, col) * crop[col];
                     }
                 }
-                double norm = eptlib::linalg::Norm2(residual.begin(), residual.end());
+                Scalar norm;
+                if constexpr (std::is_same_v<Scalar, std::complex<double> >) {
+                    std::vector<double> residual_r(n_row);
+                    std::vector<double> residual_i(n_row);
+                    std::transform(residual.begin(), residual.end(), residual_r.begin(), [](Scalar x) -> double { return std::real(x); });
+                    std::transform(residual.begin(), residual.end(), residual_i.begin(), [](Scalar x) -> double { return std::imag(x); });
+                    double norm_r = eptlib::linalg::Norm2(residual_r.begin(), residual_r.end());
+                    double norm_i = eptlib::linalg::Norm2(residual_i.begin(), residual_i.end());
+                    norm = Scalar(norm_r, norm_i);
+                } else {
+                    norm = eptlib::linalg::Norm2(residual.begin(), residual.end());
+                }
                 return variance_coefficients_[static_cast<size_t>(differential_operator)] * norm * norm;
             }
 
@@ -316,11 +327,11 @@ namespace filter {
              */
             template <typename Scalar>
             EPTlibError Apply(const DifferentialOperator differential_operator, Image<Scalar> *dst,
-                Image<double> *variance, const Image<Scalar> &src) const {
-                auto filter = [&](const std::vector<Scalar> &crop) -> std::tuple<Scalar, double> {
+                Image<Scalar> *variance, const Image<Scalar> &src) const {
+                auto filter = [&](const std::vector<Scalar> &crop) -> std::tuple<Scalar, Scalar> {
                     auto compute_derivative = this->GetFilter<Scalar>(differential_operator);
                     Scalar derivative = compute_derivative(crop);
-                    double variance = this->ComputeVariance(differential_operator, crop);
+                    Scalar variance = this->ComputeVariance(differential_operator, crop);
                     return {derivative, variance};
                 };
                 return MovingWindow(dst, src, window_, filter, variance);

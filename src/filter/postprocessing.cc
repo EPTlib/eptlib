@@ -149,21 +149,21 @@ eptlib::EPTlibError eptlib::filter::Postprocessing(eptlib::Image<double> *dst, c
         auto filter = [&] (const std::vector<double> &src_crop, const std::vector<double> &ref_img_crop) -> double {
             return eptlib::filter::AnatomicalMedianFilter(src_crop, ref_img_crop, weight_param);
         };
-        return eptlib::filter::MovingWindow(dst, src, window, filter, nullptr, {reference_image});
+        return eptlib::filter::MovingWindow<double>(dst, src, window, filter, nullptr, {reference_image});
     }
     // only uncertainty available
     if (!reference_image && uncertainty) {
         auto filter = [&] (const std::vector<double> &src_crop, const std::vector<double> &uncertainty_crop) -> double {
             return eptlib::filter::AnatomicalMedianFilter(src_crop, uncertainty_crop);
         };
-        return eptlib::filter::MovingWindow(dst, src, window, filter, nullptr, {uncertainty});
+        return eptlib::filter::MovingWindow<double>(dst, src, window, filter, nullptr, {uncertainty});
     }
     // both additional information available
     if (reference_image && uncertainty) {
         auto filter = [&] (const std::vector<double> &src_crop, const std::vector<double> &supporting_crop) -> double {
             return eptlib::filter::AnatomicalUncertainFilter(src_crop, supporting_crop, weight_param);
         };
-        return eptlib::filter::MovingWindow(dst, src, window, filter, nullptr, {reference_image, uncertainty});
+        return eptlib::filter::MovingWindow<double>(dst, src, window, filter, nullptr, {reference_image, uncertainty});
     }
     return EPTlibError::Unknown;
 }

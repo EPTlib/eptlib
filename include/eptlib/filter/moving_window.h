@@ -78,10 +78,10 @@ namespace filter {
      */
     template <typename Scalar, typename Filter>
     EPTlibError MovingWindow(Image<Scalar> *dst, const Image<Scalar> &src, const Shape &window, const Filter &filter,
-        Image<double> *variance = nullptr,
+        Image<Scalar> *variance = nullptr,
         const std::initializer_list<const Image<double> *> supporting_images = {}) {
         // define compile-time variables about the Filter function
-        constexpr bool filter_with_variance = std::is_same_v<FunctionReturnType<Filter>, std::tuple<Scalar, double> >;
+        constexpr bool filter_with_variance = std::is_same_v<FunctionReturnType<Filter>, std::tuple<Scalar, Scalar> >;
         constexpr bool filter_with_supporting_images  = std::is_invocable_v<Filter, const std::vector<Scalar>&, const std::vector<double>&>;
         if ((filter_with_variance && !variance) || (filter_with_supporting_images && supporting_images.size()==0)) {
             return EPTlibError::WrongDataFormat;
@@ -146,7 +146,7 @@ namespace filter {
             //   the filter application is obtained in two steps
             //   1) the reference to where to write the result is initialised by assigning an rvalue to output
             //   2) the result is written by assigning an lvalue to output
-            using output_t = std::conditional_t<filter_with_variance, std::tuple<Scalar&,double&>, Scalar&>;
+            using output_t = std::conditional_t<filter_with_variance, std::tuple<Scalar&,Scalar&>, Scalar&>;
             output_t output = ConstexprIf<filter_with_variance>(std::tie(dst->At(i0,i1,i2),variance->At(i0,i1,i2)), std::ref(dst->At(i0,i1,i2)));
             if constexpr (filter_with_supporting_images) {
                 output = std::invoke(filter, src_crop, supporting_images_crop);

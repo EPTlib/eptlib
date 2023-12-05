@@ -36,6 +36,7 @@
 #include "eptlib/linalg/matrix.h"
 #include "eptlib/linalg/vector.h"
 
+#include <algorithm>
 #include <numeric>
 #include <tuple>
 
@@ -119,10 +120,12 @@ namespace linalg {
      * 
      * @return a std::tuple with:
      *     1) a vector solving the linear system in the least square sense;
-     *     2) the Euclidean norm of the residual.
+     *     2) the Euclidean norm of the residual. If `b` is a complex-valued vector, the
+     *     norms of the real and imaginary parts of the residual are stored as the real
+     *     and the imaginary parts of a complex number.
      */
     template <typename Scalar>
-    std::tuple<std::vector<Scalar>, double> QRSolve(const Matrix<double> &QR, std::vector<Scalar> b) {
+    std::tuple<std::vector<Scalar>, Scalar> QRSolve(const Matrix<double> &QR, std::vector<Scalar> b) {
         const size_t n_row = b.size();
         const size_t n_col = QR.GetNCol();
         const size_t rank = QRGetRank(QR);
@@ -143,7 +146,18 @@ namespace linalg {
         // add to x the free parameters as zeros
         x.resize(n_col, 0.0);
         // compute the residual
-        double chi = Norm2(b.begin()+rank, b.end());
+        Scalar chi;
+        if constexpr (std::is_same_v<Scalar, std::complex<double> >) {
+            std::vector<double> b_r(n_row - rank);
+            std::vector<double> b_i(n_row - rank);
+            std::transform(b.begin()+rank, b.end(), b_r.begin(), [](Scalar x) -> double { return std::real(x); });
+            std::transform(b.begin()+rank, b.end(), b_i.begin(), [](Scalar x) -> double { return std::imag(x); });
+            double chi_r = Norm2(b_r.begin(), b_r.end());
+            double chi_i = Norm2(b_i.begin(), b_i.end());
+            chi = Scalar(chi_r, chi_i);
+        } else {
+            chi = Norm2(b.begin()+rank, b.end());
+        }
         return {x, chi};
     }
 
