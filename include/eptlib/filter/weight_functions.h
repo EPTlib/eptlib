@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,36 +30,39 @@
 *
 *****************************************************************************/
 
-#include "eptlib/linalg/linalg_householder.h"
+#ifndef EPTLIB_FILTER_WEIGHTS_H_
+#define EPTLIB_FILTER_WEIGHTS_H_
 
-#include <cmath>
-#include <complex>
-#include <limits>
+#include <algorithm>
+#include <functional>
+#include <vector>
 
-#include "eptlib/linalg/linalg_util.h"
+namespace eptlib {
 
-using namespace eptlib;
-using namespace eptlib::linalg;
+namespace filter {
 
-// Compute the elementary reflector
-void eptlib::linalg::HouseholderReflector(double *x,const size_t n) {
-    double sigma = std::copysign(Norm2(x,n),x[0]);
-    // sum avoiding loss of significance
-    x[0] += sigma;
-    // store the factor pi
-    x[n] = sigma*x[0];
-    return;
-}
+    /**
+     * @brief Evaluate the hard threshold function.
+     * 
+     * @param x Abscissa at which the hard threshold function is evaluated.
+     * @param threshold Threshold parameter.
+     * 
+     * @return Evaluated hard threshold function.
+     */
+    double HardThreshold(const double x, const double threshold);
 
-// Compute the product of the elementary reflector with a vector
-template <typename NumType>
-void eptlib::linalg::HouseholderLeft(NumType *x,const double *u,const size_t n) {
-    NumType tau = Dot(x,u,n)/u[n];
-    for (int i = 0; i<n; ++i) {
-        x[i] -= tau*u[i];
-    }
-    return;
-}
+    /**
+     * @brief Evaluate the Gaussian function
+     * 
+     * @param x Abscissa at which the Gaussian function is evaluated.
+     * @param sigma Standard deviation of the Gaussian.
+     * 
+     * @return Evaluated Gaussian function.
+     */
+    double Gaussian(const double x, const double sigma);
 
-template void eptlib::linalg::HouseholderLeft<double>(double *x,const double *u,const size_t n);
-template void eptlib::linalg::HouseholderLeft<std::complex<double> >(std::complex<double> *x,const double *u,const size_t n);
+}  // namespace filter
+
+}  // namespace eptlib
+
+#endif  // EPTLIB_FILTER_WEIGHTS_H_

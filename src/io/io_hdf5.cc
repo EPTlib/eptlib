@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -32,113 +32,50 @@
 
 #include "eptlib/io/io_hdf5.h"
 
-#include <algorithm>
-
-using namespace eptlib;
-using namespace eptlib::io;
-
 namespace {
 
-    /**
-     * Provide the uri, given url and urn.
-     * 
-     * @param url url
-     * @param urn urn
-     * 
-     * @return uri
-     */
-    inline std::string URI(const std::string &url, const std::string &urn) {
-        std::string uri("/"+url+"/"+urn);
-        size_t pos = uri.find("//");
-        while (pos != std::string::npos) {
-            uri.replace(pos, 2, "/");
-            pos = uri.find("//");
-        }
-        return uri;
-    }
-
-    /**
-     * Create an hdf5 group, given an url.
-     * 
-     * @param file hdf5 file
-     * @param url url
-     * 
-     * @return hdf5 group
-     */
-    inline H5::Group CreateGroup(const H5::H5File &file, const std::string &url) {
-        size_t depth = 0;
-        size_t snip = url.find_first_of("/", 0) ? 0 : 1;
-        size_t snap = url.find_first_of("/", snip);
-        std::string subpath = url.substr(snip,snap-snip);
-        H5::Group group;
-        while (!subpath.empty()) {
-            try {
-                group = depth ? group.openGroup(subpath) : file.openGroup(subpath);
-            } catch (const H5::Exception&) {
-                group = depth ? group.createGroup(subpath) : file.createGroup(subpath);
-            }
-            snip = ++snap;
-            snap = url.find_first_of("/",snip);
-            subpath = url.substr(snip,snap-snip);
-            depth++;
-        }
-        return group;
-    }
-
     // HDF5 types traits
-    template <typename T>
-    struct HDF5Types;
+    template <typename T> struct HDF5Types;
     // traits specialisations
-    template <>
-    struct HDF5Types<size_t> {
-        static const H5::DataType Type() {
-            return H5::PredType::NATIVE_ULONG;
-        }
-    };
-    template<>
-    struct HDF5Types<double> {
-        static const H5::DataType Type() {
-            return H5::PredType::NATIVE_DOUBLE;
-        }
-    };
-    template<>
-    struct HDF5Types<float> {
+    template <> struct HDF5Types<float> {
         static const H5::DataType Type() {
             return H5::PredType::NATIVE_FLOAT;
         }
     };
-    template<>
-    struct HDF5Types<int> {
+    template <> struct HDF5Types<double> {
+        static const H5::DataType Type() {
+            return H5::PredType::NATIVE_DOUBLE;
+        }
+    };
+    template <> struct HDF5Types<int> {
         static const H5::DataType Type()  {
             return H5::PredType::NATIVE_INT;
         }
     };
-    template<>
-    struct HDF5Types<long> {
+    template <> struct HDF5Types<long> {
         static const H5::DataType Type() {
             return H5::PredType::NATIVE_LONG;
         }
     };
 
-}  //
+}
 
 // IOh5 constructor
-IOh5::
-IOh5(const std::string &fname, const Mode mode) :
-    fname_(fname), mode_(mode) {
+eptlib::io::IOh5::
+IOh5(const std::string &fname, const eptlib::io::Mode mode) {
     H5::Exception::dontPrint();
-    switch (mode_) {
-        case Mode::In:
-            file_ = H5::H5File(fname_, H5F_ACC_RDONLY);
+    switch (mode) {
+        case eptlib::io::Mode::In:
+            file_ = H5::H5File(fname, H5F_ACC_RDONLY);
             break;
-        case Mode::Out:
-            file_ = H5::H5File(fname_, H5F_ACC_TRUNC);
+        case eptlib::io::Mode::Out:
+            file_ = H5::H5File(fname, H5F_ACC_TRUNC);
             break;
-        case Mode::Append:
+        case eptlib::io::Mode::Append:
             try {
-                file_ = H5::H5File(fname_, H5F_ACC_RDWR);
+                file_ = H5::H5File(fname, H5F_ACC_RDWR);
             } catch (const H5::FileIException&) {
-                file_ = H5::H5File(fname_, H5F_ACC_TRUNC);
+                file_ = H5::H5File(fname, H5F_ACC_TRUNC);
             }
             break;
     }
@@ -146,28 +83,85 @@ IOh5(const std::string &fname, const Mode mode) :
 }
 
 // IOh5 destructor
-IOh5::
+eptlib::io::IOh5::
 ~IOh5() {
     file_.close();
     return;
 }
 
-// IOh5 read dataset
+// IOh5 get the address of the file
+std::string eptlib::io::IOh5::
+IOh5::GetFileName() const {
+    return file_.getFileName();
+}
+
+// IOh5 get the size of the file in byte
+size_t eptlib::io::IOh5::
+IOh5::GetFileSize() const {
+    return file_.getFileSize();
+}
+
+// IOh5 get a description of the file with address and size
+std::string eptlib::io::IOh5::
+IOh5::GetFileDescription() const {
+    std::string fname = this->GetFileName();
+    size_t fsize = this->GetFileSize();
+    return fname+" ["+BytesWithSuffix(fsize)+"]";
+}
+
+// IOh5 provide the uri, given url and urn
+std::string eptlib::io::IOh5::
+URI(const std::string &url, const std::string &urn) const {
+    std::string uri("/"+url+"/"+urn);
+    size_t pos = uri.find("//");
+    while (pos != std::string::npos) {
+        uri.replace(pos, 2, "/");
+        pos = uri.find("//");
+    }
+    return uri;
+}
+
+// IOh5 create an hdf5 group, given an url
+H5::Group eptlib::io::IOh5::
+CreateGroup(const std::string &url) const {
+    size_t depth = 0;
+    size_t snip = url.find_first_of("/", 0) ? 0 : 1;
+    size_t snap = url.find_first_of("/", snip);
+    std::string subpath = url.substr(snip,snap-snip);
+    H5::Group group;
+    while (!subpath.empty()) {
+        try {
+            group = depth ? group.openGroup(subpath) : file_.openGroup(subpath);
+        } catch (const H5::Exception&) {
+            group = depth ? group.createGroup(subpath) : file_.createGroup(subpath);
+        }
+        snip = ++snap;
+        snap = url.find_first_of("/",snip);
+        subpath = url.substr(snip,snap-snip);
+        depth++;
+    }
+    return group;
+}
+
+//IOh5 read a dataset from the .h5 file
 template <typename T>
-State IOh5::
-ReadDataset(Image<T> *img, const std::string &url, const std::string &urn) {
+eptlib::io::State eptlib::io::IOh5::
+ReadDataset(eptlib::Image<T> *img, const std::string &url, const std::string &urn) const {
     H5::Exception::dontPrint();
     try {
         // locate the dataset
         H5::DataSet dset = file_.openDataSet(URI(url,urn));
         H5::DataSpace dspace = dset.getSpace();
-        // read the data
-        std::vector<hsize_t> dims(dspace.getSimpleExtentNdims());
-        size_t ndim = dspace.getSimpleExtentDims(dims.data(),NULL);
-        std::vector<int> nn(dims.size());
-        std::reverse_copy(dims.begin(),dims.end(),nn.begin());
-        *img = Image<T>(nn);
-        dset.read(img->GetData().data(),::HDF5Types<T>::Type());
+        // read the image size
+        std::array<hsize_t,N_DIM> nn;
+        auto hdim = dspace.getSimpleExtentDims(nn.data());
+        std::reverse(nn.begin(),nn.begin()+hdim);
+        for (auto d=hdim; d<N_DIM; ++d) {
+            nn[d] = 1;
+        }
+        // read the image data
+        *img = Image<T>(nn[0],nn[1],nn[2]);
+        dset.read(img->GetData().data(),HDF5Types<T>::Type());
     } catch (const H5::FileIException&) {
         return State::HDF5FileException;
     } catch (const H5::DataSetIException&) {
@@ -180,10 +174,9 @@ ReadDataset(Image<T> *img, const std::string &url, const std::string &urn) {
     return State::Success;
 }
 
-// IOh5 write dataset
 template <typename T>
-State IOh5::
-WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn) const {
+eptlib::io::State eptlib::io::IOh5::
+WriteDataset(const eptlib::Image<T> &img, const std::string &url, const std::string &urn) const {
     H5::Exception::dontPrint();
     try {
         std::string uri = URI(url,urn);
@@ -195,14 +188,13 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
         try {
             group = file_.openGroup(group_names);
         } catch (const H5::Exception&) {
-            group = CreateGroup(file_,group_names);
+            group = CreateGroup(group_names);
         }
         // create the dataset
-        int n_dim = img.GetNDim();
-        std::vector<hsize_t> dims(n_dim);
-        std::reverse_copy(img.GetSize().begin(),img.GetSize().end(),dims.begin());
-        H5::DataSpace dspace(n_dim,dims.data());
-        H5::DataType dtype(::HDF5Types<T>::Type());
+        std::array<hsize_t,N_DIM> dims(img.GetSize());
+        std::reverse(dims.begin(),dims.end());
+        H5::DataSpace dspace(N_DIM,dims.data());
+        H5::DataType dtype(HDF5Types<T>::Type());
         H5::DataSet dset;
         try {
             dset = group.createDataSet(dataset_name,dtype,dspace);
@@ -225,16 +217,12 @@ WriteDataset(const Image<T> &img, const std::string &url, const std::string &urn
     return State::Success;
 }
 
-// Template specialisations
-// ReadDataset
-template State IOh5::ReadDataset<size_t>(Image<size_t> *img, const std::string &url, const std::string &urn);
-template State IOh5::ReadDataset<float>(Image<float> *img, const std::string &url, const std::string &urn);
-template State IOh5::ReadDataset<double>(Image<double> *img, const std::string &url, const std::string &urn);
-template State IOh5::ReadDataset<int>(Image<int> *img, const std::string &url, const std::string &urn);
-template State IOh5::ReadDataset<long>(Image<long> *img, const std::string &url, const std::string &urn);
-// WriteDataset
-template State IOh5::WriteDataset<size_t>(const Image<size_t> &img, const std::string &url, const std::string &urn) const;
-template State IOh5::WriteDataset<float>(const Image<float> &img, const std::string &url, const std::string &urn) const;
-template State IOh5::WriteDataset<double>(const Image<double> &img, const std::string &url, const std::string &urn) const;
-template State IOh5::WriteDataset<int>(const Image<int> &img, const std::string &url, const std::string &urn) const;
-template State IOh5::WriteDataset<long>(const Image<long> &img, const std::string &url, const std::string &urn) const;
+template eptlib::io::State eptlib::io::IOh5::ReadDataset(Image<float>*,const std::string&,const std::string&) const;
+template eptlib::io::State eptlib::io::IOh5::ReadDataset(Image<double>*,const std::string&,const std::string&) const;
+template eptlib::io::State eptlib::io::IOh5::ReadDataset(Image<int>*,const std::string&,const std::string&) const;
+template eptlib::io::State eptlib::io::IOh5::ReadDataset(Image<long>*,const std::string&,const std::string&) const;
+
+template eptlib::io::State eptlib::io::IOh5::WriteDataset(const Image<float>&,const std::string&,const std::string&) const;
+template eptlib::io::State eptlib::io::IOh5::WriteDataset(const Image<double>&,const std::string&,const std::string&) const;
+template eptlib::io::State eptlib::io::IOh5::WriteDataset(const Image<int>&,const std::string&,const std::string&) const;
+template eptlib::io::State eptlib::io::IOh5::WriteDataset(const Image<long>&,const std::string&,const std::string&) const;

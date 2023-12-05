@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,4 +30,32 @@
 *
 *****************************************************************************/
 
-#include "eptlib/util.h"
+#ifndef EPTLIB_DIFFERENTIAL_OPERATOR_H_
+#define EPTLIB_DIFFERENTIAL_OPERATOR_H_
+
+namespace eptlib {
+
+    enum class DifferentialOperator {
+        /// Zero order derivative (field approximation)
+        Field,
+        /// First order derivative along X
+        GradientX,
+        /// First order derivative along Y
+        GradientY,
+        /// First order derivative along Z
+        GradientZ,
+        /// Second order derivative along X
+        GradientXX,
+        /// Second order derivative along Y
+        GradientYY,
+        /// Second order derivative along Z
+        GradientZZ,
+        /// Laplacian
+        Laplacian,
+        /// Fictitious label to denote the end of differential operators
+        END,
+    };
+
+}  // namespace eptlib
+
+#endif  // EPTLIB_DIFFERENTIAL_OPERATOR_H_

@@ -5,7 +5,7 @@
 #
 #  MIT License
 #
-#  Copyright (c) 2020-2022  Alessandro Arduino
+#  Copyright (c) 2020-2023  Alessandro Arduino
 #  Istituto Nazionale di Ricerca Metrologica (INRiM)
 #  Strada delle cacce 91, 10135 Torino
 #  ITALY
@@ -42,5 +42,9 @@ configure_file(${PROJECT_SOURCE_DIR}/app/eptlib_main.h.in
 
 target_include_directories(${EPTLIB_APP_NAME}
     PRIVATE ${PROJECT_BINARY_DIR}/app)
+
+if(OpenMP_FOUND)
+    target_link_libraries(${EPTLIB_APP_NAME} PRIVATE OpenMP::OpenMP_CXX)
+endif()
     
 target_link_libraries(${EPTLIB_APP_NAME} PRIVATE EPTlib)

@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,48 +30,19 @@
 *
 *****************************************************************************/
 
-#ifndef EPTLIB_MEDIAN_FILTER_H_
-#define EPTLIB_MEDIAN_FILTER_H_
+#include "eptlib/filter/weight_functions.h"
 
-#include <vector>
+#include <cmath>
 
-#include "eptlib/shape.h"
-#include "eptlib/util.h"
+double eptlib::filter::
+HardThreshold(const double x, const double threshold) {
+    if (x > threshold) {
+        return 0.0;
+    }
+    return 1.0;
+}
 
-namespace eptlib {
-
-/**
- * Class for the application of median filters.
- */
-class MedianFilter {
-    public:
-        /**
-         * Constructor.
-         * 
-         * @param shape mask over which apply the median filter.
-         */
-        MedianFilter(const Shape &shape);
-
-        /**
-         * Apply the median filter to an input field.
-         * 
-         * @param[out] dst pointer to the output destination.
-         * @param[in] src pointer to the input source.
-         * @param[in] nn number of voxels in each direction.
-         * @param[in] img pointer to the reference image. If it is not
-         *     nullptr, then it is used as a reference.
-         * 
-         * @return a Success or Unknown error.
-         */
-        EPTlibError ApplyFilter(double *dst, const double *src,
-            const std::array<int,NDIM> &nn, const double *img = nullptr);
-    private:
-        /// Shape of the kernel for median filter application.
-        Shape shape_;
-        /// Number of voxels in the shape.
-        int m_vol_;
-};
-
-}  // namespace eptlib
-
-#endif  // EPTLIB_MEDIAN_FILTER_H_
+double eptlib::filter::
+Gaussian(const double x, const double sigma) {
+    return std::exp(-x*x/2.0/sigma/sigma);
+}

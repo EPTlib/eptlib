@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -33,7 +33,7 @@
 #ifndef IO_UTIL_H_
 #define IO_UTIL_H_
 
-#include "eptlib/util.h"
+#include <string>
 
 namespace eptlib {
 
@@ -72,23 +72,6 @@ namespace io {
      * @param state is a State symbol.
      * @return the human-readable description of the IO state.
      */
-    const std::string ToString(const State state);
-
-    /**
-     * Deduce the filename and the uri from a given address.
-     * 
-     * @param address complete address of filename and uri separated by the
-     *      character ':'.
-     * @param fname address of the file within the complete address.
-     * @param uri address of the element within the complete address.
-     */
-    void GetAddress(const std::string &address, std::string &fname, std::string &uri);
-    
-    // ---------------------------------------------------------------------------
-    // -------------------------  Implementation detail  -------------------------
-    // ---------------------------------------------------------------------------
-
-    // Translates in a human-readable string the input IO state
     inline const std::string ToString(const State state) {
         switch (state) {
             case State::Success:
@@ -103,17 +86,25 @@ namespace io {
                 return "IO Error: HDF5, datatype exception";
         }
         return "";
-    }
+    };
 
-    // Read filename and uri from the address
-    inline void GetAddress(const std::string &address, std::string &fname, std::string &uri) {
-        size_t snip = 0;
-        size_t snap = address.find_last_of(":");
-        fname = address.substr(snip,snap);
-        snip = ++snap;
-        uri = address.substr(snip);
-        return;
-    }
+    /**
+     * Deduce the filename and the uri from a given address.
+     * 
+     * @param[in] address complete address of filename and uri separated by the
+     *      character ':'.
+     * @param[out] fname address of the file within the complete address.
+     * @param[out] uri address of the element within the complete address.
+     */
+    void GetAddress(const std::string &address, std::string &fname, std::string &uri);
+
+    /**
+     * @brief Express the size in bytes using suffix for multiples of 1024.
+     * 
+     * @param size the size in bytes to be written.
+     * @return A string with the size in bytes expressed using suffix for multiples of 1024.
+     */
+    std::string BytesWithSuffix(size_t size);
 
 }  // io
 

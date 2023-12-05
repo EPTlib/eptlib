@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -32,183 +32,98 @@
 
 #include "eptlib/shape.h"
 
-#include <iostream>
-
 #include <utility>
 
-using namespace eptlib;
-
 // Shape default constructor
-Shape::
+eptlib::Shape::
 Shape() :
-    nn_(), n_vox_(0), shape_(0), is_symmetric_(false) {
+    Shape(0,0,0) {
     return;
 }
 
 // Shape constructor
-Shape::
-Shape(const std::array<int,NDIM> &nn) :
-    nn_(nn),
-    n_vox_(std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>())),
-    shape_(n_vox_,false), is_symmetric_(false) {
+eptlib::Shape::
+Shape(const size_t n0, const size_t n1, const size_t n2) :
+    data_(n0*n1*n2) {
+    nn_[0] = n0;
+    nn_[1] = n1;
+    nn_[2] = n2;
     return;
 }
 
-// Shape getters
-const std::array<int,NDIM>& Shape::
-GetSize() const {
-    return nn_;
-}
-boost::dynamic_bitset<>& Shape::
-GetShape() {
-    return shape_;
-}
-const boost::dynamic_bitset<>& Shape::
-GetShape() const {
-    return shape_;
-}
-int Shape::
-GetVolume() const {
-    return static_cast<int>(shape_.count());
-}
-int Shape::
-GetBoxVolume() const {
-    return n_vox_;
-}
-bool Shape::
-IsSymmetric() const {
-    return is_symmetric_;
-}
-
-// Shape operator[] overload
-boost::dynamic_bitset<>::reference Shape::
-operator[](const std::array<int,NDIM> &ii) {
-    int idx = ii[0] + nn_[0]*(ii[1] + nn_[1]*ii[2]);
-    return shape_[idx];
-}
-boost::dynamic_bitset<>::reference Shape::
-operator[](const int &idx) {
-    return shape_[idx];
-}
-// Shape operator[] const overload
-bool Shape::
-operator[](const std::array<int,NDIM> &ii) const {
-    int idx = ii[0] + nn_[0]*(ii[1] + nn_[1]*ii[2]);
-    return shape_[idx];
-}
-bool Shape::
-operator[](const int &idx) const {
-    return shape_[idx];
+eptlib::Shape::
+~Shape() {
+    return;
 }
 
 // Shape operator+,-,& overload
-Shape& Shape::
-operator+=(const Shape &rhs) {
-    shape_ |= rhs.shape_;
-    if (!(is_symmetric_&&rhs.is_symmetric_)) {
-        CheckSymmetry();
-    }
-    return *this;
-}
-Shape& Shape::
-operator-=(const Shape &rhs) {
-    shape_ -= rhs.shape_;
-    if (!(is_symmetric_&&rhs.is_symmetric_)) {
-        CheckSymmetry();
-    }
-    return *this;
-}
-Shape& Shape::
-operator&=(const Shape &rhs) {
-    shape_ &= rhs.shape_;
-    if (!(is_symmetric_&&rhs.is_symmetric_)) {
-        CheckSymmetry();
-    }
+eptlib::Shape& eptlib::Shape::
+operator+=(const eptlib::Shape &rhs) {
+    this->data_ |= rhs.data_;
     return *this;
 }
 
-// Shape check symmetry
-bool Shape::
-CheckSymmetry() {
-    std::array<int,NDIM> ii;
-    std::array<int,NDIM> jj;
-    std::array<int,NDIM> mm;
-    for (int d = 0; d<NDIM; ++d) {
-        std::copy(nn_.begin(),nn_.end(),mm.begin());
-        mm[d] = mm[d]/2;
-        for (ii[2] = 0; ii[2]<mm[2]; ++ii[2]) {
-            for (ii[1] = 0; ii[1]<mm[1]; ++ii[1]) {
-                for (ii[0] = 0; ii[0]<mm[0]; ++ii[0]) {
-                    std::copy(ii.begin(),ii.end(),jj.begin());
-                    jj[d] = nn_[d]-1-ii[d];
-                    if ((*this)[ii]!=(*this)[jj]) {
-                        is_symmetric_ = false;
-                        return is_symmetric_;
-                    }
-                }
-            }
-        }
-    }
-    is_symmetric_ = true;
-    return is_symmetric_;
+eptlib::Shape& eptlib::Shape::
+operator-=(const eptlib::Shape &rhs) {
+    this->data_ -= rhs.data_;
+    return *this;
+}
+
+eptlib::Shape& eptlib::Shape::
+operator&=(const eptlib::Shape &rhs) {
+    this->data_ &= rhs.data_;
+    return *this;
 }
 
 // Shape padding
-void Shape::
-Pad(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r) {
-    // initialise the new shape
-    std::array<int,NDIM> xnn;
-    for (int d = 0; d<NDIM; ++d) {
-        xnn[d] = nn_[d]+l[d]+r[d];
-    }
-    int xn_vox = std::accumulate(xnn.begin(),xnn.end(),1,std::multiplies<int>());
-    boost::dynamic_bitset<> xshape(xn_vox,false);
-    // fill the new shape
-    for (int i2 = 0; i2<nn_[2]; ++i2) {
-        for (int i1 = 0; i1<nn_[1]; ++i1) {
-            for (int i0 = 0; i0<nn_[0]; ++i0) {
-                int idx = i0 + nn_[0]*(i1 + nn_[1]*i2);
-                int xidx = i0+l[0] + xnn[0]*(i1+l[1] + xnn[1]*(i2+l[2]));
-                xshape[xidx] = shape_[idx];
+void eptlib::Shape::
+Pad(const size_t left0, const size_t left1, const size_t left2,
+    const size_t right0, const size_t right1, const size_t right2) {
+    std::array<size_t,N_DIM> nn_old = nn_;
+    boost::dynamic_bitset<> data_old = data_;
+    // update shape size
+    nn_[0] += left0+right0;
+    nn_[1] += left1+right1;
+    nn_[2] += left2+right2;
+    // update shape data
+    data_.resize(nn_[0]*nn_[1]*nn_[2]);
+    data_.reset();
+    for (size_t i2 = 0; i2<nn_old[2]; ++i2) {
+        for (size_t i1 = 0; i1<nn_old[1]; ++i1) {
+            for (size_t i0 = 0; i0<nn_old[0]; ++i0) {
+                size_t idx = IJKToIdx(i0+left0,i1+left1,i2+left2, nn_[0],nn_[1]);
+                size_t idx_old = IJKToIdx(i0,i1,i2, nn_old[0],nn_old[1]);
+                data_[idx] = data_old[idx_old];
             }
         }
     }
-    // update the attributes
-    nn_ = xnn;
-    n_vox_ = xn_vox;
-    shape_ = std::move(xshape);
-    CheckSymmetry();
     return;
 }
 
 // Shape shrinking
-void Shape::
-Shrink(const std::array<int,NDIM> &l, const std::array<int,NDIM> &r) {
-    // initialise the new shape
-    std::array<int,NDIM> xnn;
-    for (int d = 0; d<NDIM; ++d) {
-        xnn[d] = nn_[d]-l[d]-r[d];
-    }
-    int xn_vox = std::accumulate(xnn.begin(),xnn.end(),1,std::multiplies<int>());
-    boost::dynamic_bitset<> xshape(xn_vox,false);
-    // fill the new shape
-    for (int xi2 = 0; xi2<xnn[2]; ++xi2) {
-        for (int xi1 = 0; xi1<xnn[1]; ++xi1) {
-            for (int xi0 = 0; xi0<xnn[0]; ++xi0) {
-                int idx = xi0+l[0] + nn_[0]*(xi1+l[1] + nn_[1]*(xi2+l[2]));
-                int xidx = xi0 + xnn[0]*(xi1 + xnn[1]*xi2);
-                xshape[xidx] = shape_[idx];
+void eptlib::Shape::
+Shrink(const size_t left0, const size_t left1, const size_t left2,
+    const size_t right0, const size_t right1, const size_t right2) {
+    std::array<size_t,N_DIM> nn_old = nn_;
+    boost::dynamic_bitset<> data_old = data_;
+    // update shape size
+    nn_[0] -= left0+right0;
+    nn_[1] -= left1+right1;
+    nn_[2] -= left2+right2;
+    // update shape data
+    data_.resize(nn_[0]*nn_[1]*nn_[2]);
+    data_.reset();
+    for (size_t i2 = 0; i2<nn_[2]; ++i2) {
+        for (size_t i1 = 0; i1<nn_[1]; ++i1) {
+            for (size_t i0 = 0; i0<nn_[0]; ++i0) {
+                size_t idx = IJKToIdx(i0,i1,i2, nn_[0],nn_[1]);
+                size_t idx_old = IJKToIdx(i0+left0,i1+left1,i2+left2, nn_old[0],nn_old[1]);
+                data_[idx] = data_old[idx_old];
             }
         }
     }
-    // update the attributes
-    nn_ = xnn;
-    n_vox_ = xn_vox;
-    shape_ = std::move(xshape);
-    CheckSymmetry();
     return;
 }
-
 
 // Collection of shapes
 namespace eptlib {
@@ -216,79 +131,61 @@ namespace eptlib {
 namespace shapes {
 
     // Cuboid
-    Shape Cuboid(const std::array<int,NDIM> &nn) {
-        Shape cuboid(nn);
-        cuboid.GetShape().set();
-        cuboid.CheckSymmetry();
+    Shape Cuboid(const size_t n0, const size_t n1, const size_t n2) {
+        Shape cuboid(n0,n1,n2);
+        cuboid.GetData().set();
         return cuboid;
     }
 
     // CuboidR
-    Shape CuboidR(const std::array<int,NDIM> &rr) {
-        std::array<int,NDIM> nn;
-        for (int d = 0; d<NDIM; ++d) {
-            nn[d] = 2*rr[d]+1;
-        }
-        Shape cuboid(nn);
-        cuboid.GetShape().set();
-        cuboid.CheckSymmetry();
+    Shape CuboidR(const size_t r0, const size_t r1, const size_t r2) {
+        Shape cuboid(2*r0+1,2*r1+1,2*r2+1);
+        cuboid.GetData().set();
         return cuboid;
     }
 
     // Ellipsoid
-    Shape Ellipsoid(const std::array<int,NDIM> &rr) {
-        // compute the dimension of the fitting grid
-        std::array<int,NDIM> nn;
-        for (int d = 0; d<NDIM; ++d) {
-            nn[d] = 2*rr[d]+1;
-        }
-        // create the ellipsoid
-        Shape ellipsoid(nn);
-        std::array<int,NDIM> xx;
+    Shape Ellipsoid(const size_t r0, const size_t r1, const size_t r2) {
+        size_t n0 = r0*2+1;
+        size_t n1 = r1*2+1;
+        size_t n2 = r2*2+1;
+        Shape ellipsoid(n0,n1,n2);
         int idx = 0;
-        for (xx[2] = -rr[2]; xx[2]<=rr[2]; ++xx[2]) {
-            for (xx[1] = -rr[1]; xx[1]<=rr[1]; ++xx[1]) {
-                for (xx[0] = -rr[0]; xx[0]<=rr[0]; ++xx[0]) {
+        for (size_t i2 = 0; i2<n2; ++i2) {
+            for (size_t i1 = 0; i1<n1; ++i1) {
+                for (size_t i0 = 0; i0<n0; ++i0) {
+                    double x0 = static_cast<double>(i0)-r0;
+                    double x1 = static_cast<double>(i1)-r1;
+                    double x2 = static_cast<double>(i2)-r2;
                     double rho = 0.0;
-                    for (int d = 0; d<NDIM; ++d) {
-                        if (rr[d]>0) {
-                            rho += static_cast<double>(xx[d])*xx[d]/rr[d]/rr[d];
-                        }
-                    }
+                    rho += r0>0 ? x0*x0/r0/r0 : 0.0;
+                    rho += r1>0 ? x1*x1/r1/r1 : 0.0;
+                    rho += r2>0 ? x2*x2/r2/r2 : 0.0;
                     if (rho<=1.0) {
-                        ellipsoid.GetShape().set(idx);
+                        ellipsoid.GetData().set(idx);
                     }
                     ++idx;
                 }
             }
         }
-        ellipsoid.CheckSymmetry();
         return ellipsoid;
     }
 
     // Cross
-    Shape Cross(const std::array<int,NDIM> &rr) {
-        // compute the dimension of the fitting grid
-        std::array<int,NDIM> nn;
-        for (int d = 0; d<NDIM; ++d) {
-            nn[d] = 2*rr[d]+1;
+    Shape Cross(const size_t r0, const size_t r1, const size_t r2) {
+        size_t n0 = r0*2+1;
+        size_t n1 = r1*2+1;
+        size_t n2 = r2*2+1;
+        Shape cross(n0,n1,n2);
+        for (size_t i = 0; i<n0; ++i) {
+            cross.GetData().set(IJKToIdx(i,r1,r2, n0,n1));
         }
-        int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
-        int idx0 = n_vox/2;
-        // create the cross
-        Shape cross(nn);
-        for (int d = 0; d<NDIM; ++d) {
-            int step = 1;
-            for (int d2 = 0; d2<d; ++d2) {
-                step *= nn[d2];
-            }
-            int idx = idx0-step*rr[d];
-            for (int i = 0; i<nn[d]; ++i) {
-                cross.GetShape().set(idx);
-                idx += step;
-            }
+        for (size_t j = 0; j<n1; ++j) {
+            cross.GetData().set(IJKToIdx(r0,j,r2, n0,n1));
         }
-        cross.CheckSymmetry();
+        for (size_t k = 0; k<n2; ++k) {
+            cross.GetData().set(IJKToIdx(r0,r1,k, n0,n1));
+        }
         return cross;
     }
 

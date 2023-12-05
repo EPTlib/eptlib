@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -33,8 +33,6 @@
 #ifndef EPTLIB_MAIN_H_
 #define EPTLIB_MAIN_H_
 
-#include <array>
-#include <fstream>
 #include <string>
 
 #define WALL @WALL@
@@ -94,17 +92,16 @@ std::string ToString(const KernelShape kernel_shape) {
     return "";
 }
 
-void StringReplace(std::string &str, const std::string &old_sub,
-    const std::string &new_sub) {
+void StringReplace(std::string *str, const std::string &old_sub, const std::string &new_sub) {
     size_t idx = 0;
     size_t len_old = old_sub.size();
     size_t len_new = new_sub.size();
     while(true) {
-        idx = str.find(old_sub,idx);
+        idx = str->find(old_sub,idx);
         if (idx==std::string::npos){
             break;
         }
-        str.replace(idx,len_old,new_sub);
+        str->replace(idx,len_old,new_sub);
         idx += len_new;
     }
     return;

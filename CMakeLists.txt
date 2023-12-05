@@ -5,7 +5,7 @@
 #
 #  MIT License
 #
-#  Copyright (c) 2020-2022  Alessandro Arduino
+#  Copyright (c) 2020-2023  Alessandro Arduino
 #  Istituto Nazionale di Ricerca Metrologica (INRiM)
 #  Strada delle cacce 91, 10135 Torino
 #  ITALY
@@ -32,7 +32,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(EPTlib VERSION 0.3.3 LANGUAGES C CXX)
+project(EPTlib VERSION 0.4.0 LANGUAGES C CXX)
 
 # Define building options
 option(build_docs "Build documentation (requires doxygen)" ON)
@@ -77,6 +77,14 @@ include_directories("${Boost_INCLUDE_DIRS}")
 # eigen3
 VerboseFindPackage(Eigen3 REQUIRED)
 
+# openmp
+VerboseFindPackage(OpenMP)
+
+# disable fast floating-point operations in Intel compiler
+if(CMAKE_CXX_COMPILER_ID STREQUAL "Intel" OR CMAKE_CXX_COMPILER_ID STREQUAL "IntelLLVM")
+    set (CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -fp:precise")
+endif()
+
 # Enable testing with GoogleTest
 include(GoogleTest)
 VerboseFindPackage(GTest)
@@ -100,19 +108,29 @@ if(build_docs)
     if(DOXYGEN_FOUND)
         # set the source files
         set(DOCS_SRC
+            include/eptlib/differential_operator.h
             include/eptlib/ept_convreact.h
             include/eptlib/ept_gradient.h
+            include/eptlib/ept_helmholtz_chi2.h
             include/eptlib/ept_helmholtz.h
             include/eptlib/ept_interface.h
             include/eptlib/ept_methods.h
-            include/eptlib/finite_difference.h
             include/eptlib/image.h
-            include/eptlib/median_filter.h
             include/eptlib/shape.h
             include/eptlib/util.h
+            include/eptlib/filter/anatomical_savitzky_golay.h
+            include/eptlib/filter/moving_window.h
+            include/eptlib/filter/postprocessing.h
+            include/eptlib/filter/savitzky_golay.h
+            include/eptlib/filter/weight_functions.h
             include/eptlib/io/io_hdf5.h
             include/eptlib/io/io_toml.h
-            include/eptlib/io/io_util.h)
+            include/eptlib/io/io_util.h
+            include/eptlib/linalg/matrix.h
+            include/eptlib/linalg/qr.h
+            include/eptlib/linalg/regression.h
+            include/eptlib/linalg/vector.h
+            include/eptlib/polynomial/fitting.h)
         # set custom doxygen options
         set(DOXYGEN_OUTPUT_DIRECTORY docs)
         set(DOXYGEN_PROJECT_BRIEF "An open-source, extensible C++ library of electric properties tomography methods.")
@@ -132,7 +150,9 @@ if(build_docs)
 endif(build_docs)
 
 # ----- Installing -----
-include(InstallRequiredSystemLibraries)
+if(CMAKE_CXX_COMPILER_ID STREQUAL "MSVC")
+    include(InstallRequiredSystemLibraries)
+endif()
 
 set(CMAKE_INSTALL_MFC_LIBRARIES ON)
 

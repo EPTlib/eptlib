@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -34,23 +34,22 @@
 
 #include "eptlib/ept_interface.h"
 
+#include <algorithm>
 #include <array>
-#include <numeric>
+#include <memory>
 #include <vector>
-
-using namespace eptlib;
 
 /*
  * Simple derived class to test the abstract interface.
  */
-class SubEPTInterface : public EPTInterface {
+class FakeEPTInterface : public eptlib::EPTInterface {
     public:
         /*
          * Constructor
          */
-        template <typename Tn,typename Td>
-        SubEPTInterface(Tn nn,Td dd) :
-            EPTInterface(64.0e6,nn,dd) {
+        FakeEPTInterface(const size_t n0, const size_t n1, const size_t n2,
+            const double d0, const double d1, const double d2) :
+            EPTInterface(n0,n1,n2, d0,d1,d2, 64e6) {
             return;
         }
         /*
@@ -58,55 +57,79 @@ class SubEPTInterface : public EPTInterface {
          * 
          * Copy the transmit sensitivity in sigma and the transceive phase in epsr.
          */
-        EPTlibError Run() override {
-            thereis_sigma_ = true;
-            thereis_epsr_ = true;
-            sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
-            epsr_ = Image<double>(nn_[0],nn_[1],nn_[2]);
-            for (int idx = 0; idx<n_vox_; ++idx) {
-                sigma_[idx] = (*tx_sens_[0])[idx];
-                epsr_[idx] = (*trx_phase_[0])[idx];
-            }
-            return EPTlibError::Success;
+        eptlib::EPTlibError Run() override {
+            using image_t = eptlib::Image<double>;
+            sigma_ = std::make_unique<image_t>(nn_[0],nn_[1],nn_[2]);
+            epsr_ = std::make_unique<image_t>(nn_[0],nn_[1],nn_[2]);
+            std::copy(tx_sens_[0]->GetData().begin(),tx_sens_[0]->GetData().end(), sigma_->GetData().begin());
+            std::copy(trx_phase_[0]->GetData().begin(),trx_phase_[0]->GetData().end(), epsr_->GetData().begin());
+            return eptlib::EPTlibError::Success;
         }
 };
 
 TEST(EPTInterfaceGTest,SettersGetters) {
-    constexpr int n_dim = 3;
-    const std::array<int,n_dim> nn = {100,100,100};
-    const std::array<double,n_dim> dd = {0.002,0.002,0.002};
-    const int n_vox = std::accumulate(nn.begin(),nn.end(),1,std::multiplies<int>());
-    Image<double> tx_sens(nn[0],nn[1],nn[2]);
-    Image<double> trx_phase(nn[0],nn[1],nn[2]);
-    for (int idx = 0; idx<n_vox; ++idx) {
-        tx_sens[idx] = idx+1;
-        trx_phase[idx] = -idx-1;
+    const size_t n0 = 100;
+    const size_t n1 = 100;
+    const size_t n2 = 100;
+    const double d0 = 0.002;
+    const double d1 = 0.002;
+    const double d2 = 0.002;
+    eptlib::Image<double> dummy(1,1,1);
+    eptlib::Image<double> tx_sens(n0,n1,n2);
+    eptlib::Image<double> trx_phase(n0,n1,n2);
+    eptlib::Image<double> reference_image(n0,n1,n2);
+    std::iota(tx_sens.GetData().begin(),tx_sens.GetData().end(),1);
+    std::transform(tx_sens.GetData().begin(),tx_sens.GetData().end(),trx_phase.GetData().begin(),
+        [](const double a) -> double{
+            return -a;
+        });
+    //
+    FakeEPTInterface ept(n0,n1,n2, d0,d1,d2);
+    ASSERT_FALSE(ept.PhaseIsWrapped());
+    ASSERT_TRUE(ept.TogglePhaseIsWrapped());
+    ASSERT_TRUE(ept.PhaseIsWrapped());
+    ASSERT_FALSE(ept.TogglePhaseIsWrapped());
+    //
+    ASSERT_FALSE(ept.ThereIsTxSens(0));
+    ASSERT_FALSE(ept.ThereAreAllTxSens());
+    ASSERT_EQ(ept.SetTxSensitivity(tx_sens,1), eptlib::EPTlibError::OutOfRange);
+    ASSERT_EQ(ept.SetTxSensitivity(dummy,0), eptlib::EPTlibError::WrongDataFormat);
+    ASSERT_EQ(ept.SetTxSensitivity(tx_sens,0), eptlib::EPTlibError::Success);
+    ASSERT_TRUE(ept.ThereIsTxSens(0));
+    ASSERT_TRUE(ept.ThereAreAllTxSens());
+    //
+    ASSERT_FALSE(ept.ThereIsTRxPhase(0,0));
+    ASSERT_FALSE(ept.ThereAreAllTRxPhase());
+    ASSERT_EQ(ept.SetTRxPhase(trx_phase,1,0), eptlib::EPTlibError::OutOfRange);
+    ASSERT_EQ(ept.SetTRxPhase(trx_phase,0,1), eptlib::EPTlibError::OutOfRange);
+    ASSERT_EQ(ept.SetTRxPhase(dummy,0,0), eptlib::EPTlibError::WrongDataFormat);
+    ASSERT_EQ(ept.SetTRxPhase(trx_phase,0,0), eptlib::EPTlibError::Success);
+    ASSERT_TRUE(ept.ThereIsTRxPhase(0,0));
+    ASSERT_TRUE(ept.ThereAreAllTRxPhase());
+    //
+    ASSERT_FALSE(ept.ThereIsReferenceImage());
+    ASSERT_EQ(ept.SetReferenceImage(dummy), eptlib::EPTlibError::WrongDataFormat);
+    ASSERT_EQ(ept.SetReferenceImage(reference_image), eptlib::EPTlibError::Success);
+    ASSERT_TRUE(ept.ThereIsReferenceImage());
+    //
+    ASSERT_FALSE(ept.ThereIsSigma());
+    ASSERT_FALSE(ept.ThereIsEpsr());
+    ASSERT_EQ(ept.Run(), eptlib::EPTlibError::Success);
+    ASSERT_TRUE(ept.ThereIsSigma());
+    ASSERT_TRUE(ept.ThereIsEpsr());
+    //
+    auto tx_sens_ptr = ept.GetTxSens(0);
+    auto trx_phase_ptr = ept.GetTRxPhase(0,0);
+    auto reference_image_ptr = ept.GetReferenceImage();
+    ASSERT_EQ(tx_sens_ptr, &tx_sens);
+    ASSERT_EQ(trx_phase_ptr, &trx_phase);
+    ASSERT_EQ(reference_image_ptr, &reference_image);
+    //
+    auto& sigma = ept.GetElectricConductivity();
+    auto& epsr = ept.GetRelativePermittivity();
+    for (int idx = 0; idx<tx_sens.GetNVox(); ++idx) {
+        ASSERT_EQ((*sigma)(idx), tx_sens(idx));
+        ASSERT_EQ((*epsr)(idx), trx_phase(idx));
     }
-    //
-    EPTlibError ierr;
-    SubEPTInterface epti(nn,dd);
-    //
-    ierr = epti.SetTxSensitivity(&tx_sens);
-    ASSERT_EQ(ierr,EPTlibError::Success);
-    //
-    ierr = epti.SetTRxPhase(&trx_phase);
-    ASSERT_EQ(ierr,EPTlibError::Success);
-    //
-    ierr = epti.Run();
-    ASSERT_EQ(ierr,EPTlibError::Success);
-    //
-    Image<double> sigma;
-    Image<double> epsr;
-    //
-    ierr = epti.GetElectricConductivity(&sigma);
-    ASSERT_EQ(ierr,EPTlibError::Success);
-    double err_s = std::inner_product(tx_sens.GetData().begin(),tx_sens.GetData().end(),sigma.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
-    ASSERT_DOUBLE_EQ(err_s,0.0);
-    //
-    ierr = epti.GetRelativePermittivity(&epsr);
-    ASSERT_EQ(ierr,EPTlibError::Success);
-    double err_e = std::inner_product(trx_phase.GetData().begin(),trx_phase.GetData().end(),epsr.GetData().begin(),0.0,std::plus<double>(),std::minus<double>());
-    ASSERT_DOUBLE_EQ(err_e,0.0);
-    //
     return;
 }

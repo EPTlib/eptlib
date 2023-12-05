@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -40,11 +40,10 @@ using namespace eptlib::io;
 
 // IOtoml constructor
 IOtoml::
-IOtoml(const std::string &fname, const Mode mode) :
-    fname_(fname), mode_(mode) {
-    switch (mode_) {
+IOtoml(const std::string &fname, const Mode mode) {
+    switch (mode) {
         case Mode::In:
-            file_.open(fname_);
+            file_.open(fname);
             if (file_.is_open()) {
                 toml::ParseResult parsed(toml::parse(file_));
                 if (parsed.valid()) {
@@ -53,7 +52,7 @@ IOtoml(const std::string &fname, const Mode mode) :
                     throw std::ios_base::failure(parsed.errorReason);
                 }
             } else {
-                throw std::ios_base::failure("Impossible to open file '"+fname_+"'");
+                throw std::ios_base::failure("Impossible to open file '"+fname+"'");
             }
             break;
         case Mode::Out:

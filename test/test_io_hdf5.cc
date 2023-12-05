@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -34,54 +34,58 @@
 
 #include "eptlib/io/io_hdf5.h"
 
-#include <array>
+#include <string>
 
-#include "eptlib/util.h"
-#include "eptlib/image.h"
+TEST(IOHdf5GTest,GetFileName) {
+    std::string ifname = "test/input/test_input.h5";
+    eptlib::io::IOh5 ifile(ifname, eptlib::io::Mode::In);
+    ASSERT_STREQ(ifile.GetFileName().c_str(), ifname.c_str());
+    std::string ofname = "test/input/test_output.h5";
+    eptlib::io::IOh5 ofile(ofname, eptlib::io::Mode::Out);
+    ASSERT_STREQ(ofile.GetFileName().c_str(), ofname.c_str());
+}
 
-using namespace eptlib;
-using namespace eptlib::io;
+TEST(IOHdf5GTest,GetFileSize) {
+    std::string ifname = "test/input/test_input.h5";
+    eptlib::io::IOh5 ifile(ifname, eptlib::io::Mode::In);
+    ASSERT_EQ(ifile.GetFileSize(), 51464);
+}
 
-TEST(IOhdf5GTest,ReadDataset) {
-    Image<double> img;
+TEST(IOHdf5GTest,GetFileDescription) {
+    std::string ifname = "test/input/test_input.h5";
+    eptlib::io::IOh5 ifile(ifname, eptlib::io::Mode::In);
+    ASSERT_EQ(ifile.GetFileDescription(), (ifname + " [50 KiB]").c_str());
+}
 
+TEST(IOHdf5GTest,ReadDataset) {
     std::string fname = "test/input/test_input.h5";
-    IOh5 ifile(fname, Mode::In);
-
+    const eptlib::io::IOh5 ifile(fname, eptlib::io::Mode::In);
     std::string url = "/test/input/";
     std::string urn = "data";
+    eptlib::Image<double> img;
     ifile.ReadDataset(&img, url,urn);
-
-    std::array<int,NDIM> nn_expected{20,10,30};
-    std::vector<double> data_expected(Prod(nn_expected));
-    std::iota(data_expected.begin(),data_expected.end(),0.0);
-    
-    for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(img.GetSize(d),nn_expected[d]);
-    }
-    for (int idx = 0; idx<Prod(img.GetSize()); ++idx) {
-        ASSERT_DOUBLE_EQ(img[idx],data_expected[idx]);
+    ASSERT_EQ(img.GetSize(0),20);
+    ASSERT_EQ(img.GetSize(1),10);
+    ASSERT_EQ(img.GetSize(2),30);
+    for (int idx = 0; idx<img.GetNVox(); ++idx) {
+        ASSERT_DOUBLE_EQ(img(idx), idx);
     }
 }
 
-TEST(IOhdf5GTest,WriteDataset) {
-    Image<double> img_expected(20,10,30);
-    std::iota(img_expected.GetData().begin(),img_expected.GetData().end(),0.0);
-
+TEST(IOHdf5GTest,WriteDataset) {
     std::string fname = "test/input/test_output.h5";
-    IOh5 ofile(fname, Mode::Out);
-
-    std::string url = "/test/input/";
+    const eptlib::io::IOh5 ofile(fname, eptlib::io::Mode::Out);
+    std::string url = "/test/output/";
     std::string urn = "data";
-    ofile.WriteDataset(img_expected, url,urn);
-
-    Image<double> img;
-
-    ofile.ReadDataset(&img, url,urn);
-    for (int d = 0; d<NDIM; ++d) {
-        ASSERT_EQ(img.GetSize(d),img_expected.GetSize(d));
-    }
-    for (int idx = 0; idx<Prod(img.GetSize()); ++idx) {
-        ASSERT_DOUBLE_EQ(img[idx],img_expected[idx]);
+    eptlib::Image<double> img_out(20,10,30);
+    std::iota(img_out.GetData().begin(),img_out.GetData().end(),0);
+    ofile.WriteDataset(img_out, url,urn);
+    eptlib::Image<double> img_in;
+    ofile.ReadDataset(&img_in, url,urn);
+    ASSERT_EQ(img_in.GetSize(0),20);
+    ASSERT_EQ(img_in.GetSize(1),10);
+    ASSERT_EQ(img_in.GetSize(2),30);
+    for (int idx = 0; idx<img_in.GetNVox(); ++idx) {
+        ASSERT_DOUBLE_EQ(img_in(idx), idx);
     }
 }

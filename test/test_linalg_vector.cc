@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2023  Alessandro Arduino
+*  Copyright (c) 2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -30,30 +30,41 @@
 *
 *****************************************************************************/
 
-#include "eptlib/io/io_util.h"
+#include "gtest/gtest.h"
 
-// Deduce the filename and the uri from a given address
-void eptlib::io::GetAddress(const std::string &address, std::string &fname, std::string &uri) {
-    size_t snip = 0;
-    size_t snap = address.find_last_of(":");
-    fname = address.substr(snip,snap);
-    snip = ++snap;
-    uri = address.substr(snip);
-    return;
+#include "eptlib/linalg/vector.h"
+
+#include <numeric>
+#include <vector>
+
+TEST(LinalgVectorGTest,Norm2) {
+    const int n = 10;
+    std::vector<double> x(n);
+    std::iota(x.begin(), x.end(), 1.0);
+    double norm = eptlib::linalg::Norm2(x.begin(), x.end());
+    ASSERT_NEAR(norm, std::sqrt(385.0), 1e-12);
 }
 
-std::string eptlib::io::BytesWithSuffix(size_t size) {
-    char prefixes[] = "KMGT";
-    std::string result;
-    if (size < 1024) {
-        result = std::to_string(size) + " bytes";
-    } else {
-        int i = -1;
-        while (size >= 1024 && i < 3) {
-            size >>= 10;
-            ++i;
-        }
-        result = std::to_string(size) + " " + prefixes[i] + "iB";
+TEST(LinalgVectorGTest,MaxAbs) {
+    const int n = 10;
+    std::vector<double> x(n);
+    for (int i = 0; i<n; ++i) {
+        x[i] = -(i+1);
     }
-    return result;
+    double maxabs = eptlib::linalg::MaxAbs(x.begin(), x.end());
+    ASSERT_NEAR(maxabs, 10.0, 1e-12);
+}
+
+TEST(LinalgVectorGTest,Permute) {
+    const int n = 10;
+    std::vector<double> x(n);
+    std::vector<size_t> p(n);
+    for (int i = 0; i<n; ++i) {
+        x[i] = -(i+1);
+        p[i] = n-1-i;
+    }
+    eptlib::linalg::Permute(x.begin(), x.end(), p);
+    for (int i = 0; i<n; ++i) {
+        ASSERT_EQ(x[i], -n+i);
+    }
 }

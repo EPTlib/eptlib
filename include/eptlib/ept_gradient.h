@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -37,13 +37,17 @@
 
 #include <array>
 #include <complex>
+#include <optional>
+#include <variant>
 #include <vector>
 
 #include <boost/dynamic_bitset.hpp>
 
-#include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
+
+#include "eptlib/filter/anatomical_savitzky_golay.h"
+#include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
 
@@ -51,207 +55,265 @@ namespace eptlib {
  * Structure of a seed point for the gradient inversion.
  */
 struct SeedPoint {
-	/// Integer coordinates of the seed point.
-	std::array<int,NDIM> ijk;
-	/// Relative permittivity in the point.
-	double epsr;
-	/// Electric conductivity in the point.
-	double sigma;
+    /// Integer coordinates of the seed point.
+    std::array<size_t, N_DIM> ijk;
+    /// Relative permittivity in the point.
+    double epsr;
+    /// Electric conductivity in the point.
+    double sigma;
 };
 
 /**
  * Codes for the run modality of the gradient EPT method.
  */
 enum class EPTGradientRun {
-	/// Complete application of gradient EPT.
-	FULL = 0,
-	/// Solve the local system and return the first approximation.
-	LOCAL,
-	/// Solve the gradient inversion problem if a local solution is provided.
-	GRADIENT,
+    /// Complete application of gradient EPT.
+    FULL = 0,
+    /// Solve the local system and return the first approximation.
+    LOCAL,
+    /// Solve the gradient inversion problem if a local solution is provided.
+    GRADIENT,
 };
 
 /**
  * Implementation of the gradient EPT method.
  */
 class EPTGradient : public EPTInterface {
-	public:
-		/**
-		 * Constructor.
-		 * 
-		 * @param freq operative frequency of the MRI scanner.
-		 * @param nn number of voxels in each direction.
-		 * @param dd voxel sizes in each direction.
-		 * @param tx_ch number of transmit channels.
-		 * @param shape mask over which apply the finite difference scheme.
-		 * @param is_2d 2D assumption flag.
-		 * @param degree degree of the interpolating polynomial for the finite
-		 *     difference scheme (default: 2).
-		 * 
-		 * The number of Rx channels is fixed equal to one.
-		 */
-		EPTGradient(const double freq, const std::array<int,NDIM> &nn,
-			const std::array<double,NDIM> &dd, const int tx_ch,
-			const Shape &shape, const bool is_2d, const int degree = 2);
-		/**
-		 * Virtual destructor.
-		 */
-		virtual ~EPTGradient();
-		/**
-		 * Perform the gradient EPT.
-		 * 
-		 * @return an error index about the state of the tomography.
-		 */
-		virtual EPTlibError Run() override;
-		/**
-		 * Set the run mode of the next gradient EPT run.
-		 * 
-		 * @param run_mode run mode to be set.
-		 */
-		void SetRunMode(EPTGradientRun run_mode);
-		/**
-		 * Get the run mode of the next gradient EPT run.
-		 */
-		EPTGradientRun GetRunMode();
-		/**
-		 * Set/unset the use of seed points to invert the gradient.
-		 * 
-		 * @return if it has been set.
-		 */
-		bool ToggleSeedPoints();
-		/**
-		 * Get the use seed points flag.
-		 * 
-		 * @return the seed points flag.
-		 */
-		bool SeedPointsAreUsed();
-		/**
-		 * Add a seed point to the list and set their use if not done before.
-		 * 
-		 * @param seed_point seed point to the added to the list.
-		 */
-		void AddSeedPoint(const SeedPoint seed_point);
-		/**
+    public:
+        /**
+         * Constructor.
+         * 
+         * @param n0 number of voxels along direction x.
+         * @param n1 number of voxels along direction y.
+         * @param n2 number of voxels along direction z.
+         * @param d0 resolution in meter along direction x.
+         * @param d1 resolution in meter along direction y.
+         * @param d2 resolution in meter along direction z.
+         * @param freq operative frequency of the MRI scanner.
+         * @param window mask over which apply the finite difference scheme.
+         * @param n_tx_ch number of transmit channels.
+         * @param degree degree of the interpolating polynomial for the finite
+         *     difference scheme (default: 2).
+         * @param run_mode run mode of the Gradient EPT run (default: FULL).
+         * @param weight_param parameter of the weight function, used only with
+         *     the anatomical Savitzky-Golay filter (default: 0.05).
+         * 
+         * The number of Rx channels is fixed equal to one.
+         */
+        EPTGradient(const size_t n0, const size_t n1, const size_t n2,
+            const double d0, const double d1, const double d2,
+            const double freq, const Shape &window, const size_t n_tx_ch,
+            const int degree = 2, const EPTGradientRun run_mode = EPTGradientRun::FULL,
+            const double weight_param = 0.05);
+
+        /**
+         * Virtual destructor.
+         */
+        virtual ~EPTGradient();
+
+        /**
+         * Perform the gradient EPT.
+         * 
+         * @return an error index about the state of the tomography.
+         */
+        virtual EPTlibError Run() override;
+
+        /**
+         * Get the run mode of the next gradient EPT run.
+         */
+        inline EPTGradientRun GetRunMode() const {
+            return run_mode_;
+        }
+
+        /**
+         * Get the use seed points flag.
+         * 
+         * @return the seed points flag.
+         */
+        inline bool SeedPointsAreUsed() const {
+            return seed_points_.has_value();
+        }
+
+        /**
+         * Add a seed point to the list and set their use if not done before.
+         * 
+         * @param seed_point seed point to the added to the list.
+         */
+        inline void AddSeedPoint(const SeedPoint seed_point) {
+            if (!SeedPointsAreUsed()) {
+                seed_points_.emplace(0);
+            }
+            seed_points_->push_back(seed_point);
+        }
+
+        /**
+         * @brief Get the volume tomography flag.
+         * 
+         * @return the volume tomography flag.
+         */
+        inline bool VolumeTomography() const {
+            return !slice_index_.has_value();
+        }
+
+        /**
          * Set the selected plane index for plane tomography.
+         * 
+         * @return a Success or OutOfRange error.
+         */
+        inline EPTlibError SelectSlice(const size_t slice_index) {
+            if (slice_index >= nn_[2]) {
+                return EPTlibError::OutOfRange;
+            }
+            slice_index_ = slice_index;
+            return EPTlibError::Success;
+        }
+
+        /**
+         * Set the regularization coefficient.
+         * 
+         * @param lambda regularization coefficient.
          * 
          * @return a Success or WrongDataFormat error.
          */
-        EPTlibError SelectSlice(const int slice_idx);
-		/**
-		 * Set the regularization coefficient.
-		 * 
-		 * @param lambda regularization coefficient.
-		 * 
-		 * @return a Success or WrongDataFormat error.
-		 */
-		EPTlibError SetRegularizationCoefficient(const double lambda);
-		/**
-		 * Set the gradient tolerance for estimating the mask of homogeneous regions.
-		 * 
-		 * @return a Success or WrongDataFormat error.
-		 */
-		EPTlibError SetGradientTolerance(const double gradient_tolerance);
-		/**
-		 * Get the homogeneous regions mask.
-		 * 
-		 * @return a constant reference to the mask.
-		 */
-		const boost::dynamic_bitset<>& GetMask();
-		/**
-		 * Get the cost functional.
-		 * 
-		 * @return the cost functional.
-		 */
-		double GetCostFunctional();
-		/**
-		 * Get the cost regularization.
-		 * 
-		 * @return the cost regularization.
-		 */
-		double GetCostRegularization();
-		/**
-		 * Get the complex permittivity.
-		 * 
-		 * @param[out] epsc pointer to the complex permittivity destination.
-		 * 
-		 * @return a Success or MissingData error.
-		 */
-		EPTlibError GetEpsC(std::vector<std::complex<double> > *epsc);
-		/**
-		 * Get the positive derivative of the complex permittivity logarithm.
-		 * 
-		 * @param[out] g_plus pointer to the positive derivative destination.
-		 * 
-		 * @return a Success or MissingData error.
-		 */
-		EPTlibError GetGPlus(std::vector<std::complex<double> > *g_plus);
-		/**
-		 * Get the longitudinal derivative of the complex permittivity logarithm.
-		 * 
-		 * @param[out] g_z pointer to the longitudinal derivative destination.
-		 * 
-		 * @return a Success or MissingData error.
-		 */
-		EPTlibError GetGZ(std::vector<std::complex<double> > *g_z);
-	private:
-		/// 2D assumption flag.
-		const bool is_2d_;
-		/// Seed points flag.
-		bool use_seed_points_;
-        /// Selected plane index (used if 2D is set).
-        int plane_idx_;
-		/// First estimate weight (used if seed points are unset).
-		double lambda_;
-		/// Gradient tolerance w.r.t maximum (used if seed points are unset).
-		double gradient_tolerance_;
-		/// Mask of the homogeneous regions (used if seed points are unset).
-		boost::dynamic_bitset<> mask_;
-		/// List of seed points (used if seed points is set).
-		std::vector<SeedPoint> seed_points_;
-		/// Filter for the derivative computation.
-		FDSavitzkyGolayFilter fd_filter_;
-		/// First estimate of the complex permittivity.
-		std::vector<std::complex<double> > epsc_;
-		/// Positive derivative of the complex permittivity logarithm.
-		std::vector<std::complex<double> > g_plus_;
-		/// Longitudinal derivative of the complex permittivity logarithm.
-		std::vector<std::complex<double> > g_z_;
-		/// Cost functional main term.
-		double cost_functional_;
-		/// Cost functional regularization term.
-		double cost_regularization_;
-		/// First estimate flag
-		bool thereis_epsc_;
-		/// Gradient EPT run flag.
-		EPTGradientRun run_mode_;
+        inline EPTlibError SetRegularizationCoefficient(const double lambda) {
+            if (lambda < 0.0) {
+                return EPTlibError::WrongDataFormat;
+            }
+            lambda_ = lambda;
+            return EPTlibError::Success;
+        }
 
-		// Auxiliary methods
-		/// Perform the pixel-by-pixel recovery.
-		void LocalRecovery(
-			std::array<std::vector<double>,NDIM> *grad_phi0,
-			std::vector<std::complex<double> > *g_plus,
-			std::vector<std::complex<double> > *g_z,
-			std::vector<std::complex<double> > *theta,
-			const int iref);
-		/// Perform pixel-by-pixel recovery in a slice.
-		void LocalRecoverySlice(
-			std::array<std::vector<double>,NDIM> *grad_phi0,
-			std::vector<std::complex<double> > *g_plus,
-			std::vector<std::complex<double> > *g_z,
-			std::vector<std::complex<double> > *theta,
-			const int iref, const int i2);
-		/// Estimate the complex permittivity from theta local recovery.
-		EPTlibError Theta2Epsc(std::vector<std::complex<double> > *theta,
-			const std::array<std::vector<double>,NDIM> &grad_phi0,
-			const std::vector<std::complex<double> > &g_plus,
-			const std::vector<std::complex<double> > &g_z);
-		/// Select the degrees of freedom.
-		void SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
-			int *n_dof, const std::vector<int> &locstep);
-		/// Solve the global minimisation problem.
-		void GlobalMinimisation();
-		/// Extract the electric properties from the complex permittivity.
-		void ExtractElectricProperties();
+        /**
+         * Set the gradient tolerance for estimating the mask of homogeneous regions.
+         * 
+         * @return a Success or WrongDataFormat error.
+         */
+        inline EPTlibError SetGradientTolerance(const double gradient_tolerance) {
+            if (gradient_tolerance < 0.0 || gradient_tolerance > 1.0) {
+                return EPTlibError::WrongDataFormat;
+            }
+            gradient_tolerance_ = gradient_tolerance;
+            return EPTlibError::Success;
+        }
+
+        /**
+         * Get the homogeneous regions mask.
+         * 
+         * @return a constant reference to the mask.
+         */
+        inline const boost::dynamic_bitset<>& GetMask() const {
+            return mask_;
+        }
+
+        /**
+         * Get the cost functional.
+         * 
+         * @return the cost functional.
+         */
+        inline double GetCostFunctional() const {
+            return cost_functional_;
+        }
+
+        /**
+         * Get the cost regularization.
+         * 
+         * @return the cost regularization.
+         */
+        inline double GetCostRegularization() const {
+            return cost_regularization_;
+        }
+
+        /**
+         * Get the complex permittivity.
+         * 
+         * @return a constant reference to the complex permittivity.
+         */
+        inline const std::vector<std::complex<double> >& GetEpsC() const {
+            return epsc_;
+        }
+
+        /**
+         * Get the positive derivative of the complex permittivity logarithm.
+         * 
+         * @return a constant reference to the positive derivative.
+         */
+        inline const std::vector<std::complex<double> >& GetGPlus() const {
+            return g_plus_;
+        }
+
+        /**
+         * Get the longitudinal derivative of the complex permittivity logarithm.
+         * 
+         * @return a constant reference to the longitudinal derivative.
+         */
+        inline const std::vector<std::complex<double> >& GetGZ() const {
+            return g_z_;
+        }
+    private:
+        /// Selected slice index for plane tomography.
+        std::optional<size_t> slice_index_;
+        /// List of seed points.
+        std::optional<std::vector<SeedPoint> > seed_points_;
+        /// Weight of local estimate in global step (used if seed points are unset).
+        double lambda_;
+        /// Gradient tolerance w.r.t maximum (used if seed points are unset).
+        double gradient_tolerance_;
+        /// Mask of the homogeneous regions (used if seed points are unset).
+        boost::dynamic_bitset<> mask_;
+
+        /// Savitzky-Golay filter for the derivative computation.
+        std::variant<std::monostate, filter::SavitzkyGolay, filter::AnatomicalSavitzkyGolay> sg_filter_;
+        /// Mask over which apply the Savitzky-Golay filter.
+        Shape sg_window_;
+        /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
+        int sg_degree_;
+
+        /// Gradient EPT run flag.
+        EPTGradientRun run_mode_;
+
+        /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
+        double weight_param_;
+
+        /// First estimate of the complex permittivity.
+        std::vector<std::complex<double> > epsc_;
+        /// Positive derivative of the complex permittivity logarithm.
+        std::vector<std::complex<double> > g_plus_;
+        /// Longitudinal derivative of the complex permittivity logarithm.
+        std::vector<std::complex<double> > g_z_;
+
+        /// Cost functional main term.
+        double cost_functional_;
+        /// Cost functional regularization term.
+        double cost_regularization_;
+        /// First estimate flag
+        bool thereis_epsc_;
+
+        /// Perform the pixel-by-pixel recovery.
+        void LocalRecovery(
+            std::array<Image<double>, N_DIM> *grad_phi0,
+            std::vector<std::complex<double> > *g_plus,
+            std::vector<std::complex<double> > *g_z,
+            std::vector<std::complex<double> > *theta,
+            const int iref);
+        /// Perform pixel-by-pixel recovery in a slice.
+        void LocalRecoverySlice(
+            std::array<Image<double>, N_DIM> *grad_phi0,
+            std::vector<std::complex<double> > *g_plus,
+            std::vector<std::complex<double> > *g_z,
+            std::vector<std::complex<double> > *theta,
+            const int iref, const int i2);
+        /// Estimate the complex permittivity from theta local recovery.
+        EPTlibError Theta2Epsc(std::vector<std::complex<double> > *theta,
+            const std::array<Image<double>, N_DIM> &grad_phi0,
+            const std::vector<std::complex<double> > &g_plus,
+            const std::vector<std::complex<double> > &g_z);
+        /// Select the degrees of freedom.
+        void SelectDoF(std::vector<int> *dof, std::vector<int> *ele,
+            int *n_dof, const std::vector<int> &locstep);
+        /// Solve the global minimisation problem.
+        void GlobalMinimisation();
+        /// Extract the electric properties from the complex permittivity.
+        void ExtractElectricProperties();
 };
 
 }  // namespace eptlib

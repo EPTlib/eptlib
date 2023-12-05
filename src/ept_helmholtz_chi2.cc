@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -32,19 +32,25 @@
 
 #include "eptlib/ept_helmholtz_chi2.h"
 
-using namespace eptlib;
+#include <cmath>
+#include <limits>
 
-namespace {
-    static double nand = std::numeric_limits<double>::quiet_NaN();
-}
+#include "eptlib/ept_helmholtz.h"
+
+using namespace eptlib;
 
 // EPTHelmholtzChi2 constructor
 EPTHelmholtzChi2::
-EPTHelmholtzChi2(const double freq,const std::array<int,NDIM> &nn,
-    const std::array<double,NDIM> &dd,const std::vector<Shape> &shapes,
-    const int degree) :
-    EPTInterface(freq,nn,dd), freq_(freq), shapes_(shapes), degree_(degree),
-    unphysical_values_(false) {
+EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
+    const double d0, const double d1, const double d2,
+    const double freq, const std::vector<Shape> &windows,
+    const int degree, const bool admit_unphysical_values) :
+    EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, false),
+    windows_(windows),
+    degree_(degree),
+    variance_sigma_(nullptr),
+    index_(nullptr),
+    admit_unphysical_values_(admit_unphysical_values) {
     return;
 }
 
@@ -57,70 +63,39 @@ EPTHelmholtzChi2::
 // EPTHelmholtzChi2 run
 EPTlibError EPTHelmholtzChi2::
 Run() {
-    // allocate
-    if (thereis_trx_phase_.all()) {
-        thereis_sigma_ = true;
-        sigma_ = Image<double>(nn_[0],nn_[1],nn_[2]);
-    } else {
+    if (!ThereIsTRxPhase(0,0)) {
         return EPTlibError::MissingData;
     }
-    var_ = Image<double>(nn_[0],nn_[1],nn_[2]);
-    shape_index_ = Image<int>(nn_[0],nn_[1],nn_[2]);
-    // initialise
-    for (int idx = 0; idx<n_vox_; ++idx) {
-        var_[idx] = nand;
-        shape_index_[idx] = -1;
-        sigma_[idx] = nand;
-    }
+    // setup the input
+    sigma_          = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+    variance_sigma_ = std::make_unique<Image<double> >(nn_[0],nn_[1],nn_[2]);
+    index_          = std::make_unique<Image<int>    >(nn_[0],nn_[1],nn_[2]);
+    auto n_vox = sigma_->GetNVox();
+    sigma_         ->GetData().assign(n_vox,nand);
+    variance_sigma_->GetData().assign(n_vox,nand);
+    index_         ->GetData().assign(n_vox,-1);
     // loop over the shapes
-    for (int idx_s = 0; idx_s<shapes_.size(); ++idx_s) {
-        // initialise the Helmholtz-EPT method
-        EPTHelmholtz hept(freq_,nn_,dd_,shapes_[idx_s],degree_);
-        // set-up Helmholtz-EPT
-        hept.SetTRxPhase(trx_phase_[0]);
-        hept.ToggleGetVar();
+    auto freq = omega_/2.0/PI;
+    for (int idx_s = 0; idx_s<windows_.size(); ++idx_s) {
+        // setup Helmholtz-EPT
+        EPTHelmholtz hept(nn_[0],nn_[1],nn_[2], dd_[0],dd_[1],dd_[2], freq, windows_[idx_s], degree_, false, true);
+        hept.SetTRxPhase(*GetTRxPhase(0,0));
         // run Helmholtz-EPT
         EPTlibError error = hept.Run();
         if (error!=EPTlibError::Success) {
             return error;
         }
-        // get the partial results
-        for (int idx = 0; idx<n_vox_; ++idx) {
-            if (hept.var_[idx]==hept.var_[idx] && (hept.var_[idx]<var_[idx] || !(var_[idx]==var_[idx]))) {
-                bool is_physical = hept.sigma_[idx]>0.0;
-                if (unphysical_values_||is_physical) {
-                    var_[idx] = hept.var_[idx];
-                    shape_index_[idx] = idx_s;
-                    sigma_[idx] = hept.sigma_[idx];
+        // update output with the partial results
+        for (int idx = 0; idx<n_vox; ++idx) {
+            if (!std::isnan(hept.GetElectricConductivityVariance()->At(idx)) && (hept.GetElectricConductivityVariance()->At(idx) < variance_sigma_->At(idx) || std::isnan(variance_sigma_->At(idx)))) {
+                bool is_physical = hept.GetElectricConductivity()->At(idx) > 0.0;
+                if (AdmitUnphysicalValues() || is_physical) {
+                    sigma_         ->At(idx) = hept.GetElectricConductivity()->At(idx);
+                    variance_sigma_->At(idx) = hept.GetElectricConductivityVariance()->At(idx);
+                    index_         ->At(idx) = idx_s;
                 }
             }
         }
     }
-    return Success;
-}
-
-// Get the result quality index
-EPTlibError EPTHelmholtzChi2::
-GetVar(Image<double> *var) {
-    if (!thereis_sigma_) {
-        return EPTlibError::MissingData;
-    }
-    *var = var_;
     return EPTlibError::Success;
-}
-
-// Get the result quality index
-EPTlibError EPTHelmholtzChi2::
-GetShapeIndex(Image<int> *shape_index) {
-    if (!thereis_sigma_) {
-        return EPTlibError::MissingData;
-    }
-    *shape_index = shape_index_;
-    return EPTlibError::Success;
-}
-
-bool EPTHelmholtzChi2::
-ToggleUnphysicalValues() {
-	unphysical_values_ = !unphysical_values_;
-	return unphysical_values_;
 }

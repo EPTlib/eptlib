@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2022  Alessandro Arduino
+*  Copyright (c) 2020-2023  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -35,11 +35,14 @@
 
 #include "eptlib/ept_interface.h"
 
-#include <array>
+#include <optional>
+#include <variant>
 
-#include "eptlib/finite_difference.h"
 #include "eptlib/shape.h"
 #include "eptlib/util.h"
+
+#include "eptlib/filter/anatomical_savitzky_golay.h"
+#include "eptlib/filter/savitzky_golay.h"
 
 namespace eptlib {
 
@@ -51,93 +54,135 @@ class EPTConvReact : public EPTInterface {
         /**
          * Constructor.
          * 
+         * @param n0 number of voxels along direction x.
+         * @param n1 number of voxels along direction y.
+         * @param n2 number of voxels along direction z.
+         * @param d0 resolution in meter along direction x.
+         * @param d1 resolution in meter along direction y.
+         * @param d2 resolution in meter along direction z.
          * @param freq operative frequency of the MRI scanner.
-         * @param nn number of voxels in each direction.
-         * @param dd voxel sizes in each direction.
-         * @param shape mask over which apply the finite difference scheme.
+         * @param window mask over which apply the finite difference scheme.
          * @param degree degree of the interpolating polynomial for the finite
          *     difference scheme (default: 2).
+         * @param weight_param parameter of the weight function, used only with
+         *     the anatomical Savitzky-Golay filter (default: 0.05).
          * 
          * The number of Tx and Rx channels is fixed equal to one.
          */
-        EPTConvReact(const double freq, const std::array<int,NDIM> &nn,
-            const std::array<double,NDIM> &dd, const Shape &shape,
-            const int degree = 2);
+        EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
+            const double d0, const double d1, const double d2,
+            const double freq, const Shape &window, const int degree = 2,
+            const size_t max_iterations = 1000, const double tolerance = 1e-6,
+            const double weight_param = 0.05);
+
         /**
          * Virtual destructor.
          */
         virtual ~EPTConvReact();
+
         /**
          * Perform the convection-reaction EPT.
          * 
          * @return an error index about the state of the tomography.
          */
         virtual EPTlibError Run() override;
+
         /**
-         * Set/unset the tomography on a volume domain.
+         * @brief Get the volume tomography flag.
          * 
-         * @return if it has been set.
+         * @return the volume tomography flag.
          */
-        bool Toggle3D();
+        inline bool VolumeTomography() const {
+            return !slice_index_.has_value();
+        }
+
         /**
          * Set the selected plane index for plane tomography.
          * 
-         * @return a Success or WrongDataFormat error.
+         * @return a Success or OutOfRange error.
          */
-        EPTlibError SelectSlice(const int slice_idx);
+        inline EPTlibError SelectSlice(const size_t slice_index) {
+            if (slice_index >= nn_[2]) {
+                return EPTlibError::OutOfRange;
+            }
+            slice_index_ = slice_index;
+            return EPTlibError::Success;
+        }
+
         /**
-         * Set the dirichlet boundary conditions.
-         * 
-         * @return a Success or Unknown error.
+         * Set the Dirichlet boundary conditions.
          */
-        EPTlibError SetDirichlet(const double dir_epsr, const double dir_sigma);
+        inline void SetDirichlet(const double dirichlet_epsr, const double dirichlet_sigma) {
+            dirichlet_epsr_ = dirichlet_epsr;
+            dirichlet_sigma_ = dirichlet_sigma;
+        }
+
         /**
          * Set the artificial diffusion stabilisation.
          * 
-         * @param diff_coeff the coefficient of the artificial diffusion stabilisation.
-         * 
-         * @return a Success or Unknown error.
+         * @param artificial_diffusion the coefficient of the artificial diffusion stabilisation.
          */
-        void SetArtificialDiffusion(const double diff_coeff);
+        inline void SetArtificialDiffusion(const double artificial_diffusion) {
+            artificial_diffusion_ = artificial_diffusion;
+        }
+
         /**
-         * Unset the artificial diffusion stabilisation.
+         * @brief Check if the artificial diffusion stabilisation is set.
          * 
-         * @return a Success or Unknown error.
+         * @return true if the artificial diffusion stabilisation is set.
+         * @return false if the artificial diffusion stabilisation is not set.
          */
-        void UnsetArtificialDiffusion();
+        inline bool ThereIsArtificialDiffusion() const {
+            return artificial_diffusion_.has_value();
+        }
+
         /**
          * Get the number of iterations to solve the linear system.
          * 
          * @return the number of iterations to solve the linear system.
          */
-        int GetSolverIterations();
+        inline std::ptrdiff_t GetSolverIterations() const {
+            return solver_iterations_;
+        }
+
         /**
          * Get the estimated error in the linear system solution.
          * 
          * @return the estimated error in the linear system solution.
          */
-        double GetSolverResidual();
+        inline double GetSolverResidual() const {
+            return solver_residual_;
+        }
     private:
-        /// Dirichlet condition of relative permittivity.
-        double dir_epsr_;
-        /// Dirichlet condition of electric conductivity.
-        double dir_sigma_;
-        /// Selected plane index.
-        int plane_idx_;
-        /// Volume tomography flag.
-        bool is_volume_;
+        /// Selected slice index for plane tomography.
+        std::optional<size_t> slice_index_;
         /// Artificial diffusion coefficient.
-        double diff_coeff_;
-        /// Artificial diffusion flag.
-        bool thereis_diff_;
-        /// Filter for the derivative computation.
-        FDSavitzkyGolayFilter fd_filter_;
+        std::optional<double> artificial_diffusion_;
+        /// Dirichlet condition of relative permittivity.
+        double dirichlet_epsr_;
+        /// Dirichlet condition of electric conductivity.
+        double dirichlet_sigma_;
+        
+        /// Savitzky-Golay filter for the derivative computation.
+        std::variant<std::monostate, filter::SavitzkyGolay, filter::AnatomicalSavitzkyGolay> sg_filter_;
+        /// Mask over which apply the Savitzky-Golay filter.
+        Shape sg_window_;
+        /// Degree of the interpolating polynomial for the Savitzky-Golay filter.
+        int sg_degree_;
+
+        /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
+        double weight_param_;
+
+        /// The maximum number of iterations to solve the linear system.
+        std::size_t solver_max_iterations_;
+        /// The accepted tolerance in the linear system solution.
+        double solver_tolerance_;
+
         /// The number of iterations to solve the linear system.
-        int solver_iterations_;
+        std::ptrdiff_t solver_iterations_;
         /// The estimated error in the linear system solution.
         double solver_residual_;
 
-        // Auxiliary methods
         /// Perform the complete convection-reaction EPT.
         EPTlibError CompleteEPTConvReact();
         /// Perform the phase approximated convection-reaction EPT.
