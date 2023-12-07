@@ -37,6 +37,7 @@
 #include "eptlib/linalg/vector.h"
 
 #include <algorithm>
+#include <complex>
 #include <numeric>
 #include <tuple>
 

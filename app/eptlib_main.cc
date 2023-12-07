@@ -76,7 +76,9 @@
     string MACRO_fname; \
     string MACRO_uri; \
     io::GetAddress(addr,MACRO_fname,MACRO_uri); \
+    std::cout << "Opened file..." << std::endl; \
     io::IOh5 MACRO_ifile(MACRO_fname,io::Mode::In); \
+    std::cout << "File opened" << std::endl; \
     io::State MACRO_iostate = MACRO_ifile.ReadDataset(&map,"/",MACRO_uri); \
     if (MACRO_iostate!=io::State::Success) { \
         cout<<"FATAL ERROR: "<<ToString(MACRO_iostate)+" '"+addr+"'"<<endl; \
