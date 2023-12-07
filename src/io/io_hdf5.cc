@@ -191,7 +191,10 @@ WriteDataset(const eptlib::Image<T> &img, const std::string &url, const std::str
             group = CreateGroup(group_names);
         }
         // create the dataset
-        std::array<hsize_t,N_DIM> dims(img.GetSize());
+        std::array<hsize_t,N_DIM> dims;
+        for (size_t d = 0; d < N_DIM; ++d) {
+            dims[d] = img.GetSize(d);
+        }
         std::reverse(dims.begin(),dims.end());
         H5::DataSpace dspace(N_DIM,dims.data());
         H5::DataType dtype(HDF5Types<T>::Type());

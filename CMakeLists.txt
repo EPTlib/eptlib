@@ -68,7 +68,9 @@ configure_file(${PROJECT_SOURCE_DIR}/include/eptlib/version.h.in
 # Find packages
 include(VerboseFindPackage)
 # hdf5
-set(HDF5_USE_STATIC_LIBRARIES ON)
+if(WIN32)
+    set(HDF5_USE_STATIC_LIBRARIES ON)
+endif()
 VerboseFindPackage(HDF5 COMPONENTS C CXX REQUIRED)
 include_directories("${HDF5_INCLUDE_DIRS}")
 # boost

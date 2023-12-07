@@ -33,6 +33,7 @@
 #ifndef EPTLIB_LINALG_VECTOR_H_
 #define EPTLIB_LINALG_VECTOR_H_
 
+#include <cmath>
 #include <iterator>
 #include <limits>
 #include <type_traits>
@@ -52,13 +53,14 @@ namespace linalg {
      */
     template <typename ForwardIt>
     double MaxAbs(ForwardIt first, ForwardIt last) {
+        using namespace std;
         double eta = 0;
         while (first != last) {
-            double tmp = std::abs(*first++);
-            if (std::isnan(tmp)) {
-                return std::numeric_limits<double>::quiet_NaN();
+            double tmp = abs(*first++);
+            if (isnan(tmp)) {
+                return numeric_limits<double>::quiet_NaN();
             }
-            eta = std::max(eta, tmp);
+            eta = max(eta, tmp);
         }
         return eta;
     }
@@ -74,18 +76,19 @@ namespace linalg {
      */
     template <typename ForwardIt>
     double Norm2(ForwardIt first, ForwardIt last) {
+        using namespace std;
         double eta = MaxAbs(first, last);
         if (eta == 0.0) {
             return eta;
         }
         double sigma = 0;
         while (first != last) {
-            double tmp = std::abs(*first++);
-            if (tmp >= std::sqrt(std::numeric_limits<double>::epsilon())*eta) {
+            double tmp = abs(*first++);
+            if (tmp >= sqrt(numeric_limits<double>::epsilon())*eta) {
                 sigma += tmp*tmp/eta/eta;
             }
         }
-        sigma = std::sqrt(sigma)*eta;
+        sigma = sqrt(sigma)*eta;
         return sigma;
     }
 

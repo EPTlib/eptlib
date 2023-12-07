@@ -88,25 +88,6 @@ namespace io {
             }
 
             /**
-             * Extract a `char' from the TOML file content.
-             * 
-             * @param value pointer to the destination of the value.
-             * @param uri address to the value in the toml file.
-             * 
-             * @return a Success, a MissingData if the value is not found, or
-             *     a WrongDataFormat if the value is found but it is not a `char'.
-             */
-            template <>
-            EPTlibError GetValue<char>(char *value, const std::string &uri) const {
-                std::string tmp;
-                EPTlibError error = GetValue<std::string>(&tmp, uri);
-                if (error==EPTlibError::Success) {
-                    *value = tmp[0];
-                }
-                return error;
-            }
-
-            /**
              * Extract an array from the TOML file content.
              * 
              * @tparam T typename of the values in the array.
@@ -139,6 +120,25 @@ namespace io {
             /// TOML file content.
             toml::Value content_;
     };
+
+    /**
+     * Extract a `char' from the TOML file content.
+     * 
+     * @param value pointer to the destination of the value.
+     * @param uri address to the value in the toml file.
+     * 
+     * @return a Success, a MissingData if the value is not found, or
+     *     a WrongDataFormat if the value is found but it is not a `char'.
+     */
+    template <>
+    EPTlibError IOtoml::GetValue<char>(char *value, const std::string &uri) const {
+        std::string tmp;
+        EPTlibError error = GetValue<std::string>(&tmp, uri);
+        if (error==EPTlibError::Success) {
+            *value = tmp[0];
+        }
+        return error;
+    }
 
 }  // io
 
