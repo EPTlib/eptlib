@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2023  Alessandro Arduino
+*  Copyright (c) 2020-2024  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -487,7 +487,7 @@ int main(int argc, char **argv) {
                 cfgdata<double> dir_epsr(1.0,"parameter.dirichlet.relative-permittivity");
                 cfgdata<bool> thereis_diff(false,"parameter.artificial-diffusion");
                 cfgdata<double> diff_coeff(0.0,"parameter.artificial-diffusion-coefficient");
-                cfgdata<double> max_iterations(1000,"parameter.max-iterations");
+                cfgdata<int> max_iterations(1000,"parameter.max-iterations");
                 cfgdata<double> tolerance(1e-6,"parameter.tolerance");
                 // load the parameters
                 LOADOPTIONALLIST(io_toml,rr);
@@ -742,7 +742,7 @@ int main(int argc, char **argv) {
                 string savitzky_golay_url = "parameter.savitzky-golay";
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
                 cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-                cfgdata<bool> admit_unphysical_values(false,"parameter.admit-unphysical-values");
+                cfgdata<bool> admit_unphysical_values(false,"parameter.unphysical-values");
                 cfgdata<string> output_var_addr("","parameter.output-variance");
                 // load the parameters
                 LOADOPTIONALDATA(io_toml,degree);
