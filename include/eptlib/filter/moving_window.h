@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2023  Alessandro Arduino
+*  Copyright (c) 2023-2024  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -143,15 +143,18 @@ namespace filter {
                 }
             }
             // apply the filter
-            //   the filter application is obtained in two steps
-            //   1) the reference to where to write the result is initialised by assigning an rvalue to output
-            //   2) the result is written by assigning an lvalue to output
-            using output_t = std::conditional_t<filter_with_variance, std::tuple<Scalar&,Scalar&>, Scalar&>;
-            output_t output = ConstexprIf<filter_with_variance>(std::tie(dst->At(i0,i1,i2),variance->At(i0,i1,i2)), std::ref(dst->At(i0,i1,i2)));
+            std::conditional_t<filter_with_variance, std::tuple<Scalar,Scalar>, Scalar> output;
             if constexpr (filter_with_supporting_images) {
                 output = std::invoke(filter, src_crop, supporting_images_crop);
             } else {
                 output = std::invoke(filter, src_crop);
+            }
+            // extract the result
+            if constexpr (filter_with_variance) {
+                dst->At(i0, i1, i2) = std::get<0>(output);
+                variance->At(i0, i1, i2) = std::get<1>(output);
+            } else {
+                dst->At(i0, i1, i2) = output;
             }
         }
         return EPTlibError::Success;

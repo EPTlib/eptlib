@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2023  Alessandro Arduino
+*  Copyright (c) 2023-2024  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -33,6 +33,7 @@
 #ifndef EPTLIB_LINALG_VECTOR_H_
 #define EPTLIB_LINALG_VECTOR_H_
 
+#include <algorithm>
 #include <cmath>
 #include <iterator>
 #include <limits>
