@@ -177,10 +177,10 @@ EPTlibError TOMLGetMultipleSGShapes(std::vector<int> &shapes,
 
 int PerformPostprocessing(const string &output_addr, const string &input_addr,
     const string &reference_addr, const string &variance_addr, const Shape &kernel,
-    const double weight_param, const cfglist<int> &nn) {
+    const double weight_param, const array<int,N_DIM> &nn) {
     //
-    Image<double> dst(nn.first[0], nn.first[1], nn.first[2]);
-    Image<double> src(nn.first[0], nn.first[1], nn.first[2]);
+    Image<double> dst(nn[0], nn[1], nn[2]);
+    Image<double> src(nn[0], nn[1], nn[2]);
     Image<double> ref;
     Image<double> unc;
     bool thereis_reference = false;
@@ -190,14 +190,14 @@ int PerformPostprocessing(const string &output_addr, const string &input_addr,
     LOADMAP(src, input_addr);
     cout<<"    '"<<input_addr<<"'\n"<<endl;
     if (reference_addr!="") {
-        ref = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
+        ref = Image<double>(nn[0], nn[1], nn[2]);
         cout<<"  Loading reference image:\n"<<flush;
         LOADMAP(ref, reference_addr);
         cout<<"    '"<<reference_addr<<"'\n"<<endl;
         thereis_reference = true;
     }
     if (variance_addr!="") {
-        unc = Image<double>(nn.first[0], nn.first[1], nn.first[2]);
+        unc = Image<double>(nn[0], nn[1], nn[2]);
         cout<<"  Loading variance map:\n"<<flush;
         LOADMAP(unc, variance_addr);
         cout<<"    '"<<variance_addr<<"'\n"<<endl;
@@ -1024,6 +1024,14 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
+            std::array<int,N_DIM> nn_input{nn.first[0], nn.first[1], nn.first[2]};
+            if (ept_method==EPTMethod::CONVREACT || ept_method==EPTMethod::GRADIENT) {
+                cfgdata<bool> is_3d(false,"parameter.volume-tomography");
+                LOADOPTIONALDATA(io_toml,is_3d);
+                if (!is_3d.first) {
+                    nn_input[2] = 1;
+                }
+            }
             // Report postprocessing parameters
             cout<<"Postprocessing of the conductivity map\n";
             cout<<"Parameters:\n";
@@ -1036,7 +1044,7 @@ int main(int argc, char **argv) {
             cout<<"  Output address: "<<output<<"\n";
             cout<<endl;
             // Perform the postprocessing
-            int postprocessing_error = PerformPostprocessing(output, input, reference, variance, kernel, weight_param.first, nn);
+            int postprocessing_error = PerformPostprocessing(output, input, reference, variance, kernel, weight_param.first, nn_input);
             if (postprocessing_error != 0) {
                 cout<<"execution failed\n"<<endl;
                 return 1;
@@ -1095,6 +1103,14 @@ int main(int argc, char **argv) {
                     break;
                 }
             }
+            std::array<int,N_DIM> nn_input{nn.first[0], nn.first[1], nn.first[2]};
+            if (ept_method==EPTMethod::CONVREACT || ept_method==EPTMethod::GRADIENT) {
+                cfgdata<bool> is_3d(false,"parameter.volume-tomography");
+                LOADOPTIONALDATA(io_toml,is_3d);
+                if (!is_3d.first) {
+                    nn_input[2] = 1;
+                }
+            }
             // Report postprocessing parameters
             cout<<"Postprocessing of the permittivity map\n";
             cout<<"Parameters:\n";
@@ -1107,7 +1123,7 @@ int main(int argc, char **argv) {
             cout<<"  Output address: "<<output<<"\n";
             cout<<endl;
             // Perform the postprocessing
-            int postprocessing_error = PerformPostprocessing(output, input, reference, variance, kernel, weight_param.first, nn);
+            int postprocessing_error = PerformPostprocessing(output, input, reference, variance, kernel, weight_param.first, nn_input);
             if (postprocessing_error != 0) {
                 cout<<"execution failed\n"<<endl;
                 return 1;
