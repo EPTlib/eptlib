@@ -993,7 +993,11 @@ int main(int argc, char **argv) {
                 LOADOPTIONALNOWARNINGDATA(io_toml, output_var_addr);
                 input = sigma_addr.first;
                 reference = refimg_addr.first;
-                variance = output_var_addr.first + "/electric-conductivity";
+                if (output_var_addr.first != "" && (ept_method == EPTMethod::HELMHOLTZ || ept_method == EPTMethod::HELMHOLTZ_CHI2)) {
+                    variance = output_var_addr.first + "/electric-conductivity";
+                } else {
+                    variance = "";
+                }
             } else {
                 cout<<"WARNING: No input conductivity to be postprocessed!"<<endl;
                 postprocess_flag = false;
@@ -1060,7 +1064,11 @@ int main(int argc, char **argv) {
                 LOADOPTIONALNOWARNINGDATA(io_toml, output_var_addr);
                 input = epsr_addr.first;
                 reference = refimg_addr.first;
-                variance = output_var_addr.first + "/relative-permittivity";
+                if (output_var_addr.first != "" && (ept_method == EPTMethod::HELMHOLTZ || ept_method == EPTMethod::HELMHOLTZ_CHI2)) {
+                    variance = output_var_addr.first + "/relative-permittivity";
+                } else {
+                    variance = "";
+                }
             } else {
                 cout<<"WARNING: No input permittivity to be postprocessed!"<<endl;
                 postprocess_flag = false;
