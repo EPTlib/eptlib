@@ -83,7 +83,6 @@ Run() {
         return EPTlibError::MissingData;
     }
     // setup the output variables and perform ept
-    // setup the output variables and perform ept
     sigma_ = std::make_unique<Image<double> >(nn_[0], nn_[1], VolumeTomography() ? nn_[2] : 1);
     if (ThereIsTxSens(0)) {
         epsr_ = std::make_unique<Image<double> >(nn_[0], nn_[1], VolumeTomography() ? nn_[2] : 1);
@@ -98,24 +97,27 @@ namespace { // details
     template <typename Scalar>
     void FillDoF(std::vector<int> *dof, int *idx_dof, int *n_dof, int *n_dop,
         const int n_dim, const size_t i2, const std::array<std::ptrdiff_t, N_DIM> &step,
-        const Image<Scalar> &beta) {
-        int idx = step[2]*i2;
-        for (size_t idx_out = 0; idx_out<step[2]; ++idx_out) {
-            if (beta(idx)==beta(idx)) {
-                // if beta is not a NaN, it could be a DoF...
-                (*dof)[(*idx_dof)++] = ++(*n_dof);
-                for (size_t d = 0; d<n_dim; ++d) {
-                    if (beta(idx+step[d])!=beta(idx+step[d]) || beta(idx-step[d])!=beta(idx-step[d])) {
-                        // ...unless it is near to a NaN
-                        (*dof)[*idx_dof-1] = --(*n_dop);
-                        --(*n_dof);
-                        break;
+        const std::array<std::size_t, N_DIM> &nn, const Image<Scalar> &beta) {
+        std::array<std::size_t, N_DIM> ii{0, 0, i2};
+        int idx = step[2]*ii[2];
+        for (ii[0] = 0; ii[0]<nn[0]; ++ii[0]) {
+            for (ii[1] = 0; ii[1]<nn[1]; ++ii[1]) {
+                if (beta(idx)==beta(idx)) {
+                    // if beta is not a NaN, it could be a DoF...
+                    (*dof)[(*idx_dof)++] = ++(*n_dof);
+                    for (size_t d = 0; d<n_dim; ++d) {
+                        if (ii[d]==0 || ii[d]==nn[d]-1 || beta(idx+step[d])!=beta(idx+step[d]) || beta(idx-step[d])!=beta(idx-step[d])) {
+                            // ...unless it is near to a boundary or a NaN
+                            (*dof)[*idx_dof-1] = --(*n_dop);
+                            --(*n_dof);
+                            break;
+                        }
                     }
+                } else {
+                    (*dof)[(*idx_dof)++] = --(*n_dop);
                 }
-            } else {
-                (*dof)[(*idx_dof)++] = --(*n_dop);
+                ++idx;
             }
-            ++idx;
         }
         return;
     }
@@ -176,10 +178,10 @@ CompleteEPTConvReact() {
     int n_dop = 0;
     if (VolumeTomography()) {
         for (size_t i2 = 0; i2<nn_[2]; ++i2) {
-            ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,i2,step,beta[0]);
+            ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,i2,step,nn_,beta[0]);
         }
     } else {
-        ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,slice_index_.value(),step,beta[0]);
+        ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,slice_index_.value(),step,nn_,beta[0]);
     }
     // build coefficient matrix and forcing term
     Eigen::SparseMatrix<std::complex<double> > A(n_dof,n_dof);
@@ -273,21 +275,11 @@ PhaseEPTConvReact() {
         EPTlibError error;
         if (PhaseIsWrapped()) {
             if (ThereIsReferenceImage()) {
-                throw std::runtime_error("Feature not implemented, yet!");
-            } else {
-                error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[d], *GetTRxPhase(0,0));
-            }
-            if (ThereIsReferenceImage()) {
                 throw std::runtime_error("Feature not implemented!");
             } else {
                 error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[d], *GetTRxPhase(0,0));
             }
         } else {
-            if (ThereIsReferenceImage()) {
-                error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], *GetTRxPhase(0,0), *reference_image_);
-            } else {
-                error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], *GetTRxPhase(0,0));
-            }
             if (ThereIsReferenceImage()) {
                 error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[d], *GetTRxPhase(0,0), *reference_image_);
             } else {
@@ -305,21 +297,11 @@ PhaseEPTConvReact() {
         EPTlibError error;
         if (PhaseIsWrapped()) {
             if (ThereIsReferenceImage()) {
-                throw std::runtime_error("Feature not implemented, yet!");
-            } else {
-                error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[2], *GetTRxPhase(0,0));
-            }
-            if (ThereIsReferenceImage()) {
                 throw std::runtime_error("Feature not implemented!");
             } else {
                 error = std::get<filter::SavitzkyGolay>(sg_filter_).ApplyWrappedPhase(diff_op, &beta[2], *GetTRxPhase(0,0));
             }
         } else {
-            if (ThereIsReferenceImage()) {
-                error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], *GetTRxPhase(0,0), *reference_image_);
-            } else {
-                error = std::get<filter::SavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], *GetTRxPhase(0,0));
-            }
             if (ThereIsReferenceImage()) {
                 error = std::get<filter::AnatomicalSavitzkyGolay>(sg_filter_).Apply(diff_op, &beta[2], *GetTRxPhase(0,0), *reference_image_);
             } else {
@@ -337,10 +319,10 @@ PhaseEPTConvReact() {
     int n_dop = 0;
     if (VolumeTomography()) {
         for (size_t i2 = 0; i2<nn_[2]; ++i2) {
-            ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,i2,step,beta[0]);
+            ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,i2,step,nn_,beta[0]);
         }
     } else {
-        ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,slice_index_.value(),step,beta[0]);
+        ::FillDoF(&dof,&idx_dof,&n_dof,&n_dop, n_dim,slice_index_.value(),step,nn_,beta[0]);
     }
     // build coefficient matrix and forcing term
     Eigen::SparseMatrix<double> A(n_dof,n_dof);
