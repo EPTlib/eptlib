@@ -389,6 +389,8 @@ PhaseEPTConvReact() {
     // Solve the linear system
     Eigen::BiCGSTAB<Eigen::SparseMatrix<double> > solver;
     solver.compute(A);
+    solver.setMaxIterations(solver_max_iterations_);
+    solver.setTolerance(solver_tolerance_);
     Eigen::VectorXd x = solver.solve(b);
     solver_iterations_ = solver.iterations();
     solver_residual_ = solver.error();
