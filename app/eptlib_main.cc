@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2024  Alessandro Arduino
+*  Copyright (c) 2020-2025  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -255,6 +255,7 @@ int main(int argc, char **argv) {
     cfgdata<int> n_rxch(1,"input.rx-channels");
     cfgdata<string> txsens_addr("","input.tx-sensitivity");
     cfgdata<string> trxphase_addr("","input.trx-phase");
+    cfgdata<string> txphase_addr("","input.tx-phase");
     cfgdata<bool> wrapped_phase(false,"input.wrapped-phase");
     cfgdata<string> refimg_addr("","input.reference-image");
     cfgdata<string> sigma_addr("","output.electric-conductivity");
@@ -281,6 +282,7 @@ int main(int argc, char **argv) {
     LOADOPTIONALDATA(io_toml,n_rxch);
     LOADOPTIONALDATA(io_toml,txsens_addr);
     LOADOPTIONALDATA(io_toml,trxphase_addr);
+    LOADOPTIONALDATA(io_toml,txphase_addr);
     LOADOPTIONALDATA(io_toml,wrapped_phase);
     LOADOPTIONALDATA(io_toml,refimg_addr);
     //   output
@@ -302,6 +304,7 @@ int main(int argc, char **argv) {
     EPTMethod ept_method = static_cast<EPTMethod>(method.first);
     bool thereis_txsens = txsens_addr.first!="";
     bool thereis_trxphase = trxphase_addr.first!="";
+    bool thereis_txphase = txphase_addr.first!="";
     bool thereis_refimg = refimg_addr.first!="";
     bool thereis_sigma = sigma_addr.first!="";
     bool thereis_epsr = epsr_addr.first!="";
@@ -313,6 +316,10 @@ int main(int argc, char **argv) {
     //   input addresses
     if (!thereis_txsens&&!thereis_trxphase) {
         cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
+        return 1;
+    }
+    if (thereis_trxphase && thereis_txphase) {
+        cout << "FATAL ERROR in config file: Both '" << trxphase_addr.second << "' and '" << txphase_addr.second << "' are provided" << endl;
         return 1;
     }
     //   output addresses
@@ -330,7 +337,11 @@ int main(int argc, char **argv) {
     cout<<"  Tx channels: "<<n_txch.first<<"\n";
     cout<<"  Rx channels: "<<n_rxch.first<<"\n";
     cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
-    cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+    if (!thereis_txphase) {
+        cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+    } else {
+        cout << "  Tx phase addr.: '" << txphase_addr.first << "'\n";
+    }
     cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
     cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
     cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
@@ -402,6 +413,25 @@ int main(int argc, char **argv) {
                     LOADMAP(map,addr);
                     trxphase.push_back(map);
                     cout<<"  '"<<addr<<"'\n"<<flush;
+                }
+            }
+            cout<<endl;
+        } else if (thereis_txphase) {
+            cout << "Loading Tx phase:\n" << flush;
+            for (int id_rx = 0; id_rx < n_rxch.first; ++id_rx) {
+                for (int id_tx = 0; id_tx < n_txch.first; ++id_tx) {
+                    int tx = id_tx * wc_step.first + wc_start_from.first;
+                    int rx = id_rx * wc_step.first + wc_start_from.first;
+                    string addr(txphase_addr.first);
+                    StringReplace(&addr, string(1, tx_wc.first), to_string(tx));
+                    StringReplace(&addr, string(1, rx_wc.first), to_string(rx));
+                    Image<double> map(nn.first[0], nn.first[1], nn.first[2]);
+                    LOADMAP(map, addr);
+                    for (int idx = 0; idx < map.GetNVox(); ++idx) {
+                        map(idx) *= 2.0;
+                    }
+                    trxphase.push_back(map);
+                    cout << "  '" << addr << "'\n" << flush;
                 }
             }
             cout<<endl;
@@ -741,6 +771,7 @@ int main(int argc, char **argv) {
                 // declare the parameters
                 string savitzky_golay_url = "parameter.savitzky-golay";
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<double> weight_param(0.05,"parameter.savitzky-golay.weight-param");
                 cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
                 cfgdata<bool> admit_unphysical_values(false,"parameter.unphysical-values");
                 cfgdata<string> output_var_addr("","parameter.output-variance");
@@ -749,6 +780,7 @@ int main(int argc, char **argv) {
                 LOADOPTIONALDATA(io_toml,output_sg_index_addr);
                 LOADOPTIONALDATA(io_toml,admit_unphysical_values);
                 LOADOPTIONALDATA(io_toml,output_var_addr);
+                LOADOPTIONALDATA(io_toml,weight_param);
                 cout<<endl;
                 std::vector<int> shapes(0);
                 std::vector<std::array<int,N_DIM> > sizes(0);
@@ -770,16 +802,9 @@ int main(int argc, char **argv) {
                     cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
-                if (!thereis_trxphase) {
-                    cout<<"FATAL ERROR in config file: The transceive phase address is needed by "<<ToString(ept_method)<<endl;
-                    return 1;
-                }
                 if (degree.first<2) {
                     cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
                     return 1;
-                }
-                if (thereis_txsens) {
-                    cout<<"WARNING: This method works only with the phase-based approximation. Relative permittivity will not be computed and the Tx sensitivity will not be used."<<endl;
                 }
                 if (wrapped_phase.first) {
                     cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
@@ -800,6 +825,7 @@ int main(int argc, char **argv) {
                 }
                 cout<<"]\n";
                 cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"    Weight parameter: "<<weight_param.first<<"\n";
                 cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
                 cout<<"  Admit unphysical values: "<<(admit_unphysical_values.first?"Yes":"No")<<"\n";
                 cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
@@ -821,7 +847,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 // create the EPT method
-                ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first);
+                ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first, weight_param.first);
                 break;
             }
         }
@@ -831,7 +857,7 @@ int main(int argc, char **argv) {
                 ept->SetTxSensitivity(txsens[id_tx], id_tx);
             }
         }
-        if (thereis_trxphase) {
+        if (thereis_trxphase || thereis_txphase) {
             for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
                 for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
                     ept->SetTRxPhase(trxphase[id_tx+n_txch.first*id_rx], id_tx,id_rx);
@@ -946,18 +972,30 @@ int main(int argc, char **argv) {
         } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
             // Save the quality index chi2 distribution
             cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-            LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
-            bool thereis_index = output_sg_index_addr.first!="";
-            if (thereis_index) {
-                auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetIndex();
-                SAVEMAP(*index,output_sg_index_addr.first);
-            }
             cfgdata<string> output_var_addr("","parameter.output-variance");
+            LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
             LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
+            bool thereis_index = output_sg_index_addr.first!="";
             bool thereis_var = output_var_addr.first!="";
-            if (thereis_var) {
-                auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityVariance();
-                SAVEMAP(*var,output_var_addr.first + "/electric-conductivity");
+            if (dynamic_cast<EPTHelmholtzChi2*>(ept.get())->ThereIsSigma()) {
+                if (thereis_index) {
+                    auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityIndex();
+                    SAVEMAP(*index, output_sg_index_addr.first + "/electric-conductivity");
+                }
+                if (thereis_var) {
+                    auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityVariance();
+                    SAVEMAP(*var, output_var_addr.first + "/electric-conductivity");
+                }
+            }
+            if (dynamic_cast<EPTHelmholtzChi2*>(ept.get())->ThereIsEpsr()) {
+                if (thereis_index) {
+                    auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetRelativePermittivityIndex();
+                    SAVEMAP(*index, output_sg_index_addr.first + "/relative-permittivity");
+                }
+                if (thereis_var) {
+                    auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetRelativePermittivityVariance();
+                    SAVEMAP(*var, output_var_addr.first + "/relative-permittivity");
+                }
             }
         }
         cout<<endl;

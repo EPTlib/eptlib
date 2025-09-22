@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2023  Alessandro Arduino
+*  Copyright (c) 2020-2025  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -68,7 +68,7 @@ std::string ToString(const EPTMethod ept_method) {
         case EPTMethod::HELMHOLTZ: return "Helmholtz EPT";
         case EPTMethod::CONVREACT: return "Convection-reaction EPT";
         case EPTMethod::GRADIENT: return "Gradient EPT";
-        case EPTMethod::HELMHOLTZ_CHI2: return "Phase-based Helmholtz EPT with automatically selected kernels";
+        case EPTMethod::HELMHOLTZ_CHI2: return "Helmholtz EPT with automatically selected kernels";
     }
     return "";
 }

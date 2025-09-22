@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2023  Alessandro Arduino
+*  Copyright (c) 2020-2025  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -72,7 +72,8 @@ class EPTHelmholtzChi2 : public EPTInterface {
         EPTHelmholtzChi2(const size_t n0, const size_t n1, const size_t n2,
             const double d0, const double d1, const double d2,
             const double freq, const std::vector<Shape> &windows,
-            const int degree = 2, const bool admit_unphysical_values = false);
+            const int degree = 2, const bool admit_unphysical_values = false,
+            const double weight_param = 0.05);
 
         /**
          * @brief Virtual destructor.
@@ -90,41 +91,79 @@ class EPTHelmholtzChi2 : public EPTInterface {
         virtual EPTlibError Run() override;
 
         /**
-         * @brief Get the computed variance map.
+         * @brief Get the computed variance map of the electric conductivity.
          * 
-         * @return reference of the pointer to the computed variance map.
+         * @return reference of the pointer to the computed variance map of the electric conductivity.
          */
         inline std::unique_ptr<Image<double> >& GetElectricConductivityVariance() {
             return variance_sigma_;
         }
 
         /**
-         * @brief Check if the variance is set.
+         * @brief Get the computed variance map of the relative permittivity.
          * 
-         * @return true if the variance is set.
-         * @return false if the variance is not set.
+         * @return reference of the pointer to the computed variance map of the relative permittivity.
+         */
+        inline std::unique_ptr<Image<double> >& GetRelativePermittivityVariance() {
+            return variance_epsr_;
+        }
+
+        /**
+         * @brief Check if the variance of the electric conductivity is set.
+         * 
+         * @return true if the variance of the electric conductivity is set.
+         * @return false if the variance of the electric conductivity is not set.
          */
         inline bool ThereIsElectricConductivityVariance() const {
             return variance_sigma_!=nullptr;
         }
 
         /**
-         * @brief Get the index map of the selected kernel shapes.
+         * @brief Check if the variance of the relative permittivity is set.
          * 
-         * @return reference of the pointer to the index map.
+         * @return true if the variance of the relative permittivity is set.
+         * @return false if the variance of the relative permittivity is not set.
          */
-        inline std::unique_ptr<Image<int> >& GetIndex() {
-            return index_;
+        inline bool ThereIsRelativePermittivityVariance() const {
+            return variance_epsr_!=nullptr;
         }
 
         /**
-         * @brief Check if the index map is set.
+         * @brief Get the index map of the selected kernel shapes for electric conductivity.
          * 
-         * @return true if the index map is set.
-         * @return false if the index map is not set.
+         * @return reference of the pointer to the index map for electric conductivity.
          */
-        inline bool ThereIsIndex() const {
-            return index_!=nullptr;
+        inline std::unique_ptr<Image<int> >& GetElectricConductivityIndex() {
+            return index_sigma_;
+        }
+
+        /**
+         * @brief Check if the index map for electric conductivity is set.
+         * 
+         * @return true if the index map for electric conductivity is set.
+         * @return false if the index map for electric conductivity is not set.
+         */
+        inline bool ThereIsElectricConductivityIndex() const {
+            return index_sigma_!=nullptr;
+        }
+
+        /**
+         * @brief Get the index map of the selected kernel shapes for relative permittivity.
+         * 
+         * @return reference of the pointer to the index map for the relative permittivity.
+         */
+        inline std::unique_ptr<Image<int> >& GetRelativePermittivityIndex() {
+            return index_epsr_;
+        }
+
+        /**
+         * @brief Check if the index map for relative permittivity is set.
+         * 
+         * @return true if the index map for relative permittivity is set.
+         * @return false if the index map for relative permittivity is not set.
+         */
+        inline bool ThereIsRelativePermittivityIndex() const {
+            return index_epsr_!=nullptr;
         }
 
         /**
@@ -150,12 +189,22 @@ class EPTHelmholtzChi2 : public EPTInterface {
         std::vector<Shape> windows_;
         /// Degree of the interpolating polynomial for the finite difference scheme.
         int degree_;
-        /// Quality map.
+
+        /// Variance map of the electric conductivity.
         std::unique_ptr<Image<double> > variance_sigma_;
-        /// Pixel-wise selected kernel shape.
-        std::unique_ptr<Image<int> > index_;
+        /// Variance map of the relative permittivity.
+        std::unique_ptr<Image<double> > variance_epsr_;
+
+        /// Pixel-wise selected kernel shape for electric conductivity.
+        std::unique_ptr<Image<int> > index_sigma_;
+        /// Pixel-wise selected kernel shape for relative permittivity.
+        std::unique_ptr<Image<int> > index_epsr_;
+
         /// Unphysical values flag.
         bool admit_unphysical_values_;
+
+        /// Parameter of the weight function, used only with the anatomical Savitzky-Golay filter.
+        double weight_param_;
 };
 
 }  // namespace eptlib
