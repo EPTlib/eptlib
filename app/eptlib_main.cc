@@ -771,6 +771,7 @@ int main(int argc, char **argv) {
                 // declare the parameters
                 string savitzky_golay_url = "parameter.savitzky-golay";
                 cfgdata<int> degree(2,"parameter.savitzky-golay.degree");
+                cfgdata<double> weight_param(0.05,"parameter.savitzky-golay.weight-param");
                 cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
                 cfgdata<bool> admit_unphysical_values(false,"parameter.unphysical-values");
                 cfgdata<string> output_var_addr("","parameter.output-variance");
@@ -779,6 +780,7 @@ int main(int argc, char **argv) {
                 LOADOPTIONALDATA(io_toml,output_sg_index_addr);
                 LOADOPTIONALDATA(io_toml,admit_unphysical_values);
                 LOADOPTIONALDATA(io_toml,output_var_addr);
+                LOADOPTIONALDATA(io_toml,weight_param);
                 cout<<endl;
                 std::vector<int> shapes(0);
                 std::vector<std::array<int,N_DIM> > sizes(0);
@@ -800,16 +802,9 @@ int main(int argc, char **argv) {
                     cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
-                if (!thereis_trxphase && !thereis_txphase) {
-                    cout<<"FATAL ERROR in config file: The transceive (or transmit) phase address is needed by "<<ToString(ept_method)<<endl;
-                    return 1;
-                }
                 if (degree.first<2) {
                     cout<<"FATAL ERROR in config file: Wrong data format '"<<degree.second<<"'"<<endl;
                     return 1;
-                }
-                if (thereis_txsens) {
-                    cout<<"WARNING: This method works only with the phase-based approximation. Relative permittivity will not be computed and the Tx sensitivity will not be used."<<endl;
                 }
                 if (wrapped_phase.first) {
                     cout<<"WARNING: Variance cannot be evaluated with wrapped phase. The phase will be assumed unwrapped."<<endl;
@@ -830,6 +825,7 @@ int main(int argc, char **argv) {
                 }
                 cout<<"]\n";
                 cout<<"    Polynomial degree: "<<degree.first<<"\n";
+                cout<<"    Weight parameter: "<<weight_param.first<<"\n";
                 cout<<"    Output index addr.: '"<<output_sg_index_addr.first<<"'\n";
                 cout<<"  Admit unphysical values: "<<(admit_unphysical_values.first?"Yes":"No")<<"\n";
                 cout<<"  Output variance addr.: '"<<output_var_addr.first<<"'\n";
@@ -851,7 +847,7 @@ int main(int argc, char **argv) {
                     }
                 }
                 // create the EPT method
-                ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first);
+                ept = std::make_unique<EPTHelmholtzChi2>(nn.first[0],nn.first[1],nn.first[2], dd.first[0],dd.first[1],dd.first[2], freq.first, kernels, degree.first, admit_unphysical_values.first, weight_param.first);
                 break;
             }
         }
@@ -976,18 +972,30 @@ int main(int argc, char **argv) {
         } else if (ept_method==EPTMethod::HELMHOLTZ_CHI2) {
             // Save the quality index chi2 distribution
             cfgdata<string> output_sg_index_addr("","parameter.savitzky-golay.output-index");
-            LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
-            bool thereis_index = output_sg_index_addr.first!="";
-            if (thereis_index) {
-                auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetIndex();
-                SAVEMAP(*index,output_sg_index_addr.first);
-            }
             cfgdata<string> output_var_addr("","parameter.output-variance");
+            LOADOPTIONALNOWARNINGDATA(io_toml,output_sg_index_addr);
             LOADOPTIONALNOWARNINGDATA(io_toml,output_var_addr);
+            bool thereis_index = output_sg_index_addr.first!="";
             bool thereis_var = output_var_addr.first!="";
-            if (thereis_var) {
-                auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityVariance();
-                SAVEMAP(*var,output_var_addr.first + "/electric-conductivity");
+            if (dynamic_cast<EPTHelmholtzChi2*>(ept.get())->ThereIsSigma()) {
+                if (thereis_index) {
+                    auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityIndex();
+                    SAVEMAP(*index, output_sg_index_addr.first + "/electric-conductivity");
+                }
+                if (thereis_var) {
+                    auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetElectricConductivityVariance();
+                    SAVEMAP(*var, output_var_addr.first + "/electric-conductivity");
+                }
+            }
+            if (dynamic_cast<EPTHelmholtzChi2*>(ept.get())->ThereIsEpsr()) {
+                if (thereis_index) {
+                    auto& index = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetRelativePermittivityIndex();
+                    SAVEMAP(*index, output_sg_index_addr.first + "/relative-permittivity");
+                }
+                if (thereis_var) {
+                    auto& var = dynamic_cast<EPTHelmholtzChi2*>(ept.get())->GetRelativePermittivityVariance();
+                    SAVEMAP(*var, output_var_addr.first + "/relative-permittivity");
+                }
             }
         }
         cout<<endl;
