@@ -255,6 +255,7 @@ int main(int argc, char **argv) {
     cfgdata<int> n_rxch(1,"input.rx-channels");
     cfgdata<string> txsens_addr("","input.tx-sensitivity");
     cfgdata<string> trxphase_addr("","input.trx-phase");
+    cfgdata<string> txphase_addr("","input.tx-phase");
     cfgdata<bool> wrapped_phase(false,"input.wrapped-phase");
     cfgdata<string> refimg_addr("","input.reference-image");
     cfgdata<string> sigma_addr("","output.electric-conductivity");
@@ -281,6 +282,7 @@ int main(int argc, char **argv) {
     LOADOPTIONALDATA(io_toml,n_rxch);
     LOADOPTIONALDATA(io_toml,txsens_addr);
     LOADOPTIONALDATA(io_toml,trxphase_addr);
+    LOADOPTIONALDATA(io_toml,txphase_addr);
     LOADOPTIONALDATA(io_toml,wrapped_phase);
     LOADOPTIONALDATA(io_toml,refimg_addr);
     //   output
@@ -302,6 +304,7 @@ int main(int argc, char **argv) {
     EPTMethod ept_method = static_cast<EPTMethod>(method.first);
     bool thereis_txsens = txsens_addr.first!="";
     bool thereis_trxphase = trxphase_addr.first!="";
+    bool thereis_txphase = txphase_addr.first!="";
     bool thereis_refimg = refimg_addr.first!="";
     bool thereis_sigma = sigma_addr.first!="";
     bool thereis_epsr = epsr_addr.first!="";
@@ -313,6 +316,10 @@ int main(int argc, char **argv) {
     //   input addresses
     if (!thereis_txsens&&!thereis_trxphase) {
         cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
+        return 1;
+    }
+    if (thereis_trxphase && thereis_txphase) {
+        cout << "FATAL ERROR in config file: Both '" << trxphase_addr.second << "' and '" << txphase_addr.second << "' are provided" << endl;
         return 1;
     }
     //   output addresses
@@ -330,7 +337,11 @@ int main(int argc, char **argv) {
     cout<<"  Tx channels: "<<n_txch.first<<"\n";
     cout<<"  Rx channels: "<<n_rxch.first<<"\n";
     cout<<"\n  Tx sensitivity addr.: '"<<txsens_addr.first<<"'\n";
-    cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+    if (!thereis_txphase) {
+        cout<<"  TRx phase addr.: '"<<trxphase_addr.first<<"'\n";
+    } else {
+        cout << "  Tx phase addr.: '" << txphase_addr.first << "'\n";
+    }
     cout<<"  Phase is wrapped: "<<(wrapped_phase.first?"Yes":"No")<<"\n";
     cout<<"  Reference image addr.: '"<<refimg_addr.first<<"'\n";
     cout<<"\n  Output electric conductivity addr.: '"<<sigma_addr.first<<"'\n";
@@ -402,6 +413,25 @@ int main(int argc, char **argv) {
                     LOADMAP(map,addr);
                     trxphase.push_back(map);
                     cout<<"  '"<<addr<<"'\n"<<flush;
+                }
+            }
+            cout<<endl;
+        } else if (thereis_txphase) {
+            cout << "Loading Tx phase:\n" << flush;
+            for (int id_rx = 0; id_rx < n_rxch.first; ++id_rx) {
+                for (int id_tx = 0; id_tx < n_txch.first; ++id_tx) {
+                    int tx = id_tx * wc_step.first + wc_start_from.first;
+                    int rx = id_rx * wc_step.first + wc_start_from.first;
+                    string addr(txphase_addr.first);
+                    StringReplace(&addr, string(1, tx_wc.first), to_string(tx));
+                    StringReplace(&addr, string(1, rx_wc.first), to_string(rx));
+                    Image<double> map(nn.first[0], nn.first[1], nn.first[2]);
+                    LOADMAP(map, addr);
+                    for (int idx = 0; idx < map.GetNVox(); ++idx) {
+                        map(idx) *= 2.0;
+                    }
+                    trxphase.push_back(map);
+                    cout << "  '" << addr << "'\n" << flush;
                 }
             }
             cout<<endl;
@@ -770,8 +800,8 @@ int main(int argc, char **argv) {
                     cout<<"FATAL ERROR in config file: 1 transmit/receive channel is needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
-                if (!thereis_trxphase) {
-                    cout<<"FATAL ERROR in config file: The transceive phase address is needed by "<<ToString(ept_method)<<endl;
+                if (!thereis_trxphase && !thereis_txphase) {
+                    cout<<"FATAL ERROR in config file: The transceive (or transmit) phase address is needed by "<<ToString(ept_method)<<endl;
                     return 1;
                 }
                 if (degree.first<2) {
@@ -831,7 +861,7 @@ int main(int argc, char **argv) {
                 ept->SetTxSensitivity(txsens[id_tx], id_tx);
             }
         }
-        if (thereis_trxphase) {
+        if (thereis_trxphase || thereis_txphase) {
             for (int id_rx = 0; id_rx<n_rxch.first; ++id_rx) {
                 for (int id_tx = 0; id_tx<n_txch.first; ++id_tx) {
                     ept->SetTRxPhase(trxphase[id_tx+n_txch.first*id_rx], id_tx,id_rx);
