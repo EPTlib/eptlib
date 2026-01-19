@@ -5,7 +5,7 @@
 #
 #  MIT License
 #
-#  Copyright (c) 2020-2024  Alessandro Arduino
+#  Copyright (c) 2020-2026  Alessandro Arduino
 #  Istituto Nazionale di Ricerca Metrologica (INRiM)
 #  Strada delle cacce 91, 10135 Torino
 #  ITALY
@@ -32,7 +32,7 @@
 
 cmake_minimum_required(VERSION 3.16)
 
-project(EPTlib VERSION 0.4.5 LANGUAGES C CXX)
+project(EPTlib VERSION 0.4.6 LANGUAGES C CXX)
 
 # Define building options
 option(build_docs "Build documentation (requires doxygen)" ON)
