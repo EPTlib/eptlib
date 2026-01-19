@@ -100,8 +100,8 @@ namespace { // details
         const std::array<std::size_t, N_DIM> &nn, const Image<Scalar> &beta) {
         std::array<std::size_t, N_DIM> ii{0, 0, i2};
         int idx = step[2]*ii[2];
-        for (ii[0] = 0; ii[0]<nn[0]; ++ii[0]) {
-            for (ii[1] = 0; ii[1]<nn[1]; ++ii[1]) {
+        for (ii[1] = 0; ii[1]<nn[1]; ++ii[1]) {
+            for (ii[0] = 0; ii[0]<nn[0]; ++ii[0]) {
                 if (beta(idx)==beta(idx)) {
                     // if beta is not a NaN, it could be a DoF...
                     (*dof)[(*idx_dof)++] = ++(*n_dof);
