@@ -154,7 +154,7 @@ eptlib::EPTlibError eptlib::filter::Postprocessing(eptlib::Image<double> *dst, c
     // only uncertainty available
     if (!reference_image && uncertainty) {
         auto filter = [&] (const std::vector<double> &src_crop, const std::vector<double> &uncertainty_crop) -> double {
-            return eptlib::filter::AnatomicalMedianFilter(src_crop, uncertainty_crop);
+            return eptlib::filter::UncertainFilter(src_crop, uncertainty_crop);
         };
         return eptlib::filter::MovingWindow<double>(dst, src, window, filter, nullptr, {uncertainty});
     }
