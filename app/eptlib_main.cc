@@ -314,8 +314,8 @@ int main(int argc, char **argv) {
         return 1;
     }
     //   input addresses
-    if (!thereis_txsens&&!thereis_trxphase) {
-        cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' are provided"<<endl;
+    if (!thereis_txsens && !thereis_trxphase && !thereis_txphase) {
+        cout<<"FATAL ERROR in config file: Neither '"<<txsens_addr.second<<"' nor '"<<trxphase_addr.second<<"' or '"<<txphase_addr.second<<"' provided"<<endl;
         return 1;
     }
     if (thereis_trxphase && thereis_txphase) {
