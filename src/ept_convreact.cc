@@ -49,6 +49,7 @@ EPTConvReact(const size_t n0, const size_t n1, const size_t n2,
     EPTInterface(n0,n1,n2, d0,d1,d2, freq, 1,1, false),
     slice_index_(),
     artificial_diffusion_(),
+    is_dirichlet_(false),
     dirichlet_epsr_(1.0),
     dirichlet_sigma_(0.0),
     sg_filter_(),
@@ -194,36 +195,47 @@ CompleteEPTConvReact() {
             b[idof-1] = 0.0;
             // coefficient matrix
             for (size_t d = 0; d<n_dim; ++d) {
-                if (ThereIsArtificialDiffusion()) {
-                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, 2.0*artificial_diffusion_.value()/dd_[d]/dd_[d]));
-                }
+
                 int jdx_out = idx_out+step[d];
                 int jdx = idx+step[d];
                 int jdof = dof[jdx_out];
                 if (jdof > 0) {
                     A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,beta[d](jdx)/2.0/dd_[d]));
                     if (ThereIsArtificialDiffusion()) {
-                        A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, jdof-1, -artificial_diffusion_.value()/dd_[d]/dd_[d]));
+                      A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, artificial_diffusion_.value()/dd_[d]/dd_[d]));
+                      A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, jdof-1, -artificial_diffusion_.value()/dd_[d]/dd_[d]));
                     }
                 } else {
+                  if (is_dirichlet_) {
                     b[idof-1] += -dirichlet_x*beta[d](jdx)/2.0/dd_[d];
                     if (ThereIsArtificialDiffusion()) {
-                        b[idof-1] += dirichlet_x*artificial_diffusion_.value()/dd_[d]/dd_[d];
+                      A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, artificial_diffusion_.value()/dd_[d]/dd_[d]));
+                      b[idof-1] += dirichlet_x*artificial_diffusion_.value()/dd_[d]/dd_[d];
                     }
+                  } else {
+                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, beta[d](jdx) / 2.0 / dd_[d]));
+                  }
                 }
+
                 jdx_out = idx_out-step[d];
                 jdx = idx-step[d];
                 jdof = dof[jdx_out];
                 if (jdof > 0) {
                     A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1,jdof-1,-beta[d](jdx)/2.0/dd_[d]));
                     if (ThereIsArtificialDiffusion()) {
+                        A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, artificial_diffusion_.value()/dd_[d]/dd_[d]));
                         A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, jdof-1, -artificial_diffusion_.value()/dd_[d]/dd_[d]));
                     }
                 } else {
+                  if (is_dirichlet_) {
                     b[idof-1] += dirichlet_x*beta[d](jdx)/2.0/dd_[d];
                     if (ThereIsArtificialDiffusion()) {
+                        A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, artificial_diffusion_.value()/dd_[d]/dd_[d]));
                         b[idof-1] += dirichlet_x*artificial_diffusion_.value()/dd_[d]/dd_[d];
                     }
+                  } else {
+                    A_trip.push_back(Eigen::Triplet<std::complex<double> >(idof-1, idof-1, -beta[d](jdx)/2.0/dd_[d]));
+                  }
                 }
             }
             if (!VolumeTomography()) {
@@ -335,15 +347,13 @@ PhaseEPTConvReact() {
             b[idof-1] = 0.0;
             // coefficient matrix
             for (size_t d = 0; d<n_dim; ++d) {
-                // diffusion (central term)
-                if (ThereIsArtificialDiffusion()) {
-                    A_trip.push_back(Eigen::Triplet<double>(idof-1, idof-1, 2.0*artificial_diffusion_.value()/dd_[d]/dd_[d]));
-                }
+
                 std::array<int,2> sides{+1,-1};
                 for (size_t s = 0; s<2; ++s) {
                     int jdx_out = idx_out+sides[s]*step[d];
                     int jdx = idx+sides[s]*step[d];
                     int jdof = dof[jdx_out];
+
                     // convection
                     if (beta[d](idx)*beta[d](jdx)>0) {
                         if (sides[s]*beta[d](idx)>0) {
@@ -354,7 +364,11 @@ PhaseEPTConvReact() {
                             if (jdof > 0) {
                                 A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,A_tmp));
                             } else {
+                              if (is_dirichlet_) {
                                 b[idof-1] += -dir_x*A_tmp;
+                              } else {
+                                A_trip.push_back(Eigen::Triplet<double>(idof-1, idof-1, A_tmp));
+                              }
                             }
                         }
                     } else {
@@ -364,19 +378,29 @@ PhaseEPTConvReact() {
                         if (jdof > 0) {
                             A_trip.push_back(Eigen::Triplet<double>(idof-1,jdof-1,A_tmp));
                         } else {
+                          if (is_dirichlet_) {
                             b[idof-1] += -dir_x*A_tmp;
+                          } else {
+                            A_trip.push_back(Eigen::Triplet<double>(idof-1, idof-1, A_tmp));
+                          }
                         }
                     }
+
                     // diffusion
                     if (ThereIsArtificialDiffusion()) {
                         if (jdof > 0) {
+                            A_trip.push_back(Eigen::Triplet<double>(idof-1, idof-1, artificial_diffusion_.value()/dd_[d]/dd_[d]));
                             A_trip.push_back(Eigen::Triplet<double>(idof-1, jdof-1, -artificial_diffusion_.value()/dd_[d]/dd_[d]));
                         } else {
+                          if (is_dirichlet_) {
+                            A_trip.push_back(Eigen::Triplet<double>(idof-1, idof-1, artificial_diffusion_.value()/dd_[d]/dd_[d]));
                             b[idof-1] += dir_x*artificial_diffusion_.value()/dd_[d]/dd_[d];
+                          }
                         }
                     }
                 }
             }
+
             if (!VolumeTomography()) {
                 A_trip.push_back(Eigen::Triplet<double>(idof-1,idof-1,beta[2](idx)));
             }

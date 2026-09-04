@@ -104,7 +104,7 @@ namespace eptlib {
      */
     inline const std::string LicenseBoilerplate() {
         const std::string boilerplate = "MIT License\n"
-            "Copyright (c) 2020-2024  Alessandro Arduino\n"
+            "Copyright (c) 2020-2026  Alessandro Arduino\n"
             "Istituto Nazionale di Ricerca Metrologica (INRiM)\n"
             "\n"
             "THE SOFTWARE IS PROVIDED \"AS IS\", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR\n"
