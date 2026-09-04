@@ -54,8 +54,13 @@ TEST(FilterMovingWindowGTest,MovingWindow) {
         img_in (idx) = 1.0;
         img_out(idx) = 0.0;
     }
-    auto filter = [](const std::vector<double> &crop_in) -> double {
-        return eptlib::Sum(crop_in);
+    auto filter = [](std::vector<double> crop_in) -> double {
+      for (int idx = 0; idx < crop_in.size(); ++idx) {
+        if (crop_in[idx] != crop_in[idx]) {
+          crop_in[idx] = 0.0;
+        }
+      }
+      return eptlib::Sum(crop_in);
     };
     eptlib::EPTlibError error = eptlib::filter::MovingWindow(&img_out, img_in, window, filter);
     ASSERT_EQ(error, eptlib::EPTlibError::Success);
