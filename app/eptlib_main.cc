@@ -513,6 +513,7 @@ int main(int argc, char **argv) {
                 cfgdata<double> weight_param(0.05,"parameter.savitzky-golay.weight-param");
                 cfgdata<bool> is_3d(false,"parameter.volume-tomography");
                 cfgdata<int> imaging_slice(nn.first[2]/2,"parameter.imaging-slice");
+                cfgdata<bool> is_dir(true, "parameter.dirichlet.use-dirichlet");
                 cfgdata<double> dir_sigma(0.0,"parameter.dirichlet.electric-conductivity");
                 cfgdata<double> dir_epsr(1.0,"parameter.dirichlet.relative-permittivity");
                 cfgdata<bool> thereis_diff(false,"parameter.artificial-diffusion");
@@ -527,6 +528,7 @@ int main(int argc, char **argv) {
                 if (!is_3d.first) {
                     LOADOPTIONALDATA(io_toml,imaging_slice);
                 }
+                LOADOPTIONALDATA(io_toml, is_dir);
                 LOADOPTIONALDATA(io_toml,dir_sigma);
                 LOADOPTIONALDATA(io_toml,dir_epsr);
                 LOADOPTIONALDATA(io_toml,thereis_diff);
@@ -577,6 +579,7 @@ int main(int argc, char **argv) {
                     cout<<"  Imaging slice: "<<imaging_slice.first<<"\n";
                 }
                 cout<<"  Dirichlet:\n";
+                cout<<"    Use Dirichlet boundary conditions: "<<(is_dir.first?"Yes":"No")<<"\n";
                 cout<<"    Electric conductivity: "<<dir_sigma.first<<"\n";
                 cout<<"    Relative permittivity: "<<dir_epsr.first<<"\n";
                 cout<<"  Artificial diffusion: "<<(thereis_diff.first?"Yes":"No")<<"\n";
@@ -607,7 +610,11 @@ int main(int argc, char **argv) {
                 if (thereis_diff.first) {
                     dynamic_cast<EPTConvReact*>(ept.get())->SetArtificialDiffusion(diff_coeff.first);
                 }
-                dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
+                if (is_dir.first) {
+                  dynamic_cast<EPTConvReact*>(ept.get())->SetDirichlet(dir_epsr.first,dir_sigma.first);
+                } else {
+                  dynamic_cast<EPTConvReact*>(ept.get())->SetNeumann();
+                }
                 break;
             }
             case EPTMethod::GRADIENT: {
