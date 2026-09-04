@@ -5,7 +5,7 @@
 *
 *  MIT License
 *
-*  Copyright (c) 2020-2023  Alessandro Arduino
+*  Copyright (c) 2020-2026  Alessandro Arduino
 *  Istituto Nazionale di Ricerca Metrologica (INRiM)
 *  Strada delle cacce 91, 10135 Torino
 *  ITALY
@@ -113,8 +113,16 @@ class EPTConvReact : public EPTInterface {
          * Set the Dirichlet boundary conditions.
          */
         inline void SetDirichlet(const double dirichlet_epsr, const double dirichlet_sigma) {
+            is_dirichlet_ = true;
             dirichlet_epsr_ = dirichlet_epsr;
             dirichlet_sigma_ = dirichlet_sigma;
+        }
+
+        /**
+         * Set homogeneous Neumann boundary conditions.
+         */
+        inline void SetNeumann() {
+            is_dirichlet_ = false;
         }
 
         /**
@@ -158,6 +166,9 @@ class EPTConvReact : public EPTInterface {
         std::optional<size_t> slice_index_;
         /// Artificial diffusion coefficient.
         std::optional<double> artificial_diffusion_;
+
+        /// Type of boundary condition. True for Dirichlet, False for Neumann.
+        bool is_dirichlet_;
         /// Dirichlet condition of relative permittivity.
         double dirichlet_epsr_;
         /// Dirichlet condition of electric conductivity.

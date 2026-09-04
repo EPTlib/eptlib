@@ -162,6 +162,20 @@ namespace filter {
             }
 
             /**
+             * 
+             */
+            template <typename Scalar>
+            void RemoveNaNs(std::vector<double> *weights, std::vector<Scalar> *src_crop) const {
+                for (int idx = 0; idx < weights->size(); ++idx) {
+                    if (src_crop->at(idx) != src_crop->at(idx)) {
+                        weights->at(idx) = 0.0;
+                        src_crop->at(idx) = 0.0;
+                    }
+                }
+                return;
+            }
+
+            /**
              * @brief Extract the zero order derivative (field approximation) from the fitted polynomial coefficients.
              * 
              * @tparam Scalar numerical type of the data.
@@ -289,6 +303,7 @@ namespace filter {
                 std::vector<Scalar> a;
                 eptlib::linalg::Matrix<double> design_matrix = design_matrix_;
                 std::vector<double> weights = ComputeWeights(ref_img_crop);
+                this->RemoveNaNs(&weights, &src_crop);
                 ApplyWeights(weights, &src_crop, &design_matrix);
                 std::tie(a, std::ignore) = eptlib::linalg::LinearRegression(design_matrix, src_crop);
                 return a;
@@ -310,6 +325,13 @@ namespace filter {
             EPTlibError Apply(const DifferentialOperator differential_operator, Image<Scalar> *dst,
                 const Image<Scalar> &src, const Image<double> &ref_img) const {
                 auto filter = [&](std::vector<Scalar> src_crop, const std::vector<double> &ref_img_crop) -> Scalar {
+                    if (std::all_of(src_crop.cbegin(), src_crop.cend(), [](Scalar x) {return x != x;})) {
+                        if constexpr (std::is_same_v<Scalar, std::complex<double>>) {
+                            return nancd;
+                        } else {
+                            return nand;
+                        }
+                    }
                     auto a = this->GetFittingCoefficients(src_crop, ref_img_crop);
                     return this->GetExtractor<Scalar>(differential_operator)(a);
                 };
@@ -364,11 +386,19 @@ namespace filter {
                         break;
                     default:
                         break;
-                }   
+                }
                 auto filter = [&](std::vector<Scalar> src_crop, const std::vector<double> &ref_img_crop) -> std::tuple<Scalar, Scalar> {
+                    if (std::all_of(src_crop.cbegin(), src_crop.cend(), [](Scalar x) {return x != x;})) {
+                        if constexpr (std::is_same_v<Scalar, std::complex<double>>) {
+                            return {nancd, nancd};
+                        } else {
+                            return {nand, nand};
+                        }
+                    }
                     // get the derivative
                     eptlib::linalg::Matrix<double> design_matrix = this->design_matrix_;
                     std::vector<double> weights = this->ComputeWeights(ref_img_crop);
+                    this->RemoveNaNs(&weights, &src_crop);
                     this->ApplyWeights(weights, &src_crop, &design_matrix);
                     auto [QR, p] = eptlib::linalg::QRDecomposition(design_matrix);
                     auto [a, chi] = eptlib::linalg::QRSolve(QR, src_crop);
