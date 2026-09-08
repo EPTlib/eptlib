@@ -50,6 +50,12 @@ namespace {
 
 // Apply the median filter.
 double eptlib::filter::MedianFilter(const std::vector<double> &src_crop) {
+    // check if the voxel is part of the domain
+    const size_t idx0 = src_crop.size() / 2;
+    const double src0 = src_crop[idx0];
+    if (src0 != src0) {
+      return nand;
+    }
     // remove data from the computation
     std::vector<double> src_selected(0);
     src_selected.reserve(src_crop.size());
@@ -69,6 +75,10 @@ double eptlib::filter::AnatomicalMedianFilter(const std::vector<double> &src_cro
     // identify the central reference value
     const size_t idx0 = ref_img_crop.size() / 2;
     const double ref0 = ref_img_crop[idx0];
+    // check if the voxel is part of the domain
+    if (ref0 != ref0) {
+      return nand;
+    }
     // remove data from the computation
     std::vector<double> src_selected(0);
     src_selected.reserve(src_crop.size());
@@ -89,6 +99,12 @@ double eptlib::filter::AnatomicalMedianFilter(const std::vector<double> &src_cro
 
 // Filter the elements of a three-dimensional window based on an uncertainty index.
 double eptlib::filter::UncertainFilter(const std::vector<double> &src_crop, const std::vector<double> &uncertainty_crop) {
+    // check if the voxel is part of the domain
+    const size_t idx0 = src_crop.size() / 2;
+    const double src0 = src_crop[idx0];
+    if (src0 != src0) {
+      return nand;
+    }
     // remove data from the computation
     std::vector<double> src_selected(0);
     std::vector<double> unc_selected(0);
@@ -113,6 +129,10 @@ double eptlib::filter::AnatomicalUncertainFilter(const std::vector<double> &src_
     // identify the central reference value
     const size_t idx0 = src_crop.size() / 2;
     const double ref0 = supporting_crop[idx0 * 2];
+    // check if the voxel is part of the domain
+    if (ref0 != ref0) {
+      return nand;
+    }
     // remove data from the computation
     std::vector<double> src_selected(0);
     std::vector<double> unc_selected(0);
